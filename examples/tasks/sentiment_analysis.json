@@ -1,0 +1,88 @@
+{
+  "AITaskDefinition": {
+    "taskId": "sentiment-analysis-001",
+    "name": "Text Sentiment Analysis",
+    "description": "Analyze the sentiment of a given text and classify it as positive, negative, or neutral.",
+    "version": "1.0",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "prompt": {
+          "type": "string",
+          "description": "The text to analyze for sentiment"
+        },
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "language": {
+              "type": "string",
+              "description": "The language of the input text"
+            }
+          }
+        }
+      },
+      "required": ["prompt"]
+    },
+    "outputSchema": {
+      "type": "object",
+      "properties": {
+        "response": {
+          "type": "string",
+          "description": "The sentiment classification (positive, negative, or neutral)"
+        },
+        "confidence": {
+          "type": "number",
+          "description": "Confidence score of the sentiment classification"
+        },
+        "metadata": {
+          "type": "object",
+          "properties": {
+            "sentimentScore": {
+              "type": "number",
+              "description": "Numerical sentiment score from -1 (very negative) to 1 (very positive)"
+            }
+          }
+        }
+      },
+      "required": ["response"]
+    },
+    "capabilities": [
+      {
+        "name": "textClassification",
+        "description": "Ability to classify text into predefined categories"
+      },
+      {
+        "name": "sentimentAnalysis",
+        "description": "Ability to determine the emotional tone of text"
+      }
+    ],
+    "constraints": {
+      "maxInputLength": 1000,
+      "maxOutputLength": 50,
+      "supportedLanguages": ["en", "es", "fr", "de"],
+      "contentFilters": ["profanity"]
+    },
+    "performance": {
+      "averageLatency": "200ms",
+      "throughput": "100 requests/second"
+    },
+    "examples": [
+      {
+        "input": {
+          "prompt": "I love this product! It's amazing and works perfectly.",
+          "parameters": {
+            "language": "en"
+          }
+        },
+        "output": {
+          "response": "positive",
+          "confidence": 0.95,
+          "metadata": {
+            "sentimentScore": 0.8
+          }
+        }
+      }
+    ],
+    "tags": ["nlp", "sentiment", "classification"]
+  }
+}
