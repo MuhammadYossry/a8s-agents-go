@@ -1,0 +1,198 @@
+{
+  "aiTaskDefinition": {
+    "taskId": "multi-modal-content-analysis-gen-001",
+    "name": "Multi-modal Content Analysis and Generation",
+    "description": "Analyze multi-modal inputs (text, image, audio) to understand context and sentiment, then generate a coherent multi-modal response including text, image suggestions, and audio script.",
+    "version": "1.0",
+    "inputFormat": {
+      "type": "object",
+      "properties": {
+        "text": {
+          "type": "string",
+          "description": "Main text input for analysis"
+        },
+        "image": {
+          "type": "string",
+          "format": "uri",
+          "description": "URL or data URI of the input image"
+        },
+        "audio": {
+          "type": "string",
+          "format": "uri",
+          "description": "URL or data URI of the input audio file"
+        },
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "targetAudience": {
+              "type": "string",
+              "enum": ["general", "technical", "creative", "business"],
+              "description": "Target audience for the generated content"
+            },
+            "contentTone": {
+              "type": "string",
+              "enum": ["formal", "casual", "humorous", "serious"],
+              "description": "Desired tone of the generated content"
+            },
+            "outputLanguage": {
+              "type": "string",
+              "description": "Desired language for the output content"
+            },
+            "maxTextLength": {
+              "type": "number",
+              "description": "Maximum length of the generated text in words"
+            }
+          }
+        }
+      },
+      "required": ["text"]
+    },
+    "outputFormat": {
+      "type": "object",
+      "properties": {
+        "textAnalysis": {
+          "type": "object",
+          "properties": {
+            "summary": {
+              "type": "string",
+              "description": "Brief summary of the input text"
+            },
+            "sentiment": {
+              "type": "string",
+              "enum": ["very negative", "negative", "neutral", "positive", "very positive"],
+              "description": "Overall sentiment of the input text"
+            },
+            "keyPhrases": {
+              "type": "array",
+              "items": {"type": "string"},
+              "description": "Key phrases extracted from the input text"
+            }
+          }
+        },
+        "imageAnalysis": {
+          "type": "object",
+          "properties": {
+            "mainSubjects": {
+              "type": "array",
+              "items": {"type": "string"},
+              "description": "Main subjects identified in the image"
+            },
+            "dominantColors": {
+              "type": "array",
+              "items": {"type": "string"},
+              "description": "Dominant colors in the image"
+            },
+            "moodPrediction": {
+              "type": "string",
+              "description": "Predicted mood based on the image"
+            }
+          }
+        },
+        "audioAnalysis": {
+          "type": "object",
+          "properties": {
+            "transcription": {
+              "type": "string",
+              "description": "Transcription of the input audio"
+            },
+            "speakerEmotion": {
+              "type": "string",
+              "description": "Detected emotion in the speaker's voice"
+            },
+            "backgroundNoise": {
+              "type": "array",
+              "items": {"type": "string"},
+              "description": "Identified background noises"
+            }
+          }
+        },
+        "generatedContent": {
+          "type": "object",
+          "properties": {
+            "responseText": {
+              "type": "string",
+              "description": "Generated text response based on the multi-modal analysis"
+            },
+            "suggestedImagePrompts": {
+              "type": "array",
+              "items": {"type": "string"},
+              "description": "Prompts for generating complementary images"
+            },
+            "audioScript": {
+              "type": "string",
+              "description": "Script for generating an audio response"
+            }
+          }
+        },
+        "contentCoherence": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "description": "Measure of coherence between input and generated content"
+        },
+        "metadata": {
+          "type": "object",
+          "properties": {
+            "processingTime": {
+              "type": "number",
+              "description": "Total processing time in milliseconds"
+            },
+            "aiModelsUsed": {
+              "type": "array",
+              "items": {"type": "string"},
+              "description": "List of AI models used in the analysis and generation"
+            }
+          }
+        }
+      },
+      "required": ["textAnalysis", "generatedContent", "contentCoherence"]
+    },
+    "contextRequirements": [
+      "Understanding of current events and cultural references",
+      "Knowledge of multi-modal content creation principles",
+      "Awareness of target audience preferences and trends"
+    ],
+    "skillsRequired": [
+      "Natural Language Processing",
+      "Computer Vision",
+      "Speech Recognition",
+      "Sentiment Analysis",
+      "Content Generation",
+      "Multi-modal Fusion"
+    ],
+    "domainKnowledge": [
+      "Digital Marketing",
+      "Content Strategy",
+      "User Experience Design",
+      "Brand Communication"
+    ],
+    "languageCapabilities": ["Multilingual", "Code-switching", "Idiomatic expression understanding"],
+    "complexityLevel": "Very High",
+    "estimatedResponseTime": "5-10 seconds",
+    "privacyLevel": "High",
+    "ethicalConsiderations": [
+      "Bias mitigation in content analysis and generation",
+      "Respect for cultural sensitivities",
+      "Transparency in AI-generated content",
+      "Responsible use of personal data in inputs"
+    ],
+    "examplePrompts": [
+      "Analyze this product launch video and create engaging social media content.",
+      "Generate a news summary with a complementary infographic based on this press release and chart."
+    ],
+    "failureModes": [
+      "Inconsistency between input modalities",
+      "Misinterpretation of cultural context",
+      "Generation of irrelevant or off-topic content",
+      "Failure to maintain specified tone or style"
+    ],
+    "updateFrequency": "Weekly",
+    "tags": [
+      "multi-modal",
+      "content-analysis",
+      "content-generation",
+      "AI-assisted-marketing",
+      "cross-platform-content"
+    ]
+  }
+}
