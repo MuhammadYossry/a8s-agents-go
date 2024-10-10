@@ -4,6 +4,8 @@
 
 The AI Task Routing System is a flexible and scalable architecture designed to efficiently match incoming task requests with the most suitable AI agents. This system allows for precise task allocation based on AI capabilities, clear communication of requirements, and consideration of ethical and privacy concerns.
 
+![alt text](https://pbs.twimg.com/media/GZhrK4IWcAIb949?format=jpg&name=medium)
+
 ## Key Features
 
 1. Precise matching of tasks to AI agent capabilities
@@ -93,9 +95,9 @@ The system uses a comprehensive schema for defining AI tasks. Here's a simplifie
 
 The repository includes example task definitions for:
 
-1. Medical Symptom Analysis
-2. Text Summarization
-3. Image Classification
+1. [Multi-modal Content Analysis and Generation](examples/tasks/multi_modal_content_analysis.json)
+2. [Text Summarization](examples/tasks/text_summarization.json)
+3. [Text Sentiment Analysis](examples/tasks/sentiment_analysis.json)
 
 These examples demonstrate how various AI services can advertise their capabilities using the defined schema.
 
