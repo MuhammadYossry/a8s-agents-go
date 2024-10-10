@@ -1,0 +1,94 @@
+{
+  "AITaskDefinition": {
+    "taskId": "text-summarization-001",
+    "name": "Text Summarization",
+    "description": "Generate a concise summary of a given text while preserving key information.",
+    "version": "1.1",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "prompt": {
+          "type": "string",
+          "description": "The text to be summarized"
+        },
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "maxLength": {
+              "type": "number",
+              "description": "Maximum length of the summary in words"
+            },
+            "style": {
+              "type": "string",
+              "enum": ["concise", "detailed"],
+              "description": "Style of the summary"
+            }
+          }
+        }
+      },
+      "required": ["prompt"]
+    },
+    "outputSchema": {
+      "type": "object",
+      "properties": {
+        "response": {
+          "type": "string",
+          "description": "The generated summary"
+        },
+        "metadata": {
+          "type": "object",
+          "properties": {
+            "originalLength": {
+              "type": "number",
+              "description": "Word count of the original text"
+            },
+            "summaryLength": {
+              "type": "number",
+              "description": "Word count of the generated summary"
+            }
+          }
+        }
+      },
+      "required": ["response"]
+    },
+    "capabilities": [
+      {
+        "name": "textSummarization",
+        "description": "Ability to condense text while preserving key information"
+      },
+      {
+        "name": "languageGeneration",
+        "description": "Ability to generate coherent and fluent text"
+      }
+    ],
+    "constraints": {
+      "maxInputLength": 10000,
+      "maxOutputLength": 1000,
+      "supportedLanguages": ["en", "fr", "de", "es", "zh"],
+      "contentFilters": ["profanity", "sensitive-topics"]
+    },
+    "performance": {
+      "averageLatency": "1s",
+      "throughput": "50 requests/second"
+    },
+    "examples": [
+      {
+        "input": {
+          "prompt": "Artificial intelligence (AI) is intelligence demonstrated by machines, unlike the natural intelligence displayed by humans and animals, which involves consciousness and emotionality. The distinction between the former and the latter categories is often revealed by the acronym chosen. 'Strong' AI is usually labelled as AGI (Artificial General Intelligence) while attempts to emulate 'natural' intelligence have been called ABI (Artificial Biological Intelligence). Leading AI textbooks define the field as the study of 'intelligent agents': any device that perceives its environment and takes actions that maximize its chance of successfully achieving its goals. Colloquially, the term 'artificial intelligence' is often used to describe machines (or computers) that mimic 'cognitive' functions that humans associate with the human mind, such as 'learning' and 'problem solving'.",
+          "parameters": {
+            "maxLength": 50,
+            "style": "concise"
+          }
+        },
+        "output": {
+          "response": "AI is machine-demonstrated intelligence, distinct from human and animal intelligence. It involves creating intelligent agents that perceive their environment and act to achieve goals. AI often mimics human cognitive functions like learning and problem-solving.",
+          "metadata": {
+            "originalLength": 108,
+            "summaryLength": 33
+          }
+        }
+      }
+    ],
+    "tags": ["nlp", "summarization", "text-processing"]
+  }
+}
