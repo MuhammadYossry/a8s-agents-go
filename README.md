@@ -1,119 +1,252 @@
-# AI Task Routing System
-
-## Project Overview
-
-The AI Task Routing System is a flexible and scalable architecture designed to efficiently match incoming task requests with the most suitable AI agents. This system allows for precise task allocation based on AI capabilities, clear communication of requirements, and consideration of ethical and privacy concerns.
-
 ![alt text](https://pbs.twimg.com/media/GZhrK4IWcAIb949?format=jpg&name=medium)
 
+# AI Task Routing System
+
+## Overview
+A production-grade Go implementation of an AI task routing and execution system, designed for high availability, scalability, and reliability. The system efficiently manages and routes AI tasks to appropriate execution endpoints while ensuring robust error handling, monitoring, and performance optimization.
+```mermaid
+graph TB
+    subgraph Client Layer
+        C[API Client]
+    end
+
+    subgraph API Gateway
+        AG[API Gateway]
+        RL[Rate Limiter]
+        Auth[Authentication]
+    end
+
+    subgraph Task Engine
+        TE[Task Engine]
+        CV[Content Validator]
+        CB[Circuit Breaker]
+    end
+
+    subgraph Core Services
+        TR[Task Registry]
+        TS[Task Store]
+        EX[Task Executor]
+    end
+
+    subgraph Monitoring
+        M[Metrics Collector]
+        L[Logger]
+        H[Health Checker]
+    end
+
+    C -->|HTTP Request| AG
+    AG -->|Validate Request| RL
+    RL -->|Authenticate| Auth
+    Auth -->|Route Request| TE
+
+    TE -->|Get Definition| TR
+    TE -->|Store Task| TS
+    TE -->|Validate Content| CV
+    TE -->|Execute Task| CB
+    CB -->|Process Task| EX
+
+    EX -->|Record Metrics| M
+    EX -->|Log Events| L
+    EX -->|Report Health| H
+
+    style C fill:#f9f,stroke:#333,stroke-width:2px
+    style TE fill:#bbf,stroke:#333,stroke-width:2px
+    style TR fill:#dfd,stroke:#333,stroke-width:2px
+    style EX fill:#dfd,stroke:#333,stroke-width:2px
+    style M fill:#ffd,stroke:#333,stroke-width:2px
+```
 ## Key Features
 
-1. Precise matching of tasks to AI agent capabilities
-2. Clear communication of task requirements and expectations
-3. Consideration of ethical and privacy concerns
-4. Easy updating and versioning of task definitions
+### Core Functionality
+- Dynamic task routing and load balancing
+- Comprehensive task lifecycle management
+- Configurable retry policies with exponential backoff
+- Circuit breaker pattern implementation
+- Rate limiting and resource quotas
 
-## System Architecture
+### Monitoring & Observability
+- Structured logging with Zap logger
+- Prometheus-compatible metrics
+- Health check endpoints
+- Error tracking and analysis
+- Performance monitoring
 
-### 1. Task Registry
+### Security & Validation
+- Content safety validation
+- Input/output schema validation
+- Rate limiting per client/task
+- Resource quotas enforcement
 
-- Centralized repository for AI services to publish their task definitions
-- Supports role-based CRUD operations for task definitions
-- Implements versioning to track changes over time
+### Reliability
+- Circuit breaker pattern for fault tolerance
+- Configurable retry policies
+- Timeout handling
+- Graceful degradation
+- Error recovery mechanisms
 
-### 2. Service Discovery
+## System Components
 
-- Allows AI agents to advertise their capabilities by registering task definitions
-- Implements a distributed key-value store or dedicated service registry (e.g., etcd, Consul)
-
-### 3. Task Routing
-
-- Matches incoming task requests to the most suitable AI agent
-- Considers factors like required capabilities, constraints, and performance metrics
-
-### 4. API Gateway
-
-- Serves as the entry point for task requests
-- Validates incoming requests against task definitions
-
-### 5. Load Balancing
-
-- Distributes tasks among multiple AI agent instances
-- Considers current load and performance metrics
-
-### 6. Monitoring and Logging
-
-- Tracks AI agent performance against advertised metrics
-- Captures task execution details for auditing and system improvement
-
-### 7. Version Management
-
-- Manages different versions of task definitions and AI agent implementations
-- Supports running multiple versions concurrently and phasing out older versions
-
-### 8. Error Handling
-
-- Implements robust mechanisms for AI agent failures, input validation errors, and timeouts
-- Defines clear error responses adhering to task definition output schemas
-
-## Task Definition Schema
-
-The system uses a comprehensive schema for defining AI tasks. Here's a simplified version:
-
-```json
-{
-  "aiTaskDefinition": {
-    "taskId": "string",
-    "name": "string",
-    "description": "string",
-    "version": "string",
-    "inputFormat": {
-      "type": "object",
-      "properties": {}
-    },
-    "outputFormat": {
-      "type": "object",
-      "properties": {}
-    },
-    "contextRequirements": ["string"],
-    "skillsRequired": ["string"],
-    "domainKnowledge": ["string"],
-    "languageCapabilities": ["string"],
-    "complexityLevel": "string",
-    "estimatedResponseTime": "string",
-    "privacyLevel": "string",
-    "ethicalConsiderations": ["string"],
-    "examplePrompts": ["string"],
-    "failureModes": ["string"],
-    "updateFrequency": "string",
-    "tags": ["string"]
-  }
+### Task Definition
+```go
+type AITaskDefinition struct {
+    TaskID          string
+    Name            string
+    Version         string
+    InputSchema     SchemaDefinition
+    OutputSchema    SchemaDefinition
+    Timeout         time.Duration
+    RetryPolicy     RetryPolicy
+    RateLimit       *RateLimit
+    ResourceQuota   *ResourceQuota
 }
 ```
 
-## Example Task Definitions
+### Task Executor
+```go
+type TaskExecutor interface {
+    ExecuteTask(ctx context.Context, task *TaskInstance) error
+    ValidateInput(def *AITaskDefinition, input map[string]interface{}) error
+    ValidateOutput(def *AITaskDefinition, output map[string]interface{}) error
+    GetHealth() Health
+}
+```
 
-The repository includes example task definitions for:
+## Configuration
 
-1. [Multi-modal Content Analysis and Generation](examples/tasks/multi_modal_content_analysis.json)
-2. [Text Summarization](examples/tasks/text_summarization.json)
-3. [Text Sentiment Analysis](examples/tasks/sentiment_analysis.json)
+### Retry Policy
+```go
+type RetryPolicy struct {
+    MaxAttempts     int
+    BackoffInitial  time.Duration
+    BackoffMax      time.Duration
+    BackoffFactor   float64
+}
+```
 
-These examples demonstrate how various AI services can advertise their capabilities using the defined schema.
+### Rate Limiting
+```go
+type RateLimit struct {
+    RequestsPerSecond int
+    BurstSize        int
+}
+```
 
-## Implementation Steps
+### Resource Quotas
+```go
+type ResourceQuota struct {
+    MaxConcurrent    int
+    MemoryLimit      string
+    CPULimit         string
+}
+```
 
-1. Create a central registry for AI agents to publish task definitions
-2. Develop an API for services to register, update, and query task definitions
-3. Implement a task routing system to match requests with suitable AI services
+## Usage Examples
 
-## Future Enhancements
+### Registering a Task Definition
+```go
+def := &AITaskDefinition{
+    TaskID:      "text-summarization-001",
+    Name:        "Text Summarization",
+    Version:     "1.1",
+    Timeout:     30 * time.Second,
+    RetryPolicy: RetryPolicy{
+        MaxAttempts:    3,
+        BackoffInitial: time.Second,
+        BackoffMax:     10 * time.Second,
+        BackoffFactor:  2.0,
+    },
+    RateLimit: &RateLimit{
+        RequestsPerSecond: 100,
+        BurstSize:        200,
+    },
+}
 
-- Integration with popular AI frameworks and platforms
-- Development of a user interface for task submission and monitoring
-- Implementation of advanced routing algorithms using machine learning
+if err := registry.RegisterDefinition(def); err != nil {
+    log.Fatalf("Failed to register task: %v", err)
+}
+```
 
+### Submitting a Task
+```go
+input := map[string]interface{}{
+    "prompt": "Text to be summarized...",
+}
 
-## License
+task, err := engine.SubmitTask(ctx, "text-summarization-001", input)
+if err != nil {
+    log.Fatalf("Failed to submit task: %v", err)
+}
+```
 
+## Monitoring
+
+### Metrics
+The system exposes the following Prometheus metrics:
+- `task_execution_duration_seconds`: Histogram of task execution times
+- `task_executions_success_total`: Counter of successful executions
+- `task_executions_failure_total`: Counter of failed executions
+- `task_executions_active`: Gauge of currently running tasks
+
+### Health Checks
+Health check endpoint returns:
+- Circuit breaker status
+- Task executor health
+- System resource usage
+- Recent error rates
+
+## Configuration Parameters
+
+| Parameter | Description | Default |
+|-----------|-------------|---------|
+| EXECUTOR_MAX_CONCURRENT | Maximum concurrent tasks | 100 |
+| CIRCUIT_BREAKER_THRESHOLD | Failures before opening | 5 |
+| CIRCUIT_BREAKER_RESET_TIMEOUT | Time before retry | 30s |
+| DEFAULT_TASK_TIMEOUT | Default task timeout | 30s |
+| MAX_RETRY_ATTEMPTS | Maximum retry attempts | 3 |
+
+## Production Considerations
+
+### Scaling
+- Horizontal scaling supported through consistent hashing
+- Resource quotas prevent system overload
+- Rate limiting per client/task type
+
+### Reliability
+- Circuit breaker prevents cascade failures
+- Retry policies handle transient errors
+- Timeout enforcement prevents resource exhaustion
+
+### Monitoring
+- Prometheus metrics for alerting
+- Structured logging for debugging
+- Health checks for load balancers
+
+### Security
+- Content validation prevents abuse
+- Rate limiting prevents DoS
+- Resource quotas ensure fair usage
+
+## Error Handling
+
+The system implements comprehensive error handling:
+- Retries for transient failures
+- Circuit breaking for systemic issues
+- Detailed error logging
+- Error categorization and tracking
+
+## Best Practices
+
+1. Configure appropriate timeouts for each task type
+2. Set realistic rate limits based on resource capacity
+3. Monitor error rates and latency metrics
+4. Implement gradual rollouts of new task definitions
+5. Regular health check monitoring
+
+## To-Do List
+- [ ] Add AI agent as executors for the task
+- [ ] Implement distributed tracing
+- [ ] Add support for multiple storage backends
+- [ ] Enhance metrics collection
+- [ ] Add support for task priorities
+- [ ] Implement task result caching
 This project is licensed under the MIT License - see the [LICENSE.md](LICENSE.md) file for details.
