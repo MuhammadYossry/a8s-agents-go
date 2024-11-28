@@ -666,6 +666,224 @@ func validateSchema(schema SchemaDefinition, data map[string]interface{}) error 
     return nil
 }
 
+
+// Core Agent Types
+type AIAgent struct {
+    AgentID        string         `json:"agentId"`
+    Name           string         `json:"name"`
+    Version        string         `json:"version"`
+    Capabilities   []Capability   `json:"capabilities"`
+    Status         AgentStatus    `json:"status"`
+    Config         AgentConfig    `json:"config"`
+    Metrics        *AgentMetrics  `json:"metrics"`
+}
+
+type Capability struct {
+    Name           string         `json:"name"`
+    Version        string         `json:"version"`
+    Properties     PropertySet    `json:"properties"`
+    Requirements   Requirements   `json:"requirements"`
+}
+
+type AgentStatus struct {
+    State          string         `json:"state"`      // online, offline, busy, degraded
+    HealthScore    float64        `json:"healthScore"`
+    LastHeartbeat  time.Time      `json:"lastHeartbeat"`
+    CurrentLoad    float64        `json:"currentLoad"`
+}
+
+// Message Broker System
+type MessageBroker struct {
+    topics    map[string]*Topic
+    queues    map[string]*TaskQueue
+    pubsub    *PubSubManager
+}
+
+type Topic struct {
+    Name            string
+    Subscribers     map[string]*AIAgent
+    MessageHandler  func(*Message) error
+}
+
+type Message struct {
+    ID              string
+    Topic           string
+    Payload         interface{}
+    Metadata        map[string]string
+    Timestamp       time.Time
+}
+
+// Agent Manager Implementation
+type AgentManager struct {
+    registry        *AgentRegistry
+    heartbeat      *HeartbeatService
+    capabilities   *CapabilityRegistry
+    health         *HealthMonitor
+}
+
+func NewAgentManager(config ManagerConfig) *AgentManager {
+    return &AgentManager{
+        registry:      NewAgentRegistry(),
+        heartbeat:    NewHeartbeatService(config.HeartbeatInterval),
+        capabilities: NewCapabilityRegistry(),
+        health:      NewHealthMonitor(config.HealthCheckInterval),
+    }
+}
+
+// Agent Registration
+func (am *AgentManager) RegisterAgent(agent *AIAgent) error {
+    // Validate agent configuration
+    if err := am.validateAgent(agent); err != nil {
+        return fmt.Errorf("agent validation failed: %w", err)
+    }
+
+    // Register capabilities
+    if err := am.capabilities.RegisterAgentCapabilities(agent); err != nil {
+        return fmt.Errorf("capability registration failed: %w", err)
+    }
+
+    // Start health monitoring
+    am.health.StartMonitoring(agent)
+
+    // Initialize heartbeat
+    am.heartbeat.RegisterAgent(agent)
+
+    return am.registry.AddAgent(agent)
+}
+
+// Task Distribution System
+type TaskRouter struct {
+    broker         *MessageBroker
+    scheduler      *TaskScheduler
+    loadBalancer   *LoadBalancer
+}
+
+func (tr *TaskRouter) RouteTask(task *Task) error {
+    // Find capable agents
+    agents := tr.findCapableAgents(task.Requirements)
+    if len(agents) == 0 {
+        return ErrNoCapableAgents
+    }
+
+    // Select best agent
+    selectedAgent := tr.loadBalancer.SelectAgent(agents, task)
+    if selectedAgent == nil {
+        return ErrNoAvailableAgents
+    }
+
+    // Create task message
+    msg := &Message{
+        ID:        uuid.New().String(),
+        Topic:     selectedAgent.AgentID,
+        Payload:   task,
+        Timestamp: time.Now(),
+        Metadata:  map[string]string{
+            "priority": strconv.Itoa(task.Priority),
+            "deadline": task.Deadline.Format(time.RFC3339),
+        },
+    }
+
+    // Publish task
+    return tr.broker.PublishMessage(msg)
+}
+
+// Agent Implementation
+type AgentImpl struct {
+    agent          *AIAgent
+    taskQueue      *TaskQueue
+    executor       *TaskExecutor
+    reporter       *StatusReporter
+    metrics        *MetricsCollector
+}
+
+func NewAgentImpl(config AgentConfig) *AgentImpl {
+    return &AgentImpl{
+        agent:     NewAIAgent(config),
+        taskQueue: NewTaskQueue(config.QueueSize),
+        executor:  NewTaskExecutor(config.ExecutorConfig),
+        reporter:  NewStatusReporter(config.ReportingInterval),
+        metrics:   NewMetricsCollector(config.MetricsConfig),
+    }
+}
+
+func (a *AgentImpl) Start() error {
+    // Initialize components
+    if err := a.initialize(); err != nil {
+        return err
+    }
+
+    // Start processing tasks
+    go a.processTaskQueue()
+
+    // Start reporting status
+    go a.reportStatus()
+
+    // Start collecting metrics
+    go a.collectMetrics()
+
+    return nil
+}
+
+// Task Processing
+func (a *AgentImpl) processTaskQueue() {
+    for task := range a.taskQueue.Tasks {
+        // Update agent status
+        a.agent.Status.State = "busy"
+        
+        // Process task
+        start := time.Now()
+        result, err := a.executor.ExecuteTask(task)
+        duration := time.Since(start)
+
+        // Update metrics
+        a.metrics.RecordTaskExecution(task, duration, err)
+
+        // Report result
+        a.reporter.ReportTaskCompletion(task, result, err)
+
+        // Update agent status
+        a.agent.Status.State = "online"
+        a.agent.Status.CurrentLoad = float64(a.taskQueue.Size()) / float64(a.taskQueue.Capacity())
+    }
+}
+
+// Example Usage
+func Example() {
+    // Initialize agent manager
+    manager := NewAgentManager(ManagerConfig{
+        HeartbeatInterval:   5 * time.Second,
+        HealthCheckInterval: 30 * time.Second,
+    })
+
+    // Create and register agent
+    agent := NewAgentImpl(AgentConfig{
+        ID:          "agent-001",
+        Name:        "NLP-Processor",
+        Capabilities: []Capability{
+            {
+                Name:    "text-summarization",
+                Version: "2.0",
+                Properties: PropertySet{
+                    MaxInputLength:  10000,
+                    Language:       []string{"en", "es"},
+                },
+            },
+        },
+        QueueSize:    100,
+        ReportingInterval: 10 * time.Second,
+    })
+
+    // Register agent
+    if err := manager.RegisterAgent(agent.agent); err != nil {
+        log.Fatalf("Failed to register agent: %v", err)
+    }
+
+    // Start agent
+    if err := agent.Start(); err != nil {
+        log.Fatalf("Failed to start agent: %v", err)
+    }
+}
+
 func main() {
     // Initialize components
     registry := NewInMemoryTaskRegistry()
