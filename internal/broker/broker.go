@@ -1,8 +1,8 @@
 package broker
 
 import (
-    "github.com/MuhammadYossry/AgentNexus/internal/agent/types"
-    "github.com/MuhammadYossry/AgentNexus/internal/task/types"
+    "github.com/Relax-N-Tax/AgentNexus/internal/agent/types"
+    "github.com/Relax-N-Tax/AgentNexus/internal/task/types"
 )
 
 // Message Broker System

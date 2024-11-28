@@ -3,7 +3,7 @@ package agent
 import (
     "time"
 
-    "github.com/MuhammadYossry/AgentNexus/internal/task/types"
+    "github.com/Relax-N-Tax/AgentNexus/internal/task/types"
 )
 
 // Core Agent Types

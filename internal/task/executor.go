@@ -4,9 +4,9 @@ import (
     "context"
     "time"
 
-    "github.com/MuhammadYossry/AgentNexus/internal/task/types"
-    "github.com/MuhammadYossry/AgentNexus/pkg/circuit"
-    "github.com/MuhammadYossry/AgentNexus/pkg/metrics"
+    "github.com/Relax-N-Tax/AgentNexus/internal/task/types"
+    "github.com/Relax-N-Tax/AgentNexus/pkg/circuit"
+    "github.com/Relax-N-Tax/AgentNexus/pkg/metrics"
 
     "golang.org/x/time/rate"
 )

@@ -3,10 +3,10 @@ package agent
 import (
     "time"
 
-    "github.com/MuhammadYossry/AgentNexus/internal/agent/types"
-    "github.com/MuhammadYossry/AgentNexus/internal/broker"
-    "github.com/MuhammadYossry/AgentNexus/internal/task/types"
-    "github.com/MuhammadYossry/AgentNexus/pkg/metrics"
+    "github.com/Relax-N-Tax/AgentNexus/internal/agent/types"
+    "github.com/Relax-N-Tax/AgentNexus/internal/broker"
+    "github.com/Relax-N-Tax/AgentNexus/internal/task/types"
+    "github.com/Relax-N-Tax/AgentNexus/pkg/metrics"
 )
 
 // Agent Implementation

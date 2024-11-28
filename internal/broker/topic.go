@@ -2,7 +2,7 @@ package broker
 import (
     "time"
 
-    "github.com/MuhammadYossry/AgentNexus/internal/task/types"
+    "github.com/Relax-N-Tax/AgentNexus/internal/task/types"
 )
 
 type Topic struct {

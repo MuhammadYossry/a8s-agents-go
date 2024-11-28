@@ -4,8 +4,8 @@ import (
     "sync"
     "fmt"
 
-    "github.com/MuhammadYossry/AgentNexus/internal/agent/types"
-    "github.com/MuhammadYossry/AgentNexus/pkg/monitoring"
+    "github.com/Relax-N-Tax/AgentNexus/internal/agent/types"
+    "github.com/Relax-N-Tax/AgentNexus/pkg/monitoring"
 )
 
 // Agent Manager Implementation

@@ -4,8 +4,8 @@ import (
     "sync"
     "time"
 
-    "github.com/MuhammadYossry/AgentNexus/internal/task/types"
-    "github.com/MuhammadYossry/AgentNexus/pkg/metrics"
+    "github.com/Relax-N-Tax/AgentNexus/internal/task/types"
+    "github.com/Relax-N-Tax/AgentNexus/pkg/metrics"
 )
 
 // AgentMetrics tracks performance metrics for an individual AI agent

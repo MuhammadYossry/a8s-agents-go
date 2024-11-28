@@ -4,57 +4,10 @@
 
 ## Overview
 A production-grade Go implementation of an AI task routing and execution system, designed for high availability, scalability, and reliability. The system efficiently manages and routes AI tasks to appropriate execution endpoints while ensuring robust error handling, monitoring, and performance optimization.
-```mermaid
-graph TB
-    subgraph Client Layer
-        C[API Client]
-    end
 
-    subgraph API Gateway
-        AG[API Gateway]
-        RL[Rate Limiter]
-        Auth[Authentication]
-    end
+### Architecture
+[Architecture](docs/architecture.md)
 
-    subgraph Task Engine
-        TE[Task Engine]
-        CV[Content Validator]
-        CB[Circuit Breaker]
-    end
-
-    subgraph Core Services
-        TR[Task Registry]
-        TS[Task Store]
-        EX[Task Executor]
-    end
-
-    subgraph Monitoring
-        M[Metrics Collector]
-        L[Logger]
-        H[Health Checker]
-    end
-
-    C -->|HTTP Request| AG
-    AG -->|Validate Request| RL
-    RL -->|Authenticate| Auth
-    Auth -->|Route Request| TE
-
-    TE -->|Get Definition| TR
-    TE -->|Store Task| TS
-    TE -->|Validate Content| CV
-    TE -->|Execute Task| CB
-    CB -->|Process Task| EX
-
-    EX -->|Record Metrics| M
-    EX -->|Log Events| L
-    EX -->|Report Health| H
-
-    style C fill:#f9f,stroke:#333,stroke-width:2px
-    style TE fill:#bbf,stroke:#333,stroke-width:2px
-    style TR fill:#dfd,stroke:#333,stroke-width:2px
-    style EX fill:#dfd,stroke:#333,stroke-width:2px
-    style M fill:#ffd,stroke:#333,stroke-width:2px
-```
 ## Key Features
 
 ### Core Functionality
@@ -244,6 +197,7 @@ The system implements comprehensive error handling:
 
 ## To-Do List
 - [ ] Add AI agent as executors for the task
+- [ ] Add AI agent Workflow for agent collobration
 - [ ] Implement distributed tracing
 - [ ] Add support for multiple storage backends
 - [ ] Enhance metrics collection

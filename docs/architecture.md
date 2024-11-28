@@ -1,31 +1,40 @@
 ```mermaid
 flowchart TB
-    subgraph Client["Client Layer"]
+    %% Style definitions for better contrast and readability
+    classDef clientStyle fill:#FF7676,stroke:#333,stroke-width:2px,color:#fff
+    classDef agentMgmtStyle fill:#4A90E2,stroke:#333,stroke-width:2px,color:#fff
+    classDef brokerStyle fill:#50C878,stroke:#333,stroke-width:2px,color:#fff
+    classDef taskStyle fill:#9B59B6,stroke:#333,stroke-width:2px,color:#fff
+    classDef agentStyle fill:#F4D03F,stroke:#333,stroke-width:2px,color:#333
+    classDef monitorStyle fill:#5DADE2,stroke:#333,stroke-width:2px,color:#fff
+    classDef componentStyle fill:#fff,stroke:#333,stroke-width:1px,color:#333
+
+    subgraph Client["🖥️ Client Layer"]
         API[API Gateway]
         CLI[Client SDK]
     end
-
-    subgraph AgentManagement["Agent Management"]
+    
+    subgraph AgentManagement["👥 Agent Management"]
         AR[Agent Registry]
         HB[Heartbeat Service]
         Health[Health Monitor]
         Cap[Capability Registry]
     end
-
-    subgraph MessageBroker["Message Broker Layer"]
+    
+    subgraph MessageBroker["📨 Message Broker Layer"]
         direction TB
         Topics[Task Topics]
         QS[Queue Service]
         PubSub[PubSub Manager]
     end
-
-    subgraph TaskManagement["Task Management"]
+    
+    subgraph TaskManagement["⚙️ Task Management"]
         Router[Task Router]
         Scheduler[Task Scheduler]
         LB[Load Balancer]
     end
-
-    subgraph Agents["AI Agent Pool"]
+    
+    subgraph Agents["🤖 AI Agent Pool"]
         direction TB
         A1[Agent 1]
         A2[Agent 2]
@@ -36,8 +45,8 @@ flowchart TB
             Reporter[Status Reporter]
         end
     end
-
-    subgraph Monitoring["Monitoring & Metrics"]
+    
+    subgraph Monitoring["📊 Monitoring & Metrics"]
         Metrics[Metrics Collector]
         Logger[Event Logger]
         Analytics[Performance Analytics]
@@ -46,35 +55,38 @@ flowchart TB
     %% Client Flow
     API -->|Submit Task| Router
     CLI -->|Register Agent| AR
-
+    
     %% Agent Registration Flow
     AR -->|Register Capabilities| Cap
     AR -->|Monitor Health| Health
     Agents -->|Send Heartbeat| HB
     HB -->|Update Status| Health
-
+    
     %% Task Distribution Flow
     Router -->|Route Task| PubSub
     PubSub -->|Publish Task| Topics
     Topics -->|Queue Tasks| QS
     QS -->|Assign Task| Agents
-
+    
     %% Monitoring Flow
     Agents -->|Report Status| Reporter
     Reporter -->|Log Events| Logger
     Reporter -->|Send Metrics| Metrics
     Metrics -->|Analyze| Analytics
-
+    
     %% Load Balancing
     LB -->|Balance Load| Router
     Health -->|Update Status| LB
     Scheduler -->|Schedule Tasks| Router
 
-    style Client fill:#f9f,stroke:#333,stroke-width:2px
-    style AgentManagement fill:#bbf,stroke:#333,stroke-width:2px
-    style MessageBroker fill:#dfd,stroke:#333,stroke-width:2px
-    style Agents fill:#ffd,stroke:#333,stroke-width:2px
-    style Monitoring fill:#dff,stroke:#333,stroke-width:2px
+    %% Apply styles
+    class Client,API,CLI clientStyle
+    class AgentManagement,AR,HB,Health,Cap agentMgmtStyle
+    class MessageBroker,Topics,QS,PubSub brokerStyle
+    class TaskManagement,Router,Scheduler,LB taskStyle
+    class Agents,A1,A2,A3 agentStyle
+    class Monitoring,Metrics,Logger,Analytics monitorStyle
+    class TaskQueue,Executor,Reporter componentStyle
 ```
 # AI Task Routing System Architecture
 

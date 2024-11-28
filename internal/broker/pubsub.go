@@ -6,7 +6,7 @@ import (
     "time"
 
     "go.uber.org/zap"
-    "github.com/MuhammadYossry/AgentNexus/internal/task"
+    "github.com/Relax-N-Tax/AgentNexus/internal/task"
 )
 
 type PubSubManager struct {
