@@ -7,19 +7,44 @@ import (
     "time"
 )
 
-// Task Definition Core Types
+// Core Types Improvements
 type AITaskDefinition struct {
-    TaskID      string         `json:"taskId"`
-    Name        string         `json:"name"`
-    Description string         `json:"description"`
-    Version     string         `json:"version"`
-    InputSchema  SchemaDefinition `json:"inputSchema"`
-    OutputSchema SchemaDefinition `json:"outputSchema"`
-    Capabilities []Capability    `json:"capabilities"`
-    Constraints  TaskConstraints `json:"constraints"`
-    Performance  PerformanceSpec `json:"performance"`
-    Examples     []TaskExample   `json:"examples"`
-    Tags         []string        `json:"tags"`
+    TaskID          string            `json:"taskId"`
+    Name            string            `json:"name"`
+    Description     string            `json:"description"`
+    Version         string            `json:"version"`
+    InputSchema     SchemaDefinition  `json:"inputSchema"`
+    OutputSchema    SchemaDefinition  `json:"outputSchema"`
+    Capabilities    []Capability      `json:"capabilities"`
+    Constraints     TaskConstraints   `json:"constraints"`
+    Performance     PerformanceSpec   `json:"performance"`
+    Examples        []TaskExample     `json:"examples"`
+    Tags            []string          `json:"tags"`
+    // Added fields for better production readiness
+    Owner           string            `json:"owner"`
+    Status          string            `json:"status"`  // active, deprecated, beta
+    Timeout         time.Duration     `json:"timeout"`
+    RetryPolicy     RetryPolicy      `json:"retryPolicy"`
+    RateLimit       *RateLimit       `json:"rateLimit,omitempty"`
+    ResourceQuota   *ResourceQuota   `json:"resourceQuota,omitempty"`
+}
+
+type RetryPolicy struct {
+    MaxAttempts     int           `json:"maxAttempts"`
+    BackoffInitial  time.Duration `json:"backoffInitial"`
+    BackoffMax      time.Duration `json:"backoffMax"`
+    BackoffFactor   float64       `json:"backoffFactor"`
+}
+
+type RateLimit struct {
+    RequestsPerSecond int     `json:"requestsPerSecond"`
+    BurstSize        int     `json:"burstSize"`
+}
+
+type ResourceQuota struct {
+    MaxConcurrent    int    `json:"maxConcurrent"`
+    MemoryLimit      string `json:"memoryLimit"`  // e.g., "512Mi"
+    CPULimit         string `json:"cpuLimit"`     // e.g., "0.5"
 }
 
 type SchemaDefinition struct {
@@ -165,12 +190,20 @@ func (r *InMemoryTaskRegistry) UpdateDefinition(def *AITaskDefinition) error {
     return nil
 }
 
-// Task Executor Interface
+// Enhanced Task Executor with retries and circuit breaker
 type TaskExecutor interface {
     ExecuteTask(ctx context.Context, task *TaskInstance) error
     ValidateInput(def *AITaskDefinition, input map[string]interface{}) error
     ValidateOutput(def *AITaskDefinition, output map[string]interface{}) error
+    GetHealth() Health
 }
+
+type Health struct {
+    Status    string    `json:"status"`
+    LastCheck time.Time `json:"lastCheck"`
+    Errors    []string  `json:"errors,omitempty"`
+}
+
 
 type InMemoryTaskStore struct {
     mu    sync.RWMutex
@@ -233,29 +266,80 @@ func (s *InMemoryTaskStore) ListTasks(filter TaskFilter) ([]*TaskInstance, error
 
 // DefaultTaskExecutor Implementation
 type DefaultTaskExecutor struct {
-    registry TaskRegistry
+    registry       TaskRegistry
+    circuitBreaker *CircuitBreaker
+    rateLimiter    *rate.Limiter
+    metrics        *ExecutorMetrics
 }
 
 func NewDefaultTaskExecutor(registry TaskRegistry) *DefaultTaskExecutor {
     return &DefaultTaskExecutor{
-        registry: registry,
+        registry:       registry,
+        circuitBreaker: NewCircuitBreaker(),
+        rateLimiter:    rate.NewLimiter(rate.Limit(100), 200), // 100 rps, burst of 200
+        metrics:        NewExecutorMetrics(),
     }
 }
 
 func (e *DefaultTaskExecutor) ExecuteTask(ctx context.Context, task *TaskInstance) error {
+    // Check circuit breaker
+    if !e.circuitBreaker.AllowRequest() {
+        return ErrCircuitOpen
+    }
+
+    // Apply rate limiting
+    if err := e.rateLimiter.Wait(ctx); err != nil {
+        return fmt.Errorf("rate limit exceeded: %v", err)
+    }
+
     // Get task definition
     def, err := e.registry.GetDefinition(task.DefinitionID)
     if err != nil {
         return fmt.Errorf("failed to get task definition: %v", err)
     }
 
-    // For text summarization task
-    if def.TaskID == "text-summarization-001" {
-        return e.executeSummarizationTask(ctx, task, def)
+    // Apply retry policy with exponential backoff
+    var lastErr error
+    for attempt := 0; attempt < def.RetryPolicy.MaxAttempts; attempt++ {
+        if attempt > 0 {
+            backoff := def.RetryPolicy.BackoffInitial * time.Duration(math.Pow(def.RetryPolicy.BackoffFactor, float64(attempt)))
+            if backoff > def.RetryPolicy.BackoffMax {
+                backoff = def.RetryPolicy.BackoffMax
+            }
+            time.Sleep(backoff)
+        }
+
+        // Execute with timeout
+        execCtx, cancel := context.WithTimeout(ctx, def.Timeout)
+        err = e.executeWithMetrics(execCtx, task, def)
+        cancel()
+
+        if err == nil {
+            e.circuitBreaker.RecordSuccess()
+            return nil
+        }
+
+        lastErr = err
+        e.circuitBreaker.RecordFailure()
+        
+        // Log retry attempt
+        log.Printf("Task %s attempt %d failed: %v", task.ID, attempt+1, err)
     }
 
-    return fmt.Errorf("unsupported task type: %s", def.TaskID)
+    return fmt.Errorf("all retry attempts failed: %v", lastErr)
 }
+
+func (e *DefaultTaskExecutor) executeWithMetrics(ctx context.Context, task *TaskInstance, def *AITaskDefinition) error {
+    start := time.Now()
+    err := e.executeTaskImpl(ctx, task, def)
+    duration := time.Since(start)
+
+    // Record metrics
+    e.metrics.RecordExecution(def.TaskID, duration, err == nil)
+    
+    return err
+}
+
 
 func (e *DefaultTaskExecutor) executeSummarizationTask(ctx context.Context, task *TaskInstance, def *AITaskDefinition) error {
     input, ok := task.Input["prompt"].(string)
@@ -321,18 +405,22 @@ func min(a, b int) int {
 
 // Task Engine
 type TaskEngine struct {
-    registry  TaskRegistry
-    executor  TaskExecutor
-    store     TaskStore
-    validator *TaskValidator
+    registry    TaskRegistry
+    executor    TaskExecutor
+    store       TaskStore
+    validator   *TaskValidator
+    metrics     *EngineMetrics
+    errorBuffer *ring.Buffer
 }
 
 func NewTaskEngine(registry TaskRegistry, executor TaskExecutor, store TaskStore) *TaskEngine {
     return &TaskEngine{
-        registry:  registry,
-        executor:  executor,
-        store:     store,
-        validator: NewTaskValidator(),
+        registry:    registry,
+        executor:    executor,
+        store:       store,
+        validator:   NewTaskValidator(),
+        metrics:     NewEngineMetrics(),
+        errorBuffer: ring.New(1000), // Keep last 1000 errors
     }
 }
 
@@ -393,6 +481,110 @@ func (e *TaskEngine) processTask(ctx context.Context, task *TaskInstance) {
     task.CompletedAt = &completedAt
     e.store.UpdateTask(task)
 }
+
+
+
+// Metrics Collection
+type ExecutorMetrics struct {
+    taskLatencies    *metrics.Histogram
+    taskSuccess      *metrics.Counter
+    taskFailures     *metrics.Counter
+    activeExecutions *metrics.Gauge
+}
+
+func NewExecutorMetrics() *ExecutorMetrics {
+    return &ExecutorMetrics{
+        taskLatencies:    metrics.NewHistogram(metrics.HistogramOpts{
+            Name: "task_execution_duration_seconds",
+            Help: "Task execution duration in seconds",
+            Buckets: []float64{0.1, 0.5, 1, 2, 5, 10},
+        }),
+        taskSuccess:      metrics.NewCounter(metrics.CounterOpts{
+            Name: "task_executions_success_total",
+            Help: "Total number of successful task executions",
+        }),
+        taskFailures:     metrics.NewCounter(metrics.CounterOpts{
+            Name: "task_executions_failure_total",
+            Help: "Total number of failed task executions",
+        }),
+        activeExecutions: metrics.NewGauge(metrics.GaugeOpts{
+            Name: "task_executions_active",
+            Help: "Number of currently active task executions",
+        }),
+    }
+}
+
+// Circuit Breaker Implementation
+type CircuitBreaker struct {
+    mu           sync.RWMutex
+    failures     int
+    lastFailure  time.Time
+    state        string // closed, open, half-open
+    threshold    int
+    resetTimeout time.Duration
+}
+
+func NewCircuitBreaker() *CircuitBreaker {
+    return &CircuitBreaker{
+        threshold:    5,
+        resetTimeout: 30 * time.Second,
+        state:       "closed",
+    }
+}
+
+func (cb *CircuitBreaker) AllowRequest() bool {
+    cb.mu.RLock()
+    defer cb.mu.RUnlock()
+
+    if cb.state == "closed" {
+        return true
+    }
+
+    if cb.state == "open" {
+        if time.Since(cb.lastFailure) > cb.resetTimeout {
+            cb.state = "half-open"
+            return true
+        }
+        return false
+    }
+
+    return cb.state == "half-open"
+}
+
+// Add validation for content safety
+type ContentValidator struct {
+    toxicityThreshold float64
+    client            *http.Client
+}
+
+func (v *ContentValidator) ValidateContent(content string) error {
+    // Implement content moderation logic
+    if containsSensitiveContent(content) {
+        return ErrInappropriateContent
+    }
+    return nil
+}
+
+// Add structured logging
+type Logger struct {
+    logger *zap.Logger
+}
+
+func NewLogger() *Logger {
+    config := zap.NewProductionConfig()
+    logger, _ := config.Build()
+    return &Logger{logger: logger}
+}
+
+func (l *Logger) LogTaskExecution(task *TaskInstance, duration time.Duration, err error) {
+    l.logger.Info("task execution",
+        zap.String("taskId", task.ID),
+        zap.String("definitionId", task.DefinitionID),
+        zap.Duration("duration", duration),
+        zap.Error(err),
+    )
+}
+
 
 // Task Validator
 type TaskValidator struct {
