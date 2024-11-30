@@ -16,7 +16,9 @@ func NewTaskExecutor() *TaskExecutor {
 }
 
 func (e *TaskExecutor) Execute(ctx context.Context, task *Task) (*TaskResult, error) {
-	// Simple implementation that just marks the task as complete
+	// Simulate some work being done
+	time.Sleep(2 * time.Second)
+
 	return &TaskResult{
 		TaskID:     task.ID,
 		Success:    true,
