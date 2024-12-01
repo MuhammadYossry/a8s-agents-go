@@ -77,3 +77,15 @@ func (r *CapabilityRegistry) FindMatchingAgents(taskType string, taskSkills []st
 	}
 	return matchingAgents
 }
+
+func (r *CapabilityRegistry) RegisterWorkflow(workflowID WorkFlowID, cap WorkFlowCapability) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	// Store workflow capabilities in the same map using AgentID
+	r.capabilities[AgentID(workflowID)] = AgentCapability{
+		AgentID:      AgentID(workflowID),
+		TaskTypes:    cap.TaskTypes,
+		SkillsByType: cap.SkillsByType,
+		Resources:    cap.Resources,
+	}
+}

@@ -5,12 +5,18 @@ import (
 )
 
 type AgentID string
-
+type WorkFlowID string
 type AgentCapability struct {
 	AgentID   AgentID
 	TaskTypes []string
 	// Skills map is now organized by task type
 	SkillsByType map[string][]string // map[TaskType][]Skills
+	Resources    map[string]int
+}
+type WorkFlowCapability struct {
+	WorkFlowID   WorkFlowID
+	TaskTypes    []string
+	SkillsByType map[string][]string
 	Resources    map[string]int
 }
 type TaskStatus string

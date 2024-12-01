@@ -80,11 +80,86 @@ func main() {
 		),
 	}
 
+	wf_agents := []*Agent{
+		NewAgent(
+			"wf_agent1",
+			broker,
+			NewTaskExecutor(),
+			NewMetrics(),
+			registry,
+			[]string{"data_ingest_task"},
+			map[string][]string{
+				"data_ingest_task": {"data_ingestion", "data_validation"},
+			},
+		),
+		NewAgent(
+			"wf_agent2",
+			broker,
+			NewTaskExecutor(),
+			NewMetrics(),
+			registry,
+			[]string{"data_transform_task"},
+			map[string][]string{
+				"data_transform_task": {"data_transformation", "data_cleaning"},
+			},
+		),
+		NewAgent(
+			"wf_agent3",
+			broker,
+			NewTaskExecutor(),
+			NewMetrics(),
+			registry,
+			[]string{"data_validation_task"},
+			map[string][]string{
+				"data_validation_task": {"data_validation", "quality_check"},
+			},
+		),
+		NewAgent(
+			"wf_agent4",
+			broker,
+			NewTaskExecutor(),
+			NewMetrics(),
+			registry,
+			[]string{"pipeline_monitor_task"},
+			map[string][]string{
+				"pipeline_monitor_task": {"pipeline_monitoring", "status_tracking"},
+			},
+		),
+	}
+
 	// Start agents
 	for _, agent := range agents {
 		if err := agent.Start(ctx); err != nil {
 			log.Fatalf("Failed to start agent: %v", err)
 		}
+	}
+
+	// Todo: refactor to remove Convert []*Agent to []Agent when passing to NewWorkflow
+	wfAgentsSlice := make([]Agent, len(wf_agents))
+	for i, agent := range wf_agents {
+		wfAgentsSlice[i] = *agent
+	}
+
+	// Create and start the workflow with its dedicated agents
+	dataPipelineWorkflow := NewWorkflow(
+		"data_workflow_1",
+		broker,
+		metrics,
+		registry,
+		wf_agents, // Pass workflow-specific agents
+		[]string{"data_pipeline_task"},
+		map[string][]string{
+			"data_pipeline_task": {
+				"data_ingestion",
+				"data_transformation",
+				"data_validation",
+				"pipeline_monitoring",
+			},
+		},
+	)
+
+	if err := dataPipelineWorkflow.Start(ctx); err != nil {
+		log.Fatalf("Failed to start workflow: %v", err)
 	}
 
 	// Create sample tasks
@@ -125,9 +200,22 @@ func main() {
 			ID:             "task5",
 			Title:          "Translate and Proofread Document",
 			Description:    "Translate English document to Spanish and proofread",
-			Type:           "translation_task",
+			Type:           "translatio	n_task",
 			SkillsRequired: []string{"translation", "proofreading"},
 			CreatedAt:      time.Now(),
+		},
+		{
+			ID:          "task6",
+			Title:       "Process Customer Data Pipeline",
+			Description: "Execute end-to-end data processing pipeline for customer data(Workflow specfic)",
+			Type:        "data_pipeline_task",
+			SkillsRequired: []string{
+				"data_ingestion",
+				"data_transformation",
+				"data_validation",
+				"pipeline_monitoring",
+			},
+			CreatedAt: time.Now(),
 		},
 	}
 
@@ -170,6 +258,11 @@ func main() {
 		"translation_task",
 		"language_task",
 		"image_task",
+		"data_pipeline_task",
+		"data_ingest_task",
+		"data_transform_task",
+		"data_validation_task",
+		"pipeline_monitor_task",
 	}
 
 	allMetrics := metrics.GetAllMetrics()
