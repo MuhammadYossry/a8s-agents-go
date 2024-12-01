@@ -15,21 +15,69 @@ func main() {
 
 	// Initialize components
 	broker := NewPubSub()
+	metrics := NewMetrics()
 	registry := NewCapabilityRegistry()
-	router := NewTaskRouter(registry, broker)
+	router := NewTaskRouter(registry, broker, metrics)
 
 	// Create agents with different capabilities
 	agents := []*Agent{
-		NewAgent("agent1", broker, NewTaskExecutor(), NewMetrics(), registry,
-			[]string{"book_summary", "text_analysis", "book_task"}),
-		NewAgent("agent2", broker, NewTaskExecutor(), NewMetrics(), registry,
-			[]string{"video_generation", "image_processing", "video_task"}),
-		NewAgent("agent3", broker, NewTaskExecutor(), NewMetrics(), registry,
-			[]string{"market_analysis", "data_visualization"}),
-		NewAgent("agent4", broker, NewTaskExecutor(), NewMetrics(), registry,
-			[]string{"code_generation", "code_review"}),
-		NewAgent("agent5", broker, NewTaskExecutor(), NewMetrics(), registry,
-			[]string{"translation", "language_detection"}),
+		NewAgent(
+			"agent1",
+			broker,
+			NewTaskExecutor(),
+			NewMetrics(),
+			registry,
+			[]string{"book_task"},
+			map[string][]string{
+				"book_task": {"book_summary", "text_analysis", "content_review"},
+			},
+		),
+		NewAgent(
+			"agent2",
+			broker,
+			NewTaskExecutor(),
+			NewMetrics(),
+			registry,
+			[]string{"video_task", "image_task"},
+			map[string][]string{
+				"video_task": {"video_generation", "video_editing"},
+				"image_task": {"image_processing", "image_analysis"},
+			},
+		),
+		NewAgent(
+			"agent3",
+			broker,
+			NewTaskExecutor(),
+			NewMetrics(),
+			registry,
+			[]string{"analysis_task"},
+			map[string][]string{
+				"analysis_task": {"market_analysis", "data_visualization", "trend_analysis"},
+			},
+		),
+		NewAgent(
+			"agent4",
+			broker,
+			NewTaskExecutor(),
+			NewMetrics(),
+			registry,
+			[]string{"code_task"},
+			map[string][]string{
+				"code_task": {"code_generation", "code_review", "code_optimization"},
+			},
+		),
+		NewAgent(
+			"agent5",
+			broker,
+			NewTaskExecutor(),
+			NewMetrics(),
+			registry,
+			[]string{"translation_task", "language_task"},
+			map[string][]string{
+				"translation_task": {"translation", "proofreading"},
+				"language_task":    {"language_detection", "sentiment_analysis"},
+			},
+		),
 	}
 
 	// Start agents
@@ -39,60 +87,64 @@ func main() {
 		}
 	}
 
-	// Create tasks that match exactly one agent each
+	// Create sample tasks
 	tasks := []*Task{
 		{
-			ID:           "task1",
-			Title:        "Summarize Harry Potter Book",
-			Description:  "Create a summary of Harry Potter and the Philosopher's Stone",
-			Type:         "book_task",
-			Capabilities: []string{"book_summary"}, // matches agent1
-			CreatedAt:    time.Now(),
+			ID:             "task1",
+			Title:          "Summarize Harry Potter Book",
+			Description:    "Create a summary of Harry Potter and the Philosopher's Stone",
+			Type:           "book_task",
+			SkillsRequired: []string{"book_summary", "content_review"},
+			CreatedAt:      time.Now(),
 		},
 		{
-			ID:           "task2",
-			Title:        "Create Product Video",
-			Description:  "Generate promotional video for new product",
-			Type:         "video_task",
-			Capabilities: []string{"video_generation"}, // matches agent2
-			CreatedAt:    time.Now(),
+			ID:             "task2",
+			Title:          "Create Product Video",
+			Description:    "Generate promotional video for new product",
+			Type:           "video_task",
+			SkillsRequired: []string{"video_generation", "video_editing"},
+			CreatedAt:      time.Now(),
 		},
 		{
-			ID:           "task3",
-			Title:        "Analyze EV Market",
-			Description:  "Market analysis for EV industry",
-			Type:         "analysis_task",
-			Capabilities: []string{"market_analysis"}, // matches agent3
-			CreatedAt:    time.Now(),
+			ID:             "task3",
+			Title:          "Market Analysis Report",
+			Description:    "Analyze EV market trends with visualizations",
+			Type:           "analysis_task",
+			SkillsRequired: []string{"market_analysis", "data_visualization"},
+			CreatedAt:      time.Now(),
 		},
 		{
-			ID:           "task4",
-			Title:        "Review Python Codebase",
-			Description:  "Code review for Python application",
-			Type:         "code_task",
-			Capabilities: []string{"code_review"}, // matches agent4
-			CreatedAt:    time.Now(),
+			ID:             "task4",
+			Title:          "Optimize Python Codebase",
+			Description:    "Review and optimize Python application performance",
+			Type:           "code_task",
+			SkillsRequired: []string{"code_review", "code_optimization"},
+			CreatedAt:      time.Now(),
 		},
 		{
-			ID:           "task5",
-			Title:        "Translate Document",
-			Description:  "Translate English to Spanish",
-			Type:         "translation_task",
-			Capabilities: []string{"translation"}, // matches agent5
-			CreatedAt:    time.Now(),
+			ID:             "task5",
+			Title:          "Translate and Proofread Document",
+			Description:    "Translate English document to Spanish and proofread",
+			Type:           "translation_task",
+			SkillsRequired: []string{"translation", "proofreading"},
+			CreatedAt:      time.Now(),
 		},
 	}
 
-	// Add a small delay before sending tasks to ensure all agents are ready
+	// Add a small delay before sending tasks
 	time.Sleep(1 * time.Second)
 
 	// Route tasks
 	for _, task := range tasks {
-		log.Printf("Enqueueing task: %s (requires capabilities: %v)", task.Title, task.Capabilities)
+		log.Printf("Routing task: %s (Type: %s, Required Skills: %v)",
+			task.Title, task.Type, task.SkillsRequired)
+
 		if err := router.RouteTask(ctx, task); err != nil {
 			log.Printf("Failed to route task: %v", err)
+			continue
 		}
-		// Add a small delay between tasks to make logs more readable
+
+		// Add delay between tasks for readable logs
 		time.Sleep(500 * time.Millisecond)
 	}
 
@@ -102,11 +154,47 @@ func main() {
 	<-sigCh
 
 	// Graceful shutdown
-	_, shutdownCancel := context.WithTimeout(context.Background(), 5*time.Second)
+	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer shutdownCancel()
 
-	// XXX: Add agent shutdown logic via pubsub
-	// if err := agent.Stop(shutdownCtx); err != nil {
-	// 	log.Printf("Error during shutdown: %v", err)
-	// }
+	// Print metrics before shutdown
+	log.Println("\nTask Execution Metrics:")
+	log.Println("----------------------")
+
+	// Define all task types we want to report on
+	taskTypes := []string{
+		"book_task",
+		"video_task",
+		"analysis_task",
+		"code_task",
+		"translation_task",
+		"language_task",
+		"image_task",
+	}
+
+	allMetrics := metrics.GetAllMetrics()
+	for _, taskType := range taskTypes {
+		if m, exists := allMetrics[taskType]; exists {
+			log.Printf("%s:\n  - Completed: %d\n  - Failed: %d\n  - Routing Successes: %d\n  - Routing Failures: %d",
+				taskType,
+				m.TasksCompleted,
+				m.TasksFailed,
+				m.RoutingSuccesses,
+				m.RoutingFailures)
+		} else {
+			log.Printf("%s: No metrics recorded", taskType)
+		}
+	}
+
+	// Shutdown agents
+	for _, agent := range agents {
+		if err := agent.Stop(shutdownCtx); err != nil {
+			log.Printf("Error stopping agent: %v", err)
+		}
+	}
+
+	// Close broker
+	if err := broker.Close(); err != nil {
+		log.Printf("Error closing broker: %v", err)
+	}
 }

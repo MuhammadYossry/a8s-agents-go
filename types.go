@@ -9,7 +9,9 @@ type AgentID string
 type AgentCapability struct {
 	AgentID   AgentID
 	TaskTypes []string
-	Resources map[string]int // e.g., "gpu": 1, "memory": 8
+	// Skills map is now organized by task type
+	SkillsByType map[string][]string // map[TaskType][]Skills
+	Resources    map[string]int
 }
 type TaskStatus string
 
@@ -21,16 +23,16 @@ const (
 )
 
 type Task struct {
-	ID           string
-	Title        string
-	Description  string // optional
-	Type         string
-	Capabilities []string // required capabilities
-	Payload      []byte
-	Status       TaskStatus
-	RetryCount   int
-	CreatedAt    time.Time
-	UpdatedAt    time.Time
+	ID             string
+	Title          string
+	Description    string // optional
+	Type           string
+	SkillsRequired []string // required skills
+	Payload        []byte
+	Status         TaskStatus
+	RetryCount     int
+	CreatedAt      time.Time
+	UpdatedAt      time.Time
 }
 
 type TaskResult struct {

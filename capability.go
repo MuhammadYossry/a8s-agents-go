@@ -2,11 +2,16 @@ package main
 
 import "sync"
 
+type TaskCapability struct {
+	Skills []string
+}
+
 type Capability struct {
-	Name      string
-	Version   string
-	Enabled   bool
-	TaskTypes []string
+	Name    string
+	Version string
+	Enabled bool
+	// Map of task type to its required skills
+	TaskCapabilities map[string]TaskCapability
 }
 
 type CapabilityRegistry struct {
@@ -26,28 +31,47 @@ func (r *CapabilityRegistry) Register(agentID AgentID, cap AgentCapability) {
 	r.capabilities[agentID] = cap
 }
 
-func (r *CapabilityRegistry) FindMatchingAgents(taskCapabilities []string) []AgentID {
+func (r *CapabilityRegistry) FindMatchingAgents(taskType string, taskSkills []string) []AgentID {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 
 	var matchingAgents []AgentID
 	for agentID, agentCap := range r.capabilities {
-		// Check if agent has all required capabilities
-		hasAllCapabilities := true
-		for _, requiredCap := range taskCapabilities {
+		// First check if agent supports this task type
+		supportsTaskType := false
+		for _, supportedType := range agentCap.TaskTypes {
+			if supportedType == taskType {
+				supportsTaskType = true
+				break
+			}
+		}
+		if !supportsTaskType {
+			continue
+		}
+
+		// Then check if agent has all required skills for this task type
+		agentSkills, hasTaskTypeSkills := agentCap.SkillsByType[taskType]
+		if !hasTaskTypeSkills {
+			continue
+		}
+
+		// Verify all required skills are present
+		hasAllSkills := true
+		for _, requiredSkill := range taskSkills {
 			found := false
-			for _, agentCapability := range agentCap.TaskTypes {
-				if agentCapability == requiredCap {
+			for _, agentSkill := range agentSkills {
+				if agentSkill == requiredSkill {
 					found = true
 					break
 				}
 			}
 			if !found {
-				hasAllCapabilities = false
+				hasAllSkills = false
 				break
 			}
 		}
-		if hasAllCapabilities {
+
+		if hasAllSkills {
 			matchingAgents = append(matchingAgents, agentID)
 		}
 	}

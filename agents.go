@@ -1,7 +1,9 @@
+// agents.go
 package main
 
 import (
 	"context"
+	"fmt"
 	"log"
 )
 
@@ -11,18 +13,28 @@ type Agent struct {
 	executor     Executor
 	metrics      *Metrics
 	registry     *CapabilityRegistry
-	capabilities []string
+	taskTypes    []string
+	skillsByType map[string][]string
 	cancelFunc   context.CancelFunc
 }
 
-func NewAgent(id AgentID, b Broker, e Executor, m *Metrics, r *CapabilityRegistry, capabilities []string) *Agent {
+func NewAgent(
+	id AgentID,
+	b Broker,
+	e Executor,
+	m *Metrics,
+	r *CapabilityRegistry,
+	taskTypes []string,
+	skillsByType map[string][]string,
+) *Agent {
 	return &Agent{
 		id:           id,
 		broker:       b,
 		executor:     e,
 		metrics:      m,
 		registry:     r,
-		capabilities: capabilities,
+		taskTypes:    taskTypes,
+		skillsByType: skillsByType,
 	}
 }
 
@@ -32,8 +44,9 @@ func (a *Agent) Start(ctx context.Context) error {
 
 	// Register agent's capabilities
 	a.registry.Register(a.id, AgentCapability{
-		AgentID:   a.id,
-		TaskTypes: a.capabilities,
+		AgentID:      a.id,
+		TaskTypes:    a.taskTypes,
+		SkillsByType: a.skillsByType,
 		Resources: map[string]int{
 			"cpu": 4,
 			"gpu": 1,
@@ -61,12 +74,14 @@ func (a *Agent) Start(ctx context.Context) error {
 		}
 	}()
 
-	log.Printf("Agent %s started with capabilities: %v", a.id, a.registry.capabilities[a.id].TaskTypes)
+	log.Printf("Agent %s started with capabilities - Task Types: %v, Skills by Type: %v",
+		a.id, a.taskTypes, a.skillsByType)
 	return nil
 }
 
 func (a *Agent) processTask(ctx context.Context, task *Task) {
-	log.Printf("Agent %s starting work on task: %s", a.id, task.Title)
+	log.Printf("Agent %s starting work on task: %s (Type: %s, Required Skills: %v)",
+		a.id, task.Title, task.Type, task.SkillsRequired)
 
 	result, err := a.executor.Execute(ctx, task)
 	if err != nil {
@@ -76,8 +91,12 @@ func (a *Agent) processTask(ctx context.Context, task *Task) {
 	}
 
 	if result.Success {
+		// Record completion with duration calculation
+		a.metrics.RecordTaskComplete(task.Type, task.ID)
 		log.Printf("Agent %s successfully completed task: %s", a.id, task.Title)
-		a.metrics.RecordTaskComplete(task.Type)
+	} else {
+		a.metrics.RecordTaskError(task.Type, fmt.Errorf("task completed unsuccessfully"))
+		log.Printf("Agent %s task completed but unsuccessful: %s", a.id, task.Title)
 	}
 }
 
@@ -85,5 +104,5 @@ func (a *Agent) Stop(ctx context.Context) error {
 	if a.cancelFunc != nil {
 		a.cancelFunc()
 	}
-	return a.broker.Close()
+	return nil
 }
