@@ -5,7 +5,7 @@ import (
 )
 
 type AgentID string
-type WorkFlowID string
+type AgentType string
 type AgentCapability struct {
 	AgentID   AgentID
 	TaskTypes []string
@@ -13,6 +13,7 @@ type AgentCapability struct {
 	SkillsByType map[string][]string // map[TaskType][]Skills
 	Resources    map[string]int
 }
+type WorkFlowID string
 type WorkFlowCapability struct {
 	WorkFlowID   WorkFlowID
 	TaskTypes    []string

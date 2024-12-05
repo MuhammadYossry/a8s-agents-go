@@ -2,12 +2,48 @@ package main
 
 import (
 	"context"
+	"encoding/json"
+	"fmt"
 	"log"
 	"os"
 	"os/signal"
 	"syscall"
 	"time"
 )
+
+func LoadAgentConfig(filepath string, broker Broker, executor *TaskExecutor, metrics *Metrics, registry *CapabilityRegistry) ([]*Agent, error) {
+	data, err := os.ReadFile(filepath)
+	if err != nil {
+		return nil, fmt.Errorf("reading config file: %w", err)
+	}
+
+	var config AgentConfig
+	if err := json.Unmarshal(data, &config); err != nil {
+		return nil, fmt.Errorf("parsing config: %w", err)
+	}
+
+	agents := make([]*Agent, 0, len(config.Agents))
+	for _, def := range config.Agents {
+		// ctx, cancel := context.WithCancel(context.Background())
+		// agentID =
+		agent := NewAgent(AgentID(def.ID), broker, executor, metrics,
+			registry, def.TaskTypes, def.SkillsByType)
+		// Type:         def.Type,
+		// Description:  def.Description,
+		// BaseURL:      def.BaseURL,
+		// TaskTypes:    def.TaskTypes,
+		// SkillsByType: def.SkillsByType,
+		// Actions:      def.Actions,
+		// broker:       ,
+		// executor:     executor,
+		// metrics:      metrics,
+		// registry:     registry,
+
+		agents = append(agents, agent)
+	}
+
+	return agents, nil
+}
 
 func main() {
 	ctx, cancel := context.WithCancel(context.Background())
@@ -19,65 +55,19 @@ func main() {
 	registry := NewCapabilityRegistry()
 	router := NewTaskRouter(registry, broker, metrics)
 
-	// Create agents with different capabilities
-	agents := []*Agent{
-		NewAgent(
-			"agent1",
-			broker,
-			NewTaskExecutor(),
-			NewMetrics(),
-			registry,
-			[]string{"book_task"},
-			map[string][]string{
-				"book_task": {"book_summary", "text_analysis", "content_review"},
-			},
-		),
-		NewAgent(
-			"agent2",
-			broker,
-			NewTaskExecutor(),
-			NewMetrics(),
-			registry,
-			[]string{"video_task", "image_task"},
-			map[string][]string{
-				"video_task": {"video_generation", "video_editing"},
-				"image_task": {"image_processing", "image_analysis"},
-			},
-		),
-		NewAgent(
-			"agent3",
-			broker,
-			NewTaskExecutor(),
-			NewMetrics(),
-			registry,
-			[]string{"analysis_task"},
-			map[string][]string{
-				"analysis_task": {"market_analysis", "data_visualization", "trend_analysis"},
-			},
-		),
-		NewAgent(
-			"agent4",
-			broker,
-			NewTaskExecutor(),
-			NewMetrics(),
-			registry,
-			[]string{"code_task"},
-			map[string][]string{
-				"code_task": {"code_generation", "code_review", "code_optimization"},
-			},
-		),
-		NewAgent(
-			"agent5",
-			broker,
-			NewTaskExecutor(),
-			NewMetrics(),
-			registry,
-			[]string{"translation_task", "language_task"},
-			map[string][]string{
-				"translation_task": {"translation", "proofreading"},
-				"language_task":    {"language_detection", "sentiment_analysis"},
-			},
-		),
+	agents, err := LoadAgentConfig("examples/agents.json", broker, NewTaskExecutor(),
+		metrics, registry)
+	if err != nil {
+		fmt.Printf("Error loading config: %v\n", err)
+		return
+	}
+	for _, agent := range agents {
+		fmt.Printf("Agent ID: %s\n", agent.ID)
+		fmt.Printf("Task Types: %v\n", agent.TaskTypes)
+
+		for taskType, skills := range agent.SkillsByType {
+			fmt.Printf("Skills for %s: %v\n", taskType, skills)
+		}
 	}
 
 	wf_agents := []*Agent{

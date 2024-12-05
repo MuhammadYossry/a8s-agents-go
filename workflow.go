@@ -62,7 +62,7 @@ func (we *WorkflowExecutor) findMatchingAgents(task *Task) []AgentID {
 	for _, agent := range we.agents {
 		// Check if agent supports task type
 		supportsType := false
-		for _, t := range agent.taskTypes {
+		for _, t := range agent.TaskTypes {
 			if t == task.Type {
 				supportsType = true
 				break
@@ -73,7 +73,7 @@ func (we *WorkflowExecutor) findMatchingAgents(task *Task) []AgentID {
 		}
 
 		// Check if agent has required skills
-		skills := agent.skillsByType[task.Type]
+		skills := agent.SkillsByType[task.Type]
 		hasSkills := true
 		for _, required := range task.SkillsRequired {
 			found := false
@@ -90,7 +90,7 @@ func (we *WorkflowExecutor) findMatchingAgents(task *Task) []AgentID {
 		}
 
 		if hasSkills {
-			matchingAgents = append(matchingAgents, agent.id)
+			matchingAgents = append(matchingAgents, agent.ID)
 		}
 	}
 	return matchingAgents
