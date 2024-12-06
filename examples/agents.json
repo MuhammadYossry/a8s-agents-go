@@ -139,7 +139,7 @@
             "authorization": "role-based"
           }
         }
-      }     ,
+      },
       {
         "id": "ocr-vision-agent",
         "type": "external",

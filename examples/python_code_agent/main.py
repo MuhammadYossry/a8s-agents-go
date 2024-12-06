@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException, BackgroundTasks
+from fastapi import FastAPI, HTTPException, BackgroundTasks, Request
 from pydantic import BaseModel, Field, ConfigDict
 from typing import List, Optional, Dict, Any, Literal
 from enum import Enum
@@ -8,6 +8,8 @@ import pylint.lint
 from dataclasses import dataclass
 import json
 from datetime import datetime
+
+from manifest_generator import setup_agent_routes, agent_endpoint
 
 class BaseModelCamel(BaseModel):
     """Base model that configures camelCase support."""
@@ -89,168 +91,203 @@ class DeployPreviewOutput(BaseModelCamel):
     is_private: bool
     http_auth: Optional[Dict[str, str]]
     deployment_time: datetime
+app = FastAPI()
+agent_app = FastAPI()
 
-# Agent Implementation
-class PythonCodeAgent:
-    def __init__(self):
-        self.app = FastAPI(title="Python Code Agent")
-        self.register_routes()
+@agent_app.post("/code_agent/python/generate_code", response_model=GenerateCodeOutput)
+@agent_endpoint(
+    task_type="pythonCodeTask",
+    skill_name="generateCode",
+    description="Generates Python code based on requirements"
+)
+async def generate_code(input_data: GenerateCodeInput) -> GenerateCodeOutput:
+    try:
+        # Simulate code generation based on requirements
+        generated_code = _generate_code_from_requirements(input_data.code_requirements)
+        test_cases = _generate_test_cases(generated_code) if input_data.include_tests else None
+        
+        return GenerateCodeOutput(
+            generated_code=generated_code,
+            description="Generated code sample",
+            test_cases=["test1", "test2"],
+            documentation={"overview": "Sample documentation"}
+        )
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
-    def register_routes(self):
-        self.app.post("/v1/code_agent/python/generate_code", response_model=GenerateCodeOutput)(self.generate_code)
-        self.app.post("/v1/code_agent/python/improve_code", response_model=ImproveCodeOutput)(self.improve_code)
-        self.app.post("/v1/code_agent/python/test_code", response_model=TestCodeOutput)(self.test_code)
-        self.app.post("/v1/deploy_agent/python/preview", response_model=DeployPreviewOutput)(self.deploy_preview)
-
-    async def generate_code(self, input_data: GenerateCodeInput) -> GenerateCodeOutput:
-        try:
-            # Simulate code generation based on requirements
-            generated_code = self._generate_code_from_requirements(input_data.code_requirements)
-            test_cases = self._generate_test_cases(generated_code) if input_data.include_tests else None
+@agent_app.post("/code_agent/python/improve_code", response_model=ImproveCodeOutput)
+@agent_endpoint(
+    task_type="pythonCodeTask",
+    skill_name="improveCode",
+    description="Improves and formats existing Python code"
+)
+async def improve_code(input_data: ImproveCodeInput) -> ImproveCodeOutput:
+    try:    
+        improved_changes = []
+        for change in input_data.changes_list:
+            improved_code = change.proposed_changes
             
-            return GenerateCodeOutput(
-                generated_code=generated_code,
-                description=f"Generated code following {input_data.style_guide} style guide",
-                test_cases=test_cases,
-                documentation=self._generate_documentation(generated_code, input_data.documentation_level)
+            if input_data.apply_black_formatting:
+                improved_code = black.format_str(improved_code, mode=black.FileMode())
+            
+            if input_data.run_linter:
+                lint_score = _run_linter(improved_code)
+            else:
+                lint_score = None
+
+            improved_changes.append(CodeChange(
+                file_path=change.file_path,
+                original_code=change.original_code,
+                proposed_changes=improved_code,
+                change_type=change.change_type,
+                priority=change.priority
+            ))
+
+        return ImproveCodeOutput(
+            code_changes=[],
+            changes_description="Sample changes",
+            quality_metrics={"score": 100}
+        )
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+@agent_app.post("/code_agent/python/test_code", response_model=TestCodeOutput)
+@agent_endpoint(
+    task_type="pythonTestingTask",
+    skill_name="testCode",
+    description="Generates and runs tests for Python code"
+)
+async def test_code(input_data: TestCodeInput) -> TestCodeOutput:
+    try:
+        # Generate and run tests based on input
+        generated_tests = _generate_tests(input_data.code_to_test, input_data.test_type)
+        test_result = _run_tests(generated_tests, input_data.code_to_test)
+        
+        if input_data.require_passing and not test_result.passed:
+            raise HTTPException(status_code=400, detail="Tests failed")
+        
+        return TestCodeOutput(
+            code_tests=["test1"],
+            tests_description="Sample tests",
+            coverage_status=TestResult(
+                passed=True,
+                execution_time=1.0,
+                coverage_percentage=100.0,
+                failing_tests=[]
             )
-        except Exception as e:
-            raise HTTPException(status_code=400, detail=str(e))
+        )
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
-    async def improve_code(self, input_data: ImproveCodeInput) -> ImproveCodeOutput:
-        try:    
-            improved_changes = []
-            for change in input_data.changes_list:
-                improved_code = change.proposed_changes
-                
-                if input_data.apply_black_formatting:
-                    improved_code = black.format_str(improved_code, mode=black.FileMode())
-                
-                if input_data.run_linter:
-                    lint_score = self._run_linter(improved_code)
-                else:
-                    lint_score = None
+@agent_app.post("/code_agent/python/deploy_preview", response_model=DeployPreviewOutput)
+@agent_endpoint(
+    task_type="pythonDeploymentTask",
+    skill_name="deployPreview",
+    description="Creates a preview deployment for code review"
+)   
+async def deploy_preview(
+    input_data: DeployPreviewInput, background_tasks: BackgroundTasks
+) -> DeployPreviewOutput:
+    try:
+        # Simulate deployment process
+        preview_url = f"https://preview.example.com/{input_data.branch_id}"
+        http_auth = {"username": "preview", "password": "secret"} if input_data.is_private else None
+        
+        # Add cleanup task to background tasks
+        background_tasks.add_task(_cleanup_preview, input_data.branch_id)
+        
+        return DeployPreviewOutput(
+            preview_url="https://example.com",
+            is_private=True,
+            http_auth={"username": "test"},
+            deployment_time=datetime.now()
+        )
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
-                improved_changes.append(CodeChange(
-                    file_path=change.file_path,
-                    original_code=change.original_code,
-                    proposed_changes=improved_code,
-                    change_type=change.change_type,
-                    priority=change.priority
-                ))
+# Helper methods
+def _generate_code_from_requirements(requirements: CodeRequirement) -> str:
+    # Basic implementation that generates a simple API endpoint
+    code = f"""
+        from fastapi import FastAPI
+        from pydantic import BaseModel
 
-            return ImproveCodeOutput(
-                code_changes=improved_changes,
-                changes_description="Applied formatting and linting improvements",
-                quality_metrics={"lint_score": lint_score} if lint_score else {}
-            )
-        except Exception as e:
-            raise HTTPException(status_code=400, detail=str(e))
+        app = FastAPI()
 
-    async def test_code(self, input_data: TestCodeInput) -> TestCodeOutput:
-        try:
-            # Generate and run tests based on input
-            generated_tests = self._generate_tests(input_data.code_to_test, input_data.test_type)
-            test_result = self._run_tests(generated_tests, input_data.code_to_test)
-            
-            if input_data.require_passing and not test_result.passed:
-                raise HTTPException(status_code=400, detail="Tests failed")
-            
-            return TestCodeOutput(
-                code_tests=generated_tests,
-                tests_description=f"Generated {input_data.test_type} tests",
-                coverage_status=test_result
-            )
-        except Exception as e:
-            raise HTTPException(status_code=400, detail=str(e))
+        {_generate_functions(requirements.required_functions)}
+        """
+    return code
 
-    async def deploy_preview(
-        self, input_data: DeployPreviewInput, background_tasks: BackgroundTasks
-    ) -> DeployPreviewOutput:
-        try:
-            # Simulate deployment process
-            preview_url = f"https://preview.example.com/{input_data.branch_id}"
-            http_auth = {"username": "preview", "password": "secret"} if input_data.is_private else None
-            
-            # Add cleanup task to background tasks
-            background_tasks.add_task(self._cleanup_preview, input_data.branch_id)
-            
-            return DeployPreviewOutput(
-                preview_url=preview_url,
-                is_private=input_data.is_private,
-                http_auth=http_auth,
-                deployment_time=datetime.now()
-            )
-        except Exception as e:
-            raise HTTPException(status_code=400, detail=str(e))
 
-    # Helper methods
-    def _generate_code_from_requirements(self, requirements: CodeRequirement) -> str:
-        # Basic implementation that generates a simple API endpoint
-        code = f"""
-            from fastapi import FastAPI
-            from pydantic import BaseModel
+def _generate_functions(required_functions: List[str]) -> str:
+    # Helper method to generate function implementations
+    function_implementations = []
+    for func_name in required_functions:
+        if func_name == "get_user":
+            function_implementations.append("""
+            @app.get("/user/{user_id}")
+            async def get_user(user_id: int):
+                return {"user_id": user_id, "message": "User retrieved"}
+            """)
+        elif func_name == "create_user":
+            function_implementations.append("""
+            class UserCreate(BaseModel):
+                username: str
+                email: str
 
-            app = FastAPI()
+            @app.post("/user/")
+            async def create_user(user: UserCreate):
+                return {"username": user.username, "message": "User created"}
+            """)
+    return "\n".join(function_implementations)
 
-            {self._generate_functions(requirements.required_functions)}
-            """
-        return code
-    
+def _generate_test_cases(code: str) -> List[str]:
+    # Basic test case implementation
+    return [
+        "def test_get_user():\n    response = client.get('/user/1')\n    assert response.status_code == 200",
+        "def test_create_user():\n    response = client.post('/user/', json={'username': 'test', 'email': 'test@example.com'})\n    assert response.status_code == 200"
+    ]
 
-    def _generate_functions(self, required_functions: List[str]) -> str:
-        # Helper method to generate function implementations
-        function_implementations = []
-        for func_name in required_functions:
-            if func_name == "get_user":
-                function_implementations.append("""
-                @app.get("/user/{user_id}")
-                async def get_user(user_id: int):
-                    return {"user_id": user_id, "message": "User retrieved"}
-                """)
-            elif func_name == "create_user":
-                function_implementations.append("""
-                class UserCreate(BaseModel):
-                    username: str
-                    email: str
+def _generate_documentation(code: str, level: str) -> Dict[str, str]:
+    # Basic documentation implementation
+    return {
+        "overview": "Generated FastAPI endpoints for user management",
+        "usage": "Run the server and access the endpoints via HTTP requests",
+        "endpoints": "GET /user/{user_id}, POST /user/"
+    }
 
-                @app.post("/user/")
-                async def create_user(user: UserCreate):
-                    return {"username": user.username, "message": "User created"}
-                """)
-        return "\n".join(function_implementations)
+def _run_linter(code: str) -> float:
+    # Implementation for running pylint
+    pass
 
-    def _generate_test_cases(self, code: str) -> List[str]:
-        # Basic test case implementation
-        return [
-            "def test_get_user():\n    response = client.get('/user/1')\n    assert response.status_code == 200",
-            "def test_create_user():\n    response = client.post('/user/', json={'username': 'test', 'email': 'test@example.com'})\n    assert response.status_code == 200"
-        ]
+def _generate_tests(code: str, test_type: TestType) -> List[str]:
+    # Implementation for test generation
+    pass
 
-    def _generate_documentation(self, code: str, level: str) -> Dict[str, str]:
-        # Basic documentation implementation
-        return {
-            "overview": "Generated FastAPI endpoints for user management",
-            "usage": "Run the server and access the endpoints via HTTP requests",
-            "endpoints": "GET /user/{user_id}, POST /user/"
-        }
+def _run_tests(tests: List[str], code: str) -> TestResult:
+    # Implementation for test execution
+    pass
 
-    def _run_linter(self, code: str) -> float:
-        # Implementation for running pylint
-        pass
+async def _cleanup_preview(branch_id: str):
+    # Implementation for cleanup task
+    pass
 
-    def _generate_tests(self, code: str, test_type: TestType) -> List[str]:
-        # Implementation for test generation
-        pass
+# Using Request instance
+# agent_app.get("/url-list")
+# def get_all_urls_from_request(request: Request):
+url_list = [
+    {"path": route.path, "name": route.name} for route in app.routes
+]
+print(url_list)
+# Prints: [{'path': '/openapi.json', 'name': 'openapi'}, {'path': '/docs', 'name': 'swagger_ui_html'}, {'path': '/docs/oauth2-redirect', 'name': 'swagger_ui_redirect'}, {'path': '/redoc', 'name': 'redoc_html'}]
 
-    def _run_tests(self, tests: List[str], code: str) -> TestResult:
-        # Implementation for test execution
-        pass
 
-    async def _cleanup_preview(self, branch_id: str):
-        # Implementation for cleanup task
-        pass
+# Mount the agent app
+app.mount("/v1", agent_app)
 
-# Create and configure the agent
-agent = PythonCodeAgent()
-app = agent.app
+# Add the agents.json endpoint
+setup_agent_routes(app)
+
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run(app, host="0.0.0.0", port=9200)
