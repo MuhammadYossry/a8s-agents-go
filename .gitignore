@@ -23,6 +23,7 @@ Thumbs.db
 /go.mod
 # Python modules for Pyhon examples
 /__pycache__/
+__pycache__/
 
 # Dependency directories (often used outside of module mode)
 Godeps/

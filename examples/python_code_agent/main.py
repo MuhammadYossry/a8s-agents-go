@@ -87,10 +87,10 @@ class PythonCodeAgent:
         self.register_routes()
 
     def register_routes(self):
-        self.app.post("/code_agent/python/generate_code", response_model=GenerateCodeOutput)(self.generate_code)
-        self.app.post("/code_agent/python/improve_code", response_model=ImproveCodeOutput)(self.improve_code)
-        self.app.post("/code_agent/python/test_code", response_model=TestCodeOutput)(self.test_code)
-        self.app.post("/deploy_agent/python/preview", response_model=DeployPreviewOutput)(self.deploy_preview)
+        self.app.post("/v1/code_agent/python/generate_code", response_model=GenerateCodeOutput)(self.generate_code)
+        self.app.post("/v1/code_agent/python/improve_code", response_model=ImproveCodeOutput)(self.improve_code)
+        self.app.post("/v1/code_agent/python/test_code", response_model=TestCodeOutput)(self.test_code)
+        self.app.post("/v1/deploy_agent/python/preview", response_model=DeployPreviewOutput)(self.deploy_preview)
 
     async def generate_code(self, input_data: GenerateCodeInput) -> GenerateCodeOutput:
         try:

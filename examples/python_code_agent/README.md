@@ -42,13 +42,13 @@ poetry shell
 
 ## Running the Server
 
-Start the FastAPI server using uvicorn:
+Start the FastAPI server using uvicorn, same port as listed in `agents.json`:
 
 ```bash
-poetry run uvicorn main:app --reload --port 8000
+poetry run uvicorn main:app --reload --port 9200
 ```
 
-The API will be available at `http://localhost:8000`
+The API will be available at `http://localhost:9200`
 
 ## API Endpoints
 
@@ -57,7 +57,7 @@ The API will be available at `http://localhost:8000`
 Generate Python code based on requirements.
 
 ```bash
-curl -X POST http://localhost:8000/code_agent/python/generate_code \
+curl -X POST http://localhost:9200/code_agent/python/generate_code \
   -H "Content-Type: application/json" \
   -d '{
     "code_requirements": {
@@ -93,7 +93,7 @@ response:
 Improve existing code with formatting and linting.
 
 ```bash
-curl -X POST http://localhost:8000/code_agent/python/improve_code \
+curl -X POST http://localhost:9200/code_agent/python/improve_code \
   -H "Content-Type: application/json" \
   -d '{
     "changes_list": [{
@@ -113,7 +113,7 @@ curl -X POST http://localhost:8000/code_agent/python/improve_code \
 Generate and run tests for Python code.
 
 ```bash
-curl -X POST http://localhost:8000/code_agent/python/test_code \
+curl -X POST http://localhost:9200/code_agent/python/test_code \
   -H "Content-Type: application/json" \
   -d '{
     "test_type": "unit",
@@ -129,7 +129,7 @@ curl -X POST http://localhost:8000/code_agent/python/test_code \
 Create a preview deployment of your code.
 
 ```bash
-curl -X POST http://localhost:8000/deploy_agent/python/preview \
+curl -X POST http://localhost:9200/deploy_agent/python/preview \
   -H "Content-Type: application/json" \
   -d '{
     "branch_id": "feature-branch-123",
@@ -147,7 +147,7 @@ The agent can be configured through environment variables:
 
 ```bash
 export PYTHON_AGENT_HOST=0.0.0.0
-export PYTHON_AGENT_PORT=8000
+export PYTHON_AGENT_PORT=9200
 export PYTHON_AGENT_LOG_LEVEL=info
 export PYTHON_AGENT_WORKERS=4
 ```
@@ -177,9 +177,9 @@ poetry run pylint python_code_agent
 ## API Documentation
 
 Once the server is running, you can access:
-- Interactive API documentation (Swagger UI): `http://localhost:8000/docs`
-- Alternative API documentation (ReDoc): `http://localhost:8000/redoc`
-- OpenAPI specification: `http://localhost:8000/openapi.json`
+- Interactive API documentation (Swagger UI): `http://localhost:9200/docs`
+- Alternative API documentation (ReDoc): `http://localhost:9200/redoc`
+- OpenAPI specification: `http://localhost:9200/openapi.json`
 
 ## Error Handling
 

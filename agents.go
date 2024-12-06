@@ -19,13 +19,13 @@ type Agent struct {
 	TaskTypes    []string
 	SkillsByType map[string][]string
 	// External agent specific fields
-	BaseURL    string
-	Endpoints  map[string]string // taskType -> endpoint
-	broker     Broker
-	executor   Executor
-	metrics    *Metrics
-	registry   *CapabilityRegistry
-	cancelFunc context.CancelFunc
+	BaseURL         string
+	agentDefination *AgentDefinition
+	broker          Broker
+	executor        Executor
+	metrics         *Metrics
+	registry        *CapabilityRegistry
+	cancelFunc      context.CancelFunc
 }
 
 type AgentConfig struct {
@@ -71,17 +71,18 @@ func NewAgent(
 	e Executor,
 	m *Metrics,
 	r *CapabilityRegistry,
-	taskTypes []string,
-	skillsByType map[string][]string,
+	agentDefination *AgentDefinition,
 ) *Agent {
 	return &Agent{
-		ID:           id,
-		broker:       b,
-		executor:     e,
-		metrics:      m,
-		registry:     r,
-		TaskTypes:    taskTypes,
-		SkillsByType: skillsByType,
+		ID:              id,
+		broker:          b,
+		executor:        e,
+		metrics:         m,
+		registry:        r,
+		TaskTypes:       agentDefination.TaskTypes,
+		SkillsByType:    agentDefination.SkillsByType,
+		BaseURL:         agentDefination.BaseURL,
+		agentDefination: agentDefination,
 	}
 }
 

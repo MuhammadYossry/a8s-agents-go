@@ -4,7 +4,7 @@
         "id": "python-code-agent",
         "type": "external",
         "description": "Advanced Python code generation, testing, and deployment agent",
-        "baseURL": "https://agents.example.com/v1",
+        "baseURL": "http://localhost:9200/v1",
         "taskTypes": [
           "pythonCodeTask",
           "pythonTestingTask",
@@ -139,12 +139,12 @@
             "authorization": "role-based"
           }
         }
-      },
+      }     ,
       {
         "id": "ocr-vision-agent",
         "type": "external",
         "description": "Process OCR tasks by utilizing different vision models",
-        "baseURL": "https://agents.example.com/v1",
+        "baseURL": "http://localhost:9200/v1",
         "taskTypes": ["OCRTask"],
         "skillsByType": {
           "OCRTask  ": ["describeDocument", "categorizeDocument"]
@@ -207,7 +207,7 @@
         "id": "agent1",
         "type": "content",
         "description": "Content analysis and summarization agent",
-        "baseURL": "https://agents.example.com/v1",
+        "baseURL": "http://localhost:9200/v1",
         "taskTypes": ["book_task"],
         "skillsByType": {
           "book_task": ["book_summary", "text_analysis", "content_review"]
@@ -261,7 +261,7 @@
         "id": "agent2",
         "type": "media",
         "description": "Media processing and generation agent",
-        "baseURL": "https://agents.example.com/v1",
+        "baseURL": "http://localhost:9200/v1",
         "taskTypes": ["video_task", "image_task"],
         "skillsByType": {
           "video_task": ["video_generation", "video_editing"],
@@ -317,7 +317,7 @@
         "id": "agent3",
         "type": "analysis",
         "description": "Market and data analysis agent",
-        "baseURL": "https://agents.example.com/v1",
+        "baseURL": "http://localhost:9200/v1",
         "taskTypes": ["analysis_task"],
         "skillsByType": {
           "analysis_task": ["market_analysis", "data_visualization", "trend_analysis"]
@@ -375,7 +375,7 @@
         "id": "agent4",
         "type": "code",
         "description": "Code generation and review agent",
-        "baseURL": "https://agents.example.com/v1",
+        "baseURL": "http://localhost:9200/v1",
         "taskTypes": ["code_task"],
         "skillsByType": {
           "code_task": ["code_generation", "code_review", "code_optimization"]
@@ -429,7 +429,7 @@
         "id": "agent5",
         "type": "language",
         "description": "Language processing and translation agent",
-        "baseURL": "https://agents.example.com/v1",
+        "baseURL": "http://localhost:9200/v1",
         "taskTypes": ["translation_task", "language_task"],
         "skillsByType": {
           "translation_task": ["translation", "proofreading"],

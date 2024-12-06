@@ -11,7 +11,7 @@ import (
 	"time"
 )
 
-func LoadAgentConfig(filepath string, broker Broker, executor *TaskExecutor, metrics *Metrics, registry *CapabilityRegistry) ([]*Agent, error) {
+func LoadAgentConfig(filepath string, broker Broker, metrics *Metrics, registry *CapabilityRegistry) ([]*Agent, error) {
 	data, err := os.ReadFile(filepath)
 	if err != nil {
 		return nil, fmt.Errorf("reading config file: %w", err)
@@ -26,8 +26,9 @@ func LoadAgentConfig(filepath string, broker Broker, executor *TaskExecutor, met
 	for _, def := range config.Agents {
 		// ctx, cancel := context.WithCancel(context.Background())
 		// agentID =
-		agent := NewAgent(AgentID(def.ID), broker, executor, metrics,
-			registry, def.TaskTypes, def.SkillsByType)
+		taskExecutor := NewTaskExecutor(&def)
+		agent := NewAgent(AgentID(def.ID), broker, taskExecutor, metrics,
+			registry, &def)
 		// Type:         def.Type,
 		// Description:  def.Description,
 		// BaseURL:      def.BaseURL,
@@ -55,7 +56,7 @@ func main() {
 	registry := NewCapabilityRegistry()
 	router := NewTaskRouter(registry, broker, metrics)
 
-	agents, err := LoadAgentConfig("examples/agents.json", broker, NewTaskExecutor(),
+	agents, err := LoadAgentConfig("examples/agents.json", broker,
 		metrics, registry)
 	if err != nil {
 		fmt.Printf("Error loading config: %v\n", err)
@@ -70,52 +71,52 @@ func main() {
 		}
 	}
 
-	wf_agents := []*Agent{
-		NewAgent(
-			"wf_agent1",
-			broker,
-			NewTaskExecutor(),
-			NewMetrics(),
-			registry,
-			[]string{"data_ingest_task"},
-			map[string][]string{
-				"data_ingest_task": {"data_ingestion", "data_validation"},
-			},
-		),
-		NewAgent(
-			"wf_agent2",
-			broker,
-			NewTaskExecutor(),
-			NewMetrics(),
-			registry,
-			[]string{"data_transform_task"},
-			map[string][]string{
-				"data_transform_task": {"data_transformation", "data_cleaning"},
-			},
-		),
-		NewAgent(
-			"wf_agent3",
-			broker,
-			NewTaskExecutor(),
-			NewMetrics(),
-			registry,
-			[]string{"data_validation_task"},
-			map[string][]string{
-				"data_validation_task": {"data_validation", "quality_check"},
-			},
-		),
-		NewAgent(
-			"wf_agent4",
-			broker,
-			NewTaskExecutor(),
-			NewMetrics(),
-			registry,
-			[]string{"pipeline_monitor_task"},
-			map[string][]string{
-				"pipeline_monitor_task": {"pipeline_monitoring", "status_tracking"},
-			},
-		),
-	}
+	// wf_agents := []*Agent{
+	// 	NewAgent(
+	// 		"wf_agent1",
+	// 		broker,
+	// 		NewTaskExecutor(),
+	// 		NewMetrics(),
+	// 		registry,
+	// 		[]string{"data_ingest_task"},
+	// 		map[string][]string{
+	// 			"data_ingest_task": {"data_ingestion", "data_validation"},
+	// 		},
+	// 	),
+	// 	NewAgent(
+	// 		"wf_agent2",
+	// 		broker,
+	// 		NewTaskExecutor(),
+	// 		NewMetrics(),
+	// 		registry,
+	// 		[]string{"data_transform_task"},
+	// 		map[string][]string{
+	// 			"data_transform_task": {"data_transformation", "data_cleaning"},
+	// 		},
+	// 	),
+	// 	NewAgent(
+	// 		"wf_agent3",
+	// 		broker,
+	// 		NewTaskExecutor(),
+	// 		NewMetrics(),
+	// 		registry,
+	// 		[]string{"data_validation_task"},
+	// 		map[string][]string{
+	// 			"data_validation_task": {"data_validation", "quality_check"},
+	// 		},
+	// 	),
+	// 	NewAgent(
+	// 		"wf_agent4",
+	// 		broker,
+	// 		NewTaskExecutor(),
+	// 		NewMetrics(),
+	// 		registry,
+	// 		[]string{"pipeline_monitor_task"},
+	// 		map[string][]string{
+	// 			"pipeline_monitor_task": {"pipeline_monitoring", "status_tracking"},
+	// 		},
+	// 	),
+	// }
 
 	// Start agents
 	for _, agent := range agents {
@@ -125,88 +126,105 @@ func main() {
 	}
 
 	// Todo: refactor to remove Convert []*Agent to []Agent when passing to NewWorkflow
-	wfAgentsSlice := make([]Agent, len(wf_agents))
-	for i, agent := range wf_agents {
-		wfAgentsSlice[i] = *agent
-	}
+	// wfAgentsSlice := make([]Agent, len(wf_agents))
+	// for i, agent := range wf_agents {
+	// 	wfAgentsSlice[i] = *agent
+	// }
 
 	// Create and start the workflow with its dedicated agents
-	dataPipelineWorkflow := NewWorkflow(
-		"data_workflow_1",
-		broker,
-		metrics,
-		registry,
-		wf_agents, // Pass workflow-specific agents
-		[]string{"data_pipeline_task"},
-		map[string][]string{
-			"data_pipeline_task": {
-				"data_ingestion",
-				"data_transformation",
-				"data_validation",
-				"pipeline_monitoring",
-			},
-		},
-	)
+	// dataPipelineWorkflow := NewWorkflow(
+	// 	"data_workflow_1",
+	// 	broker,
+	// 	metrics,
+	// 	registry,
+	// 	wf_agents, // Pass workflow-specific agents
+	// 	[]string{"data_pipeline_task"},
+	// 	map[string][]string{
+	// 		"data_pipeline_task": {
+	// 			"data_ingestion",
+	// 			"data_transformation",
+	// 			"data_validation",
+	// 			"pipeline_monitoring",
+	// 		},
+	// 	},
+	// )
 
-	if err := dataPipelineWorkflow.Start(ctx); err != nil {
-		log.Fatalf("Failed to start workflow: %v", err)
-	}
+	// if err := dataPipelineWorkflow.Start(ctx); err != nil {
+	// 	log.Fatalf("Failed to start workflow: %v", err)
+	// }
 
 	// Create sample tasks
+	generatTaskData := `{
+        "code_requirements": {
+            "description": "Create a REST API endpoint",
+            "required_functions": ["get_user", "create_user"],
+            "dependencies": ["fastapi", "sqlalchemy"],
+            "python_version": "3.9",
+            "testing_requirements": ["pytest"]
+        },
+        "style_guide": "PEP8",
+        "include_tests": true,
+        "documentation_level": "detailed"
+    }`
+
 	tasks := []*Task{
 		{
 			ID:             "task1",
-			Title:          "Summarize Harry Potter Book",
-			Description:    "Create a summary of Harry Potter and the Philosopher's Stone",
-			Type:           "book_task",
-			SkillsRequired: []string{"book_summary", "content_review"},
+			Title:          "Create a REST API endpoint",
+			Description:    "Create a REST API endpoint using Pythoon",
+			Type:           "pythonCodeTask",
+			SkillsRequired: []string{"generateCode", "generateTests"},
+			Payload:        []byte(generatTaskData),
+			Status:         "Pending",
+			RetryCount:     0,
 			CreatedAt:      time.Now(),
+			UpdatedAt:      time.Time{},
 		},
-		{
-			ID:             "task2",
-			Title:          "Create Product Video",
-			Description:    "Generate promotional video for new product",
-			Type:           "video_task",
-			SkillsRequired: []string{"video_generation", "video_editing"},
-			CreatedAt:      time.Now(),
-		},
-		{
-			ID:             "task3",
-			Title:          "Market Analysis Report",
-			Description:    "Analyze EV market trends with visualizations",
-			Type:           "analysis_task",
-			SkillsRequired: []string{"market_analysis", "data_visualization"},
-			CreatedAt:      time.Now(),
-		},
-		{
-			ID:             "task4",
-			Title:          "Optimize Python Codebase",
-			Description:    "Review and optimize Python application performance",
-			Type:           "code_task",
-			SkillsRequired: []string{"code_review", "code_optimization"},
-			CreatedAt:      time.Now(),
-		},
-		{
-			ID:             "task5",
-			Title:          "Translate and Proofread Document",
-			Description:    "Translate English document to Spanish and proofread",
-			Type:           "translatio	n_task",
-			SkillsRequired: []string{"translation", "proofreading"},
-			CreatedAt:      time.Now(),
-		},
-		{
-			ID:          "task6",
-			Title:       "Process Customer Data Pipeline",
-			Description: "Execute end-to-end data processing pipeline for customer data(Workflow specfic)",
-			Type:        "data_pipeline_task",
-			SkillsRequired: []string{
-				"data_ingestion",
-				"data_transformation",
-				"data_validation",
-				"pipeline_monitoring",
-			},
-			CreatedAt: time.Now(),
-		},
+		// {
+		// 	ID:             "task2",
+		// 	Title:          "Create Product Video",
+		// 	Description:    "Generate promotional video for new product",
+		// 	Type:           "video_task",
+		// 	SkillsRequired: []string{"video_generation", "video_editing"},
+		// 	CreatedAt:      time.Now(),
+		// },
+		// {
+		// 	ID:             "task3",
+		// 	Title:          "Market Analysis Report",
+		// 	Description:    "Analyze EV market trends with visualizations",
+		// 	Type:           "analysis_task",
+		// 	SkillsRequired: []string{"market_analysis", "data_visualization"},
+		// 	CreatedAt:      time.Now(),
+		// },
+		// {
+		// 	ID:             "task4",
+		// 	Title:          "Optimize Python Codebase",
+		// 	Description:    "Review and optimize Python application performance",
+		// 	Type:           "code_task",
+		// 	SkillsRequired: []string{"code_review", "code_optimization"},
+		// 	CreatedAt:      time.Now(),
+		// },
+		// {
+		// 	ID:             "task5",
+		// 	Title:          "Translate and Proofread Document",
+		// 	Description:    "Translate English document to Spanish and proofread",
+		// 	Type:           "translatio	n_task",
+		// 	SkillsRequired: []string{"translation", "proofreading"},
+		// 	CreatedAt:      time.Now(),
+		// },
+		// {
+		// 	ID:          "task6",
+		// 	Title:       "Process Customer Data Pipeline",
+		// 	Description: "Execute end-to-end data processing pipeline for customer data(Workflow specfic)",
+		// 	Type:        "data_pipeline_task",
+		// 	SkillsRequired: []string{
+		// 		"data_ingestion",
+		// 		"data_transformation",
+		// 		"data_validation",
+		// 		"pipeline_monitoring",
+		// 	},
+		// 	CreatedAt: time.Now(),
+		// },
 	}
 
 	// Add a small delay before sending tasks
@@ -240,34 +258,34 @@ func main() {
 	log.Println("----------------------")
 
 	// Define all task types we want to report on
-	taskTypes := []string{
-		"book_task",
-		"video_task",
-		"analysis_task",
-		"code_task",
-		"translation_task",
-		"language_task",
-		"image_task",
-		"data_pipeline_task",
-		"data_ingest_task",
-		"data_transform_task",
-		"data_validation_task",
-		"pipeline_monitor_task",
-	}
+	// taskTypes := []string{
+	// 	"book_task",
+	// 	"video_task",
+	// 	"analysis_task",
+	// 	"code_task",
+	// 	"translation_task",
+	// 	"language_task",
+	// 	"image_task",
+	// 	"data_pipeline_task",
+	// 	"data_ingest_task",
+	// 	"data_transform_task",
+	// 	"data_validation_task",
+	// 	"pipeline_monitor_task",
+	// }
 
-	allMetrics := metrics.GetAllMetrics()
-	for _, taskType := range taskTypes {
-		if m, exists := allMetrics[taskType]; exists {
-			log.Printf("%s:\n  - Completed: %d\n  - Failed: %d\n  - Routing Successes: %d\n  - Routing Failures: %d",
-				taskType,
-				m.TasksCompleted,
-				m.TasksFailed,
-				m.RoutingSuccesses,
-				m.RoutingFailures)
-		} else {
-			log.Printf("%s: No metrics recorded", taskType)
-		}
-	}
+	// allMetrics := metrics.GetAllMetrics()
+	// for _, taskType := range taskTypes {
+	// 	if m, exists := allMetrics[taskType]; exists {
+	// 		log.Printf("%s:\n  - Completed: %d\n  - Failed: %d\n  - Routing Successes: %d\n  - Routing Failures: %d",
+	// 			taskType,
+	// 			m.TasksCompleted,
+	// 			m.TasksFailed,
+	// 			m.RoutingSuccesses,
+	// 			m.RoutingFailures)
+	// 	} else {
+	// 		log.Printf("%s: No metrics recorded", taskType)
+	// 	}
+	// }
 
 	// Shutdown agents
 	for _, agent := range agents {
