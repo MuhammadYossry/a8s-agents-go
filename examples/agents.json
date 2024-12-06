@@ -3,13 +3,30 @@
       {
         "id": "python-code-agent",
         "type": "external",
-        "description": "A specialized agent for Python code tasks",
+        "description": "Advanced Python code generation, testing, and deployment agent",
         "baseURL": "https://agents.example.com/v1",
-        "taskTypes": ["pythonCodeTask", "pythonHostingTask"],
+        "taskTypes": [
+          "pythonCodeTask",
+          "pythonTestingTask",
+          "pythonDeploymentTask"
+        ],
         "skillsByType": {
-          "pythonCodeTask": ["generateCode", "improveCode", "reviewCode", "testCode"],
-          "deployTask": ["deployPreview"]
-          
+          "pythonCodeTask": [
+            "generateCode",
+            "improveCode",
+            "reviewCode",
+            "formatCode"
+          ],
+          "pythonTestingTask": [
+            "generateTests",
+            "runTests",
+            "analyzeCoverage"
+          ],
+          "pythonDeploymentTask": [
+            "deployPreview",
+            "configureEnvironment",
+            "manageSecrets"
+          ]
         },
         "actions": [
           {
@@ -18,11 +35,23 @@
             "method": "POST",
             "inputSchema": {
               "type": "json",
-              "required": ["codeRequirements"]
+              "required": [
+                "codeRequirements"
+              ],
+              "optional": [
+                "styleGuide",
+                "includeTests",
+                "documentationLevel"
+              ]
             },
             "outputSchema": {
               "type": "json",
-              "fields": ["generatedCode", "description"]
+              "fields": [
+                "generatedCode",
+                "description",
+                "testCases",
+                "documentation"
+              ]
             }
           },
           {
@@ -31,24 +60,21 @@
             "method": "POST",
             "inputSchema": {
               "type": "json",
-              "required": ["changesList"]
+              "required": [
+                "changesList"
+              ],
+              "optional": [
+                "applyBlackFormatting",
+                "runLinter"
+              ]
             },
             "outputSchema": {
               "type": "json",
-              "fields": ["codeChanges", "changesDescription"]
-            }
-          },
-          {
-            "name": "reviewCode",
-            "path": "/code_agent/python/review_code",
-            "method": "POST",
-            "inputSchema": {
-              "type": "json",
-              "required": ["codeChanges"]
-            },
-            "outputSchema": {
-              "type": "json",
-              "fields": ["approvalStatus", "changesRequested"]
+              "fields": [
+                "codeChanges",
+                "changesDescription",
+                "qualityMetrics"
+              ]
             }
           },
           {
@@ -57,11 +83,23 @@
             "method": "POST",
             "inputSchema": {
               "type": "json",
-              "required": ["testType", "requirePassing", "testInstructions"]
+              "required": [
+                "testType",
+                "requirePassing",
+                "testInstructions",
+                "codeToTest"
+              ],
+              "optional": [
+                "minimumCoverage"
+              ]
             },
             "outputSchema": {
               "type": "json",
-              "fields": ["codeTests", "testsDescription", "coverageStatus"]
+              "fields": [
+                "codeTests",
+                "testsDescription",
+                "coverageStatus"
+              ]
             }
           },
           {
@@ -70,14 +108,37 @@
             "method": "POST",
             "inputSchema": {
               "type": "json",
-              "required": ["branchID", "isPrivate"]
+              "required": [
+                "branchID",
+                "isPrivate"
+              ],
+              "optional": [
+                "environmentVars"
+              ]
             },
             "outputSchema": {
               "type": "json",
-              "fields": ["previewURL", "isPrivate", "HTTPAuth"]
+              "fields": [
+                "previewURL",
+                "isPrivate",
+                "HTTPAuth",
+                "deploymentTime"
+              ]
             }
           }
-        ]
+        ],
+        "features": {
+          "asyncProcessing": true,
+          "backgroundTasks": true,
+          "errorHandling": {
+            "retries": 3,
+            "fallbackBehavior": "graceful-degradation"
+          },
+          "security": {
+            "authentication": "required",
+            "authorization": "role-based"
+          }
+        }
       },
       {
         "id": "ocr-vision-agent",
