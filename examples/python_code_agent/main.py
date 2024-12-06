@@ -1,5 +1,5 @@
 from fastapi import FastAPI, HTTPException, BackgroundTasks
-from pydantic import BaseModel, Field, validator
+from pydantic import BaseModel, Field, ConfigDict
 from typing import List, Optional, Dict, Any, Literal
 from enum import Enum
 import ast
@@ -9,39 +9,49 @@ from dataclasses import dataclass
 import json
 from datetime import datetime
 
+class BaseModelCamel(BaseModel):
+    """Base model that configures camelCase support."""
+    model_config = ConfigDict(
+        alias_generator=lambda s: ''.join(
+            word.capitalize() if i > 0 else word
+            for i, word in enumerate(s.split('_'))
+        ),
+        populate_by_name=True
+    )
+
 # Base Models for Code Management
-class CodeRequirement(BaseModel):
+class CodeRequirement(BaseModelCamel):
     description: str
     required_functions: List[str]
     dependencies: List[str] = []
     python_version: str = "3.9"
     testing_requirements: Optional[List[str]]
 
-class GenerateCodeInput(BaseModel):
+class GenerateCodeInput(BaseModelCamel):
     code_requirements: CodeRequirement
     style_guide: Optional[str] = "PEP8"
     include_tests: Optional[bool] = False
     documentation_level: Literal["minimal", "standard", "detailed"] = "standard"
 
-class GenerateCodeOutput(BaseModel):
+class GenerateCodeOutput(BaseModelCamel):
     generated_code: str
     description: str
     test_cases: Optional[List[str]]
     documentation: Dict[str, str]
 
-class CodeChange(BaseModel):
+class CodeChange(BaseModelCamel):
     file_path: str
     original_code: str
     proposed_changes: str
     change_type: Literal["improvement", "bug_fix", "feature", "refactor"]
     priority: Literal["low", "medium", "high"]
 
-class ImproveCodeInput(BaseModel):
+class ImproveCodeInput(BaseModelCamel):
     changes_list: List[CodeChange]
     apply_black_formatting: bool = True
     run_linter: bool = True
 
-class ImproveCodeOutput(BaseModel):
+class ImproveCodeOutput(BaseModelCamel):
     code_changes: List[CodeChange]
     changes_description: str
     quality_metrics: Dict[str, float]
@@ -51,30 +61,30 @@ class TestType(str, Enum):
     INTEGRATION = "integration"
     PERFORMANCE = "performance"
 
-class TestCodeInput(BaseModel):
+class TestCodeInput(BaseModelCamel):
     test_type: TestType
     require_passing: bool
     test_instructions: str
     code_to_test: str
     minimum_coverage: float = 80.0
 
-class TestResult(BaseModel):
+class TestResult(BaseModelCamel):
     passed: bool
     execution_time: float
     coverage_percentage: float
     failing_tests: List[str] = []
 
-class TestCodeOutput(BaseModel):
+class TestCodeOutput(BaseModelCamel):
     code_tests: List[str]
     tests_description: str
     coverage_status: TestResult
 
-class DeployPreviewInput(BaseModel):
+class DeployPreviewInput(BaseModelCamel):
     branch_id: str
     is_private: bool
     environment_vars: Optional[Dict[str, str]]
 
-class DeployPreviewOutput(BaseModel):
+class DeployPreviewOutput(BaseModelCamel):
     preview_url: str
     is_private: bool
     http_auth: Optional[Dict[str, str]]

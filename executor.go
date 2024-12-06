@@ -26,8 +26,6 @@ func NewTaskExecutor(agentDefinition *AgentDefinition) *TaskExecutor {
 func (e *TaskExecutor) Execute(ctx context.Context, task *Task) (*TaskResult, error) {
 	// Simulate some work being don
 	if e.AgentDef.Type == "external" {
-		log.Print(e.AgentDef)
-		// the statment output &{python-code-agent external Advanced Python code generation, testing, and deployment agent http://localhost:9200/v1 [pythonCodeTask pythonTestingTask pythonDeploymentTask] map[pythonCodeTask:[generateCode improveCode reviewCode formatCode] pythonDeploymentTask:[deployPreview configureEnvironment manageSecrets] pythonTestingTask:[generateTests runTests analyzeCoverage]] [{generateCode /code_agent/python/generate_code POST {json [codeRequirements] [] map[]} {json [] [generatedCode description testCases documentation] map[]}} {improveCode /code_agent/python/improve_code POST {json [changesList] [] map[]} {json [] [codeChanges changesDescription qualityMetrics] map[]}} {testCode /code_agent/python/test_code POST {json [testType requirePassing testInstructions codeToTest] [] map[]} {json [] [codeTests testsDescription coverageStatus] map[]}} {deployPreview /deploy_agent/python/preview POST {json [branchID isPrivate] [] map[]} {json [] [previewURL isPrivate HTTPAuth deploymentTime] map[]}}]}
 		e.externalExecute(ctx, task)
 	}
 
@@ -63,93 +61,155 @@ type GenerateCodeResponse struct {
 	Documentation string `json:"documentation"`
 }
 
+type SchemaParser struct {
+	inputSchema  SchemaConfig
+	outputSchema SchemaConfig
+}
+
+func NewSchemaParser(action Action) *SchemaParser {
+	return &SchemaParser{
+		inputSchema:  action.InputSchema,
+		outputSchema: action.OutputSchema,
+	}
+}
+
+func (p *SchemaParser) ValidateAndPrepareRequest(data map[string]interface{}) error {
+	log.Printf("Validating fields: %v against required: %v", getKeys(data), p.inputSchema.Required)
+	for _, field := range p.inputSchema.Required {
+		if _, exists := data[field]; !exists {
+			return fmt.Errorf("missing required field: %s (available fields: %v)",
+				field, getKeys(data))
+		}
+	}
+	return nil
+}
+
+func (p *SchemaParser) ValidateResponse(response map[string]interface{}) error {
+	for _, field := range p.outputSchema.Required {
+		if _, exists := response[field]; !exists {
+			return fmt.Errorf("response missing required field: %s", field)
+		}
+	}
+	return nil
+}
+
 func (e *TaskExecutor) externalExecute(ctx context.Context, task *Task) (*TaskResult, error) {
-	if task.Type == "pythonCodeTask" && task.SkillsRequired[0] == "generateCode" {
-		// Find the matching action from AgentDef
-		var targetAction Action
-		for _, action := range e.AgentDef.Actions {
-			if action.Name == "generateCode" {
-				targetAction = action
-				break
+	// Find matching action
+	var targetAction Action
+	found := false
+	for _, action := range e.AgentDef.Actions {
+		for taskType, skills := range e.AgentDef.SkillsByType {
+			if task.Type == taskType {
+				for _, skill := range skills {
+					if skill == task.SkillsRequired[0] && action.Name == skill {
+						targetAction = action
+						found = true
+						break
+					}
+				}
 			}
 		}
-
-		// Construct the full URL
-		url := fmt.Sprintf("%s%s", e.AgentDef.BaseURL, targetAction.Path)
-
-		// Create the request payload
-		reqBody := GenerateCodeRequest{
-			CodeRequirements: CodeRequirements{
-				Description:         "Create a REST API endpoint",
-				RequiredFunctions:   []string{"get_user", "create_user"},
-				Dependencies:        []string{"fastapi", "sqlalchemy"},
-				PythonVersion:       "3.9",
-				TestingRequirements: []string{"pytest"},
-			},
-			StyleGuide:         "PEP8",
-			IncludeTests:       true,
-			DocumentationLevel: "detailed",
+		if found {
+			break
 		}
-
-		// Marshal the request body
-		jsonBody, err := json.Marshal(reqBody)
-		if err != nil {
-			return nil, fmt.Errorf("failed to marshal request body: %w", err)
-		}
-
-		// Create the HTTP request
-		req, err := http.NewRequestWithContext(ctx, targetAction.Method, url, bytes.NewBuffer(jsonBody))
-		if err != nil {
-			return nil, fmt.Errorf("failed to create request: %w", err)
-		}
-
-		// Set headers
-		req.Header.Set("Content-Type", "application/json")
-
-		// Make the request
-		client := &http.Client{
-			Timeout: 30 * time.Second,
-		}
-
-		resp, err := client.Do(req)
-		if err != nil {
-			return nil, fmt.Errorf("failed to execute request: %w", err)
-		}
-		defer resp.Body.Close()
-
-		// Read response body
-		body, err := io.ReadAll(resp.Body)
-		if err != nil {
-			return nil, fmt.Errorf("failed to read response body: %w", err)
-		}
-
-		// Check status code
-		if resp.StatusCode != http.StatusOK {
-			return nil, fmt.Errorf("unexpected status code: %d, body: %s", resp.StatusCode, string(body))
-		}
-
-		// Parse response into a dynamic map
-		var response map[string]interface{}
-		if err := json.Unmarshal(body, &response); err != nil {
-			return nil, fmt.Errorf("failed to unmarshal response: %w", err)
-		}
-
-		// Log the raw response
-		log.Printf("Raw Response Body: %s", string(body))
-
-		// Log the parsed response
-		log.Printf("Parsed Response: %+v", response)
-
-		return &TaskResult{
-			TaskID:     task.ID,
-			Success:    true,
-			FinishedAt: time.Now(),
-		}, nil
 	}
+
+	if !found {
+		return nil, fmt.Errorf("no matching action found for task type %s and skill %s",
+			task.Type, task.SkillsRequired[0])
+	}
+
+	// Create schema parser
+	parser := NewSchemaParser(targetAction)
+
+	// Prepare request body
+	reqBody := map[string]interface{}{
+		"codeRequirements": map[string]interface{}{ // Changed from code_requirements to codeRequirements
+			"description":          "Create a REST API endpoint",
+			"required_functions":   []string{"get_user", "create_user"},
+			"dependencies":         []string{"fastapi", "sqlalchemy"},
+			"python_version":       "3.9",
+			"testing_requirements": []string{"pytest"},
+		},
+		"styleGuide":         "PEP8",     // Changed from style_guide to styleGuide
+		"includeTests":       true,       // Changed from include_tests to includeTests
+		"documentationLevel": "detailed", // Changed from documentation_level to documentationLevel
+	}
+
+	// Log the schema requirements for debugging
+	log.Printf("Input Schema Required Fields: %v", targetAction.InputSchema.Required)
+	log.Printf("Request Body Keys: %v", getKeys(reqBody))
+
+	// Validate request against schema
+	if err := parser.ValidateAndPrepareRequest(reqBody); err != nil {
+		log.Printf("Validation Error: %v", err)
+		return nil, fmt.Errorf("invalid request: %w", err)
+	}
+
+	// Marshal request body
+	jsonBody, err := json.Marshal(reqBody)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal request: %w", err)
+	}
+
+	// Construct URL and create request
+	url := fmt.Sprintf("%s%s", e.AgentDef.BaseURL, targetAction.Path)
+	req, err := http.NewRequestWithContext(ctx, targetAction.Method, url, bytes.NewBuffer(jsonBody))
+	if err != nil {
+		log.Printf("Agent request creation error: %v", err)
+		return nil, fmt.Errorf("failed to create request: %w", err)
+	}
+
+	// Set headers
+	req.Header.Set("Content-Type", "application/json")
+
+	// Execute request
+	client := &http.Client{Timeout: 30 * time.Second}
+	resp, err := client.Do(req)
+	if err != nil {
+		log.Printf("Agent request execution error: %v", err)
+		return nil, fmt.Errorf("failed to execute request: %w", err)
+	}
+	defer resp.Body.Close()
+
+	// Read response
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read response: %w", err)
+	}
+
+	// Handle non-200 responses
+	if resp.StatusCode != http.StatusOK {
+		var response map[string]interface{}
+		log.Print(json.Unmarshal(body, &response))
+		return nil, fmt.Errorf("request failed with status %d: %s", resp.StatusCode, string(body))
+	}
+
+	// Parse and validate response
+	var response map[string]interface{}
+	if err := json.Unmarshal(body, &response); err != nil {
+		return nil, fmt.Errorf("failed to parse response: %w", err)
+	}
+
+	if err := parser.ValidateResponse(response); err != nil {
+		return nil, fmt.Errorf("invalid response: %w", err)
+	}
+
+	log.Printf("Successfully executed task %s with response: %+v", task.ID, response)
 
 	return &TaskResult{
 		TaskID:     task.ID,
+		Output:     body,
 		Success:    true,
 		FinishedAt: time.Now(),
 	}, nil
+}
+
+// Helper function to get map keys for debugging
+func getKeys(m map[string]interface{}) []string {
+	keys := make([]string, 0, len(m))
+	for k := range m {
+		keys = append(keys, k)
+	}
+	return keys
 }
