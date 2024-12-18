@@ -2,6 +2,7 @@
 package main
 
 import (
+	"strings"
 	"sync"
 	"time"
 )
@@ -19,16 +20,28 @@ type MetricsData struct {
 	ProcessingTimes       []time.Duration
 }
 
+type MetricsKey struct {
+	SkillPath string // Dot-separated path
+	Action    string
+}
+
 type Metrics struct {
 	mu             sync.RWMutex
-	data           map[string]*MetricsData
+	data           map[MetricsKey]*MetricsData
 	taskStartTimes map[string]time.Time
 }
 
 func NewMetrics() *Metrics {
 	return &Metrics{
-		data:           make(map[string]*MetricsData),
+		data:           make(map[MetricsKey]*MetricsData),
 		taskStartTimes: make(map[string]time.Time),
+	}
+}
+
+func createMetricsKey(req TaskRequirement) MetricsKey {
+	return MetricsKey{
+		SkillPath: strings.Join(req.SkillPath, "."),
+		Action:    req.Action,
 	}
 }
 
@@ -40,78 +53,70 @@ func (m *Metrics) RecordTaskStart(taskID string) {
 }
 
 // RecordTaskComplete updates metrics for a completed task
-func (m *Metrics) RecordTaskComplete(taskType string, taskID string) {
+func (m *Metrics) RecordTaskComplete(requirements TaskRequirement, taskID string) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
-	if _, exists := m.data[taskType]; !exists {
-		m.data[taskType] = &MetricsData{
+	key := createMetricsKey(requirements)
+	if _, exists := m.data[key]; !exists {
+		m.data[key] = &MetricsData{
 			ProcessingTimes: make([]time.Duration, 0),
 		}
 	}
 
-	// Calculate duration if we have a start time
 	if startTime, exists := m.taskStartTimes[taskID]; exists {
 		duration := time.Since(startTime)
-		m.data[taskType].ProcessingTimes = append(m.data[taskType].ProcessingTimes, duration)
-		m.data[taskType].TotalProcessingTime += duration
-		m.data[taskType].TasksCompleted++
-		m.data[taskType].AverageProcessingTime = m.data[taskType].TotalProcessingTime /
-			time.Duration(m.data[taskType].TasksCompleted)
+		m.data[key].ProcessingTimes = append(m.data[key].ProcessingTimes, duration)
+		m.data[key].TotalProcessingTime += duration
+		m.data[key].TasksCompleted++
+		m.data[key].AverageProcessingTime = m.data[key].TotalProcessingTime /
+			time.Duration(m.data[key].TasksCompleted)
 
-		// Cleanup
 		delete(m.taskStartTimes, taskID)
 	} else {
-		// If no start time, just increment completion counter
-		m.data[taskType].TasksCompleted++
+		m.data[key].TasksCompleted++
 	}
 }
 
 // initMetricsIfNeeded initializes metrics for a task type if not exists
-func (m *Metrics) initMetricsIfNeeded(taskType string) *MetricsData {
-	if _, exists := m.data[taskType]; !exists {
-		m.data[taskType] = &MetricsData{
+func (m *Metrics) initMetricsIfNeeded(key MetricsKey) *MetricsData {
+	if _, exists := m.data[key]; !exists {
+		m.data[key] = &MetricsData{
 			ProcessingTimes: make([]time.Duration, 0),
 		}
 	}
-	return m.data[taskType]
+	return m.data[key]
 }
 
 // RecordTaskError updates metrics for a failed task
-func (m *Metrics) RecordTaskError(taskType string, err error) {
+func (m *Metrics) RecordTaskError(requirements TaskRequirement, err error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
-	metrics := m.initMetricsIfNeeded(taskType)
+	key := createMetricsKey(requirements)
+	metrics := m.initMetricsIfNeeded(key)
 	metrics.TasksFailed++
 	metrics.LastError = err
 	metrics.LastErrorTime = time.Now()
 }
 
 // RecordRoutingSuccess updates metrics for successful task routing
-func (m *Metrics) RecordRoutingSuccess(taskType string, agentID string) {
+func (m *Metrics) RecordRoutingSuccess(requirements TaskRequirement, agentID string) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
-	metrics := m.initMetricsIfNeeded(taskType)
+	key := createMetricsKey(requirements)
+	metrics := m.initMetricsIfNeeded(key)
 	metrics.RoutingSuccesses++
 }
 
-// RecordRoutingFailure updates metrics for failed task routing
-func (m *Metrics) RecordRoutingFailure(taskType string, reason string) {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-
-	metrics := m.initMetricsIfNeeded(taskType)
-	metrics.RoutingFailures++
-}
-
 // GetMetrics returns the current metrics for a task type
-func (m *Metrics) GetMetrics(taskType string) *MetricsData {
+func (m *Metrics) GetMetrics(requirements TaskRequirement) *MetricsData {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 
-	if metrics, exists := m.data[taskType]; exists {
+	key := createMetricsKey(requirements)
+	if metrics, exists := m.data[key]; exists {
 		// Return a deep copy to prevent external modifications
 		metricsCopy := *metrics
 		if metrics.ProcessingTimes != nil {
@@ -123,20 +128,30 @@ func (m *Metrics) GetMetrics(taskType string) *MetricsData {
 	return nil
 }
 
+// RecordRoutingFailure updates metrics for failed task routing
+func (m *Metrics) RecordRoutingFailure(requirements TaskRequirement, reason string) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	key := createMetricsKey(requirements)
+	metrics := m.initMetricsIfNeeded(key)
+	metrics.RoutingFailures++
+}
+
 // GetAllMetrics returns metrics for all task types
-func (m *Metrics) GetAllMetrics() map[string]*MetricsData {
+func (m *Metrics) GetAllMetrics() map[MetricsKey]*MetricsData {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 
 	// Create a deep copy to avoid external modifications
-	result := make(map[string]*MetricsData, len(m.data))
-	for taskType, metrics := range m.data {
+	result := make(map[MetricsKey]*MetricsData, len(m.data))
+	for key, metrics := range m.data {
 		metricsCopy := *metrics
 		if metrics.ProcessingTimes != nil {
 			metricsCopy.ProcessingTimes = make([]time.Duration, len(metrics.ProcessingTimes))
 			copy(metricsCopy.ProcessingTimes, metrics.ProcessingTimes)
 		}
-		result[taskType] = &metricsCopy
+		result[key] = &metricsCopy
 	}
 	return result
 }
@@ -146,6 +161,6 @@ func (m *Metrics) ResetMetrics() {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
-	m.data = make(map[string]*MetricsData)
+	m.data = make(map[MetricsKey]*MetricsData)
 	m.taskStartTimes = make(map[string]time.Time)
 }

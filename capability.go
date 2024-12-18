@@ -1,17 +1,18 @@
 package main
 
-import "sync"
+import (
+	"strings"
+	"sync"
+)
 
 type TaskCapability struct {
 	Skills []string
 }
 
 type Capability struct {
-	Name    string
-	Version string
-	Enabled bool
-	// Map of task type to its required skills
-	TaskCapabilities map[string]TaskCapability
+	SkillPath []string               `json:"skillPath"`
+	Level     string                 `json:"level"`
+	Metadata  map[string]interface{} `json:"metadata"`
 }
 
 type CapabilityRegistry struct {
@@ -31,61 +32,63 @@ func (r *CapabilityRegistry) Register(agentID AgentID, cap AgentCapability) {
 	r.capabilities[agentID] = cap
 }
 
-func (r *CapabilityRegistry) FindMatchingAgents(taskType string, taskSkills []string) []AgentID {
+func (r *CapabilityRegistry) FindMatchingAgents(task *Task) []AgentID {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 
 	var matchingAgents []AgentID
 	for agentID, agentCap := range r.capabilities {
-		// First check if agent supports this task type
-		supportsTaskType := false
-		for _, supportedType := range agentCap.TaskTypes {
-			if supportedType == taskType {
-				supportsTaskType = true
-				break
-			}
-		}
-		if !supportsTaskType {
-			continue
-		}
-
-		// Then check if agent has all required skills for this task type
-		agentSkills, hasTaskTypeSkills := agentCap.SkillsByType[taskType]
-		if !hasTaskTypeSkills {
-			continue
-		}
-
-		// Verify all required skills are present
-		hasAllSkills := true
-		for _, requiredSkill := range taskSkills {
-			found := false
-			for _, agentSkill := range agentSkills {
-				if agentSkill == requiredSkill {
-					found = true
-					break
-				}
-			}
-			if !found {
-				hasAllSkills = false
-				break
-			}
-		}
-
-		if hasAllSkills {
+		if supportsTaskRequirements(agentCap, task.Requirements) {
 			matchingAgents = append(matchingAgents, agentID)
 		}
 	}
 	return matchingAgents
 }
 
+func supportsTaskRequirements(agentCap AgentCapability, req TaskRequirement) bool {
+	// Check if agent has matching capability path
+	hasMatchingPath := false
+	for _, cap := range agentCap.Capabilities {
+		if matchesCapabilityPath(cap.SkillPath, req.SkillPath) {
+			hasMatchingPath = true
+			break
+		}
+	}
+	if !hasMatchingPath {
+		return false
+	}
+
+	// Check if agent has matching action
+	for _, action := range agentCap.Actions {
+		if action.Name == req.Action {
+			return true
+		}
+	}
+	return false
+}
+
+func matchesCapabilityPath(capPath []string, taskPath TaskPath) bool {
+	if len(taskPath) > len(capPath) {
+		return false
+	}
+
+	// Check if capability path contains all elements of task path in order
+	for i, pathElement := range taskPath {
+		if !strings.EqualFold(capPath[i], pathElement) {
+			return false
+		}
+	}
+	return true
+}
+
 func (r *CapabilityRegistry) RegisterWorkflow(workflowID WorkFlowID, cap WorkFlowCapability) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	// Store workflow capabilities in the same map using AgentID
-	r.capabilities[AgentID(workflowID)] = AgentCapability{
+
+	agentCap := AgentCapability{
 		AgentID:      AgentID(workflowID),
-		TaskTypes:    cap.TaskTypes,
-		SkillsByType: cap.SkillsByType,
+		Capabilities: cap.Capabilities,
 		Resources:    cap.Resources,
 	}
+	r.capabilities[AgentID(workflowID)] = agentCap
 }

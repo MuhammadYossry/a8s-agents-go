@@ -3,7 +3,6 @@ package main
 
 import (
 	"context"
-	"fmt"
 	"log"
 )
 
@@ -13,14 +12,11 @@ const (
 )
 
 type Agent struct {
-	ID           AgentID
-	Type         AgentType
-	Description  string
-	TaskTypes    []string
-	SkillsByType map[string][]string
-	// External agent specific fields
+	ID              AgentID
+	Type            AgentType
+	Description     string
 	BaseURL         string
-	agentDefination *AgentDefinition
+	agentDefinition *AgentDefinition
 	broker          Broker
 	executor        Executor
 	metrics         *Metrics
@@ -33,13 +29,12 @@ type AgentConfig struct {
 }
 
 type AgentDefinition struct {
-	ID           string              `json:"id"`
-	Type         string              `json:"type"`
-	Description  string              `json:"description"`
-	BaseURL      string              `json:"baseURL"`
-	TaskTypes    []string            `json:"taskTypes"`
-	SkillsByType map[string][]string `json:"skillsByType"`
-	Actions      []Action            `json:"actions"`
+	ID           string       `json:"id"`
+	Type         string       `json:"type"`
+	Description  string       `json:"description"`
+	BaseURL      string       `json:"baseURL"`
+	Capabilities []Capability `json:"capabilities"`
+	Actions      []Action     `json:"actions"`
 }
 
 type Action struct {
@@ -66,23 +61,22 @@ type Property struct {
 }
 
 func NewAgent(
-	id AgentID,
-	b Broker,
-	e Executor,
-	m *Metrics,
-	r *CapabilityRegistry,
-	agentDefination *AgentDefinition,
+	def *AgentDefinition,
+	broker Broker,
+	executor Executor,
+	metrics *Metrics,
+	registry *CapabilityRegistry,
 ) *Agent {
 	return &Agent{
-		ID:              id,
-		broker:          b,
-		executor:        e,
-		metrics:         m,
-		registry:        r,
-		TaskTypes:       agentDefination.TaskTypes,
-		SkillsByType:    agentDefination.SkillsByType,
-		BaseURL:         agentDefination.BaseURL,
-		agentDefination: agentDefination,
+		ID:              AgentID(def.ID),
+		Type:            AgentType(def.Type),
+		Description:     def.Description,
+		BaseURL:         def.BaseURL,
+		agentDefinition: def,
+		broker:          broker,
+		executor:        executor,
+		metrics:         metrics,
+		registry:        registry,
 	}
 }
 
@@ -90,24 +84,22 @@ func (a *Agent) Start(ctx context.Context) error {
 	ctx, cancel := context.WithCancel(ctx)
 	a.cancelFunc = cancel
 
-	// Register agent's capabilities
-	a.registry.Register(a.ID, AgentCapability{
+	agentCap := AgentCapability{
 		AgentID:      a.ID,
-		TaskTypes:    a.TaskTypes,
-		SkillsByType: a.SkillsByType,
+		Capabilities: a.agentDefinition.Capabilities,
+		Actions:      a.agentDefinition.Actions,
 		Resources: map[string]int{
 			"cpu": 4,
 			"gpu": 1,
 		},
-	})
+	}
+	a.registry.Register(a.ID, agentCap)
 
-	// Subscribe to agent-specific topic
 	taskCh, err := a.broker.Subscribe(ctx, string(a.ID))
 	if err != nil {
 		return err
 	}
 
-	// Start task processing
 	go func() {
 		for {
 			select {
@@ -122,28 +114,27 @@ func (a *Agent) Start(ctx context.Context) error {
 		}
 	}()
 
-	log.Printf("Agent %s started with capabilities - Task Types: %v, Skills by Type: %v",
-		a.ID, a.TaskTypes, a.SkillsByType)
+	log.Printf("Agent %s started with %d capabilities and %d actions",
+		a.ID, len(a.agentDefinition.Capabilities), len(a.agentDefinition.Actions))
 	return nil
 }
 
 func (a *Agent) processTask(ctx context.Context, task *Task) {
-	log.Printf("Agent %s starting work on task: %s (Type: %s, Required Skills: %v)",
-		a.ID, task.Title, task.Type, task.SkillsRequired)
+	log.Printf("Agent %s processing task: %s (Required Skills: %v)",
+		a.ID, task.Title, task.Requirements.SkillPath)
 
 	result, err := a.executor.Execute(ctx, task)
 	if err != nil {
 		log.Printf("Agent %s failed to execute task %s: %v", a.ID, task.Title, err)
-		a.metrics.RecordTaskError(task.Type, err)
+		// a.metrics.RecordTaskError(task.Type, err)
 		return
 	}
 
 	if result.Success {
-		// Record completion with duration calculation
-		a.metrics.RecordTaskComplete(task.Type, task.ID)
+		// a.metrics.RecordTaskComplete(task.Type, task.ID)
 		log.Printf("Agent %s successfully completed task: %s", a.ID, task.Title)
 	} else {
-		a.metrics.RecordTaskError(task.Type, fmt.Errorf("task completed unsuccessfully"))
+		// a.metrics.RecordTaskError(task.Type, fmt.Errorf("task completed unsuccessfully"))
 		log.Printf("Agent %s task completed but unsuccessful: %s", a.ID, task.Title)
 	}
 }

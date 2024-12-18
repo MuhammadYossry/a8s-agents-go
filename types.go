@@ -7,17 +7,15 @@ import (
 type AgentID string
 type AgentType string
 type AgentCapability struct {
-	AgentID   AgentID
-	TaskTypes []string
-	// Skills map is now organized by task type
-	SkillsByType map[string][]string // map[TaskType][]Skills
+	AgentID      AgentID
+	Capabilities []Capability
+	Actions      []Action
 	Resources    map[string]int
 }
 type WorkFlowID string
 type WorkFlowCapability struct {
 	WorkFlowID   WorkFlowID
-	TaskTypes    []string
-	SkillsByType map[string][]string
+	Capabilities []Capability
 	Resources    map[string]int
 }
 type TaskStatus string
@@ -29,17 +27,23 @@ const (
 	TaskStatusFailed   TaskStatus = "failed"
 )
 
+type TaskPath []string
+type TaskRequirement struct {
+	SkillPath  TaskPath               `json:"path"`       // e.g. ["Development", "Backend", "Python", "CodeGeneration"]
+	Action     string                 `json:"action"`     // e.g. "generateCode"
+	Parameters map[string]interface{} `json:"parameters"` // Additional parameters for matching
+}
+
 type Task struct {
-	ID             string
-	Title          string
-	Description    string // optional
-	Type           string
-	SkillsRequired []string // required skills
-	Payload        []byte
-	Status         TaskStatus
-	RetryCount     int
-	CreatedAt      time.Time
-	UpdatedAt      time.Time
+	ID           string          `json:"id"`
+	Title        string          `json:"title"`
+	Description  string          `json:"description"`
+	Requirements TaskRequirement `json:"requirements"`
+	Payload      []byte          `json:"payload"`
+	Status       TaskStatus      `json:"status"`
+	RetryCount   int             `json:"retryCount"`
+	CreatedAt    time.Time       `json:"createdAt"`
+	UpdatedAt    time.Time       `json:"updatedAt"`
 }
 
 type TaskResult struct {

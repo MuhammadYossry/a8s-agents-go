@@ -1,485 +1,500 @@
 {
-    "agents": [
-      {
-        "id": "python-code-agent",
-        "type": "external",
-        "description": "Advanced Python code generation, testing, and deployment agent",
-        "baseURL": "http://localhost:9200/v1",
-        "taskTypes": [
-          "pythonCodeTask",
-          "pythonTestingTask",
-          "pythonDeploymentTask"
-        ],
-        "skillsByType": {
-          "pythonCodeTask": [
-            "generateCode",
-            "improveCode",
-            "reviewCode",
-            "formatCode"
-          ],
-          "pythonTestingTask": [
-            "generateTests",
-            "runTests",
-            "analyzeCoverage"
-          ],
-          "pythonDeploymentTask": [
-            "deployPreview",
-            "configureEnvironment",
-            "manageSecrets"
-          ]
-        },
-        "actions": [
-          {
-            "name": "generateCode",
-            "path": "/code_agent/python/generate_code",
-            "method": "POST",
-            "inputSchema": {
-              "type": "json",
-              "required": [
-                "codeRequirements"
-              ],
-              "optional": [
-                "styleGuide",
-                "includeTests",
-                "documentationLevel"
-              ]
-            },
-            "outputSchema": {
-              "type": "json",
-              "fields": [
-                "generatedCode",
-                "description",
-                "testCases",
-                "documentation"
-              ]
-            }
-          },
-          {
-            "name": "improveCode",
-            "path": "/code_agent/python/improve_code",
-            "method": "POST",
-            "inputSchema": {
-              "type": "json",
-              "required": [
-                "changesList"
-              ],
-              "optional": [
-                "applyBlackFormatting",
-                "runLinter"
-              ]
-            },
-            "outputSchema": {
-              "type": "json",
-              "fields": [
-                "codeChanges",
-                "changesDescription",
-                "qualityMetrics"
-              ]
-            }
-          },
-          {
-            "name": "testCode",
-            "path": "/code_agent/python/test_code",
-            "method": "POST",
-            "inputSchema": {
-              "type": "json",
-              "required": [
-                "testType",
-                "requirePassing",
-                "testInstructions",
-                "codeToTest"
-              ],
-              "optional": [
-                "minimumCoverage"
-              ]
-            },
-            "outputSchema": {
-              "type": "json",
-              "fields": [
-                "codeTests",
-                "testsDescription",
-                "coverageStatus"
-              ]
-            }
-          },
-          {
-            "name": "deployPreview",
-            "path": "/deploy_agent/python/preview",
-            "method": "POST",
-            "inputSchema": {
-              "type": "json",
-              "required": [
-                "branchID",
-                "isPrivate"
-              ],
-              "optional": [
-                "environmentVars"
-              ]
-            },
-            "outputSchema": {
-              "type": "json",
-              "fields": [
-                "previewURL",
-                "isPrivate",
-                "HTTPAuth",
-                "deploymentTime"
-              ]
-            }
+  "agents": [
+    {
+      "id": "python-code-agent",
+      "type": "external",
+      "description": "Advanced Python code generation, testing, and deployment agent",
+      "baseURL": "http://localhost:9200/v1",
+      "capabilities": [
+        {
+          "skillPath": ["Development"],
+          "level": "domain",
+          "metadata": {
+            "expertise": "advanced"
           }
-        ],
-        "features": {
-          "asyncProcessing": true,
-          "backgroundTasks": true,
-          "errorHandling": {
-            "retries": 3,
-            "fallbackBehavior": "graceful-degradation"
-          },
-          "security": {
-            "authentication": "required",
-            "authorization": "role-based"
+        },
+        {
+          "skillPath": ["Development", "Backend", "Python"],
+          "level": "specialty",
+          "metadata": {
+            "versions": ["3.8", "3.9", "3.10"],
+            "frameworks": ["Django", "FastAPI"],
+            "expertise": "advanced"
+          }
+        },
+        {
+          "skillPath": ["Development", "Backend", "Python", "CodeGeneration"],
+          "level": "skill",
+          "metadata": {
+            "versions": ["3.8", "3.9", "3.10"],
+            "frameworks": ["Django", "FastAPI"],
+            "tools": ["black", "pylint"]
+          }
+        },
+        {
+          "skillPath": ["Development", "Testing", "Python"],
+          "level": "specialty",
+          "metadata": {
+            "frameworks": ["pytest", "unittest"],
+            "expertise": "advanced"
+          }
+        },
+        {
+          "skillPath": ["Development", "Deployment", "Python"],
+          "level": "specialty",
+          "metadata": {
+            "platforms": ["AWS", "GCP", "Azure"],
+            "expertise": "basic"
           }
         }
-      },
-      {
-        "id": "ocr-vision-agent",
-        "type": "external",
-        "description": "Process OCR tasks by utilizing different vision models",
-        "baseURL": "http://localhost:9200/v1",
-        "taskTypes": ["OCRTask"],
-        "skillsByType": {
-          "OCRTask  ": ["describeDocument", "categorizeDocument"]
-          
+      ],
+      "actions": [
+        {
+          "name": "generateCode",
+          "path": "/code_agent/python/generate_code",
+          "method": "POST",
+          "inputSchema": {
+            "type": "json",
+            "required": ["codeRequirements"],
+            "optional": ["styleGuide", "includeTests", "documentationLevel"]
+          },
+          "outputSchema": {
+            "type": "json",
+            "fields": ["generatedCode", "description", "testCases", "documentation"]
+          }
         },
-        "actions": [
-          {
-            "name": "describeDocument",
-            "path": "/vision-agent-ocr/descripe_document",
-            "method": "POST",
-            "inputSchema": {
-              "type": "multipart/form-data",
-              "required": ["image"],
-              "properties": {
-                "image": {
-                  "type": "file",
-                  "formats": ["jpg", "png"],
-                  "maxSize": "10MB"
-                },
-                "detailLevel": {
-                  "type": "string",
-                  "enum": ["basic", "detailed"],
-                  "default": "basic"
-                }
+        {
+          "name": "improveCode",
+          "path": "/code_agent/python/improve_code",
+          "method": "POST",
+          "inputSchema": {
+            "type": "json",
+            "required": ["changesList"],
+            "optional": ["applyBlackFormatting", "runLinter"]
+          },
+          "outputSchema": {
+            "type": "json",
+            "fields": ["codeChanges", "changesDescription", "qualityMetrics"]
+          }
+        },
+        {
+          "name": "testCode",
+          "path": "/code_agent/python/test_code",
+          "method": "POST",
+          "inputSchema": {
+            "type": "json",
+            "required": ["testType", "requirePassing", "testInstructions", "codeToTest"],
+            "optional": ["minimumCoverage"]
+          },
+          "outputSchema": {
+            "type": "json",
+            "fields": ["codeTests", "testsDescription", "coverageStatus"]
+          }
+        },
+        {
+          "name": "deployPreview",
+          "path": "/deploy_agent/python/preview",
+          "method": "POST",
+          "inputSchema": {
+            "type": "json",
+            "required": ["branchID", "isPrivate"],
+            "optional": ["environmentVars"]
+          },
+          "outputSchema": {
+            "type": "json",
+            "fields": ["previewURL", "isPrivate", "HTTPAuth", "deploymentTime"]
+          }
+        }
+      ]
+    },
+    {
+      "id": "ocr-vision-agent",
+      "type": "external",
+      "description": "Process OCR tasks by utilizing different vision models",
+      "baseURL": "http://localhost:9200/v1",
+      "capabilities": [
+        {
+          "skillPath": ["Vision"],
+          "level": "domain",
+          "metadata": {
+            "expertise": "advanced"
+          }
+        },
+        {
+          "skillPath": ["Vision", "OCR"],
+          "level": "specialty",
+          "metadata": {
+            "models": ["Tesseract", "EasyOCR"],
+            "expertise": "advanced"
+          }
+        },
+        {
+          "skillPath": ["Vision", "OCR", "DocumentProcessing"],
+          "level": "skill",
+          "metadata": {
+            "formats": ["jpg", "png"],
+            "maxSize": "10MB"
+          }
+        }
+      ],
+      "actions": [
+        {
+          "name": "describeDocument",
+          "path": "/vision-agent-ocr/describe_document",
+          "method": "POST",
+          "inputSchema": {
+            "type": "multipart/form-data",
+            "required": ["image"],
+            "properties": {
+              "image": {
+                "type": "file",
+                "formats": ["jpg", "png"],
+                "maxSize": "10MB"
+              },
+              "detailLevel": {
+                "type": "string",
+                "enum": ["basic", "detailed"],
+                "default": "basic"
               }
-            },
-            "outputSchema": {
-              "type": "json",
-              "fields": ["description"]
             }
           },
-          {
-            "name": "categorizeDocument",
-            "path": "/ocr-vision-agent/categorize_document",
-            "method": "POST",
-            "input_schema": {
-              "type": "multipart/form-data",
-              "required": ["image"],
-              "properties": {
-                "image": {
-                  "type": "file",
-                  "formats": ["jpg", "png"],
-                  "max_size": "10MB"
-                },
-                "detail_level": {
-                  "type": "string",
-                  "enum": ["basic", "detailed"],
-                  "default": "basic"
-                }
-              }
-            },
-            "output_schema": {
-              "type": "json",
-              "fields": ["category", "confidence"]
-            }
+          "outputSchema": {
+            "type": "json",
+            "fields": ["description"]
           }
-        ]
-      },
-      {
-        "id": "agent1",
-        "type": "content",
-        "description": "Content analysis and summarization agent",
-        "baseURL": "http://localhost:9200/v1",
-        "taskTypes": ["book_task"],
-        "skillsByType": {
-          "book_task": ["book_summary", "text_analysis", "content_review"]
         },
-        "actions": [
-          {
-            "name": "book_summary",
-            "path": "/content/summarize",
-            "method": "POST",
-            "inputSchema": {
-              "type": "json",
-              "required": ["text", "maxLength"],
-              "properties": {
-                "text": {
-                  "type": "string",
-                  "maxLength": "100000"
-                },
-                "maxLength": {
-                  "type": "integer",
-                  "default": "1000"
-                }
+        {
+          "name": "categorizeDocument",
+          "path": "/ocr-vision-agent/categorize_document",
+          "method": "POST",
+          "inputSchema": {
+            "type": "multipart/form-data",
+            "required": ["image"],
+            "properties": {
+              "image": {
+                "type": "file",
+                "formats": ["jpg", "png"],
+                "maxSize": "10MB"
+              },
+              "detailLevel": {
+                "type": "string",
+                "enum": ["basic", "detailed"],
+                "default": "basic"
               }
-            },
-            "outputSchema": {
-              "type": "json",
-              "fields": ["summary", "keyPoints", "readingTime"]
             }
           },
-          {
-            "name": "text_analysis",
-            "path": "/content/analyze",
-            "method": "POST",
-            "inputSchema": {
-              "type": "json",
-              "required": ["text"],
-              "properties": {
-                "text": {
-                  "type": "string",
-                  "maxLength": "50000"
-                }
-              }
-            },
-            "outputSchema": {
-              "type": "json",
-              "fields": ["sentiment", "topics", "complexity"]
-            }
+          "outputSchema": {
+            "type": "json",
+            "fields": ["category", "confidence"]
           }
-        ]
-      },
-      {
-        "id": "agent2",
-        "type": "media",
-        "description": "Media processing and generation agent",
-        "baseURL": "http://localhost:9200/v1",
-        "taskTypes": ["video_task", "image_task"],
-        "skillsByType": {
-          "video_task": ["video_generation", "video_editing"],
-          "image_task": ["image_processing", "image_analysis"]
+        }
+      ]
+    },
+    {
+      "id": "content-analysis-agent",
+      "type": "content",
+      "description": "Content analysis and summarization agent",
+      "baseURL": "http://localhost:9200/v1",
+      "capabilities": [
+        {
+          "skillPath": ["Content"],
+          "level": "domain",
+          "metadata": {
+            "expertise": "advanced"
+          }
         },
-        "actions": [
-          {
-            "name": "video_generation",
-            "path": "/media/generate_video",
-            "method": "POST",
-            "inputSchema": {
-              "type": "json",
-              "required": ["prompt", "duration"],
-              "properties": {
-                "prompt": {
-                  "type": "string",
-                  "maxLength": "1000"
-                },
-                "duration": {
-                  "type": "integer",
-                  "maximum": "  300"
-                }
+        {
+          "skillPath": ["Content", "TextAnalysis"],
+          "level": "specialty",
+          "metadata": {
+            "maxLength": "100000",
+            "languages": ["en"]
+          }
+        },
+        {
+          "skillPath": ["Content", "TextAnalysis", "Summarization"],
+          "level": "skill",
+          "metadata": {
+            "algorithms": ["extractive", "abstractive"],
+            "maxLength": "100000"
+          }
+        }
+      ],
+      "actions": [
+        {
+          "name": "book_summary",
+          "path": "/content/summarize",
+          "method": "POST",
+          "inputSchema": {
+            "type": "json",
+            "required": ["text", "maxLength"],
+            "properties": {
+              "text": {
+                "type": "string",
+                "maxLength": "100000"
+              },
+              "maxLength": {
+                "type": "integer",
+                "default": "1000"
               }
-            },
-            "outputSchema": {
-              "type": "json",
-              "fields": ["videoUrl", "thumbnailUrl", "metadata"]
             }
           },
-          {
-            "name": "image_processing",
-            "path": "/media/process_image",
-            "method": "POST",
-            "inputSchema": {
-              "type": "multipart/form-data",
-              "required": ["image"],
-              "properties": {
-                "image": {
-                  "type": "file",
-                  "formats": ["jpg", "png"],
-                  "maxSize": "10MB"
-                }
-              }
-            },
-            "outputSchema": {
-              "type": "json",
-              "fields": ["processedImageUrl", "dimensions", "format"]
-            }
+          "outputSchema": {
+            "type": "json",
+            "fields": ["summary", "keyPoints", "readingTime"]
           }
-        ]
-      },
-      {
-        "id": "agent3",
-        "type": "analysis",
-        "description": "Market and data analysis agent",
-        "baseURL": "http://localhost:9200/v1",
-        "taskTypes": ["analysis_task"],
-        "skillsByType": {
-          "analysis_task": ["market_analysis", "data_visualization", "trend_analysis"]
         },
-        "actions": [
-          {
-            "name": "market_analysis",
-            "path": "/analysis/market",
-            "method": "POST",
-            "inputSchema": {
-              "type": "json",
-              "required": ["marketData", "timeframe"],
-              "properties": {
-                "marketData": {
-                  "type": "object"
-                },
-                "timeframe": {
-                  "type": "string",
-                  "enum": ["1d", "7d", "30d", "1y"],
-                  "default": "30d"
-                }
+        {
+          "name": "text_analysis",
+          "path": "/content/analyze",
+          "method": "POST",
+          "inputSchema": {
+            "type": "json",
+            "required": ["text"],
+            "properties": {
+              "text": {
+                "type": "string",
+                "maxLength": "50000"
               }
-            },
-            "outputSchema": {
-              "type": "json",
-              "fields": ["trends", "insights", "recommendations"]
             }
           },
-          {
-            "name": "data_visualization",
-            "path": "/analysis/visualize",
-            "method": "POST",
-            "inputSchema": {
-              "type": "json",
-              "required": ["data", "chartType"],
-              "properties": {
-                "data": {
-                  "type": "array"
-                },
-                "chartType": {
-                  "type": "string",
-                  "enum": ["line", "bar", "scatter", "pie"],
-                  "default": "line"
-                }
-              }
-            },
-            "outputSchema": {
-              "type": "json",
-              "fields": ["chartUrl", "embedCode", "imageData"]
-            }
+          "outputSchema": {
+            "type": "json",
+            "fields": ["sentiment", "topics", "complexity"]
           }
-        ]
-      },
-      {
-        "id": "agent4",
-        "type": "code",
-        "description": "Code generation and review agent",
-        "baseURL": "http://localhost:9200/v1",
-        "taskTypes": ["code_task"],
-        "skillsByType": {
-          "code_task": ["code_generation", "code_review", "code_optimization"]
+        }
+      ]
+    },
+    {
+      "id": "media-processing-agent",
+      "type": "media",
+      "description": "Media processing and generation agent",
+      "baseURL": "http://localhost:9200/v1",
+      "capabilities": [
+        {
+          "skillPath": ["Media"],
+          "level": "domain",
+          "metadata": {
+            "expertise": "advanced"
+          }
         },
-        "actions": [
-          {
-            "name": "code_generation",
-            "path": "/code/generate",
-            "method": "POST",
-            "inputSchema": {
-              "type": "json",
-              "required": ["requirements", "language"],
-              "properties": {
-                "requirements": {
-                  "type": "string",
-                  "maxLength": "5000"
-                },
-                "language": {
-                  "type": "string",
-                  "enum": ["python", "javascript", "go", "java"]
-                }
+        {
+          "skillPath": ["Media", "Video"],
+          "level": "specialty",
+          "metadata": {
+            "formats": ["mp4", "mov"],
+            "maxDuration": "300"
+          }
+        },
+        {
+          "skillPath": ["Media", "Image"],
+          "level": "specialty",
+          "metadata": {
+            "formats": ["jpg", "png"],
+            "maxSize": "10MB"
+          }
+        }
+      ],
+      "actions": [
+        {
+          "name": "video_generation",
+          "path": "/media/generate_video",
+          "method": "POST",
+          "inputSchema": {
+            "type": "json",
+            "required": ["prompt", "duration"],
+            "properties": {
+              "prompt": {
+                "type": "string",
+                "maxLength": "1000"
+              },
+              "duration": {
+                "type": "integer",
+                "maximum": "300"
               }
-            },
-            "outputSchema": {
-              "type": "json",
-              "fields": ["code", "documentation", "tests"]
             }
           },
-          {
-            "name": "code_review",
-            "path": "/code/review",
-            "method": "POST",
-            "inputSchema": {
-              "type": "json",
-              "required": ["code"],
-              "properties": {
-                "code": {
-                  "type": "string",
-                  "maxLength": "50000"
-                }
-              }
-            },
-            "outputSchema": {
-              "type": "json",
-              "fields": ["issues", "suggestions", "quality_score"]
-            }
+          "outputSchema": {
+            "type": "json",
+            "fields": ["videoUrl", "thumbnailUrl", "metadata"]
           }
-        ]
-      },
-      {
-        "id": "agent5",
-        "type": "language",
-        "description": "Language processing and translation agent",
-        "baseURL": "http://localhost:9200/v1",
-        "taskTypes": ["translation_task", "language_task"],
-        "skillsByType": {
-          "translation_task": ["translation", "proofreading"],
-          "language_task": ["language_detection", "sentiment_analysis"]
         },
-        "actions": [
-          {
-            "name": "translation",
-            "path": "/language/translate",
-            "method": "POST",
-            "inputSchema": {
-              "type": "json",
-              "required": ["text", "targetLanguage"],
-              "properties": {
-                "text": {
-                  "type": "string",
-                  "maxLength": "10000"
-                },
-                "targetLanguage": {
-                  "type": "string",
-                  "enum": ["en", "es", "fr", "de", "zh"],
-                  "default": "en"
-                }
+        {
+          "name": "image_processing",
+          "path": "/media/process_image",
+          "method": "POST",
+          "inputSchema": {
+            "type": "multipart/form-data",
+            "required": ["image"],
+            "properties": {
+              "image": {
+                "type": "file",
+                "formats": ["jpg", "png"],
+                "maxSize": "10MB"
               }
-            },
-            "outputSchema": {
-              "type": "json",
-              "fields": ["translatedText", "sourceLanguage", "confidence"]
             }
           },
-          {
-            "name": "language_detection",
-            "path": "/language/detect",
-            "method": "POST",
-            "inputSchema": {
-              "type": "json",
-              "required": ["text"],
-              "properties": {
-                "text": {
-                  "type": "string",
-                  "maxLength": "5000"
-                }
-              }
-            },
-            "outputSchema": {
-              "type": "json",
-              "fields": ["detectedLanguage", "confidence", "alternatives"]
-            }
+          "outputSchema": {
+            "type": "json",
+            "fields": ["processedImageUrl", "dimensions", "format"]
           }
-        ]
-      }
-    ]
-  }
+        }
+      ]
+    },
+    {
+      "id": "market-analysis-agent",
+      "type": "analysis",
+      "description": "Market and data analysis agent",
+      "baseURL": "http://localhost:9200/v1",
+      "capabilities": [
+        {
+          "skillPath": ["Analysis"],
+          "level": "domain",
+          "metadata": {
+            "expertise": "advanced"
+          }
+        },
+        {
+          "skillPath": ["Analysis", "Market"],
+          "level": "specialty",
+          "metadata": {
+            "timeframes": ["1d", "7d", "30d", "1y"],
+            "dataTypes": ["financial", "trends"]
+          }
+        },
+        {
+          "skillPath": ["Analysis", "Visualization"],
+          "level": "specialty",
+          "metadata": {
+            "chartTypes": ["line", "bar", "scatter", "pie"],
+            "formats": ["svg", "png"]
+          }
+        }
+      ],
+      "actions": [
+        {
+          "name": "market_analysis",
+          "path": "/analysis/market",
+          "method": "POST",
+          "inputSchema": {
+            "type": "json",
+            "required": ["marketData", "timeframe"],
+            "properties": {
+              "marketData": {
+                "type": "object"
+              },
+              "timeframe": {
+                "type": "string",
+                "enum": ["1d", "7d", "30d", "1y"],
+                "default": "30d"
+              }
+            }
+          },
+          "outputSchema": {
+            "type": "json",
+            "fields": ["trends", "insights", "recommendations"]
+          }
+        },
+        {
+          "name": "data_visualization",
+          "path": "/analysis/visualize",
+          "method": "POST",
+          "inputSchema": {
+            "type": "json",
+            "required": ["data", "chartType"],
+            "properties": {
+              "data": {
+                "type": "array"
+              },
+              "chartType": {
+                "type": "string",
+                "enum": ["line", "bar", "scatter", "pie"],
+                "default": "line"
+              }
+            }
+          },
+          "outputSchema": {
+            "type": "json",
+            "fields": ["chartUrl", "embedCode", "imageData"]
+          }
+        }
+      ]
+    },
+    {
+      "id": "language-processing-agent",
+      "type": "language",
+      "description": "Language processing and translation agent",
+      "baseURL": "http://localhost:9200/v1",
+      "capabilities": [
+        {
+          "skillPath": ["Language"],
+          "level": "domain",
+          "metadata": {
+            "expertise": "advanced"
+          }
+        },
+        {
+          "skillPath": ["Language", "Translation"],
+          "level": "specialty",
+          "metadata": {
+            "languages": ["en", "es", "fr", "de", "zh"],
+            "maxLength": "10000"
+          }
+        },
+        {
+          "skillPath": ["Language", "Analysis"],
+          "level": "specialty",
+          "metadata": {
+            "languages": ["en", "es", "fr", "de", "zh"],
+            "features": ["detection", "sentiment"]
+          }
+        }
+      ],
+      "actions": [
+        {
+          "name": "translation",
+          "path": "/language/translate",
+          "method": "POST",
+          "inputSchema": {
+            "type": "json",
+            "required": ["text", "targetLanguage"],
+            "properties": {
+              "text": {
+                "type": "string",
+                "maxLength": "10000"
+              },
+              "targetLanguage": {
+                "type": "string",
+                "enum": ["en", "es", "fr", "de", "zh"],
+                "default": "en"
+              }
+            }
+          },
+          "outputSchema": {
+            "type": "json",
+            "fields": ["translatedText", "sourceLanguage", "confidence"]
+          }
+        },
+        {
+          "name": "language_detection",
+          "path": "/language/detect",
+          "method": "POST",
+          "inputSchema": {
+            "type": "json",
+            "required": ["text"],
+            "properties": {
+              "text": {
+                "type": "string",
+                "maxLength": "5000"
+              }
+            }
+          },
+          "outputSchema": {
+            "type": "json",
+            "fields": ["detectedLanguage", "confidence", "alternatives"]
+          }
+        }
+      ]
+    }
+  ]
+}
