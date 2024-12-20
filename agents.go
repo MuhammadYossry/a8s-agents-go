@@ -46,18 +46,29 @@ type Action struct {
 }
 
 type SchemaConfig struct {
-	Type       string              `json:"type"`
-	Required   []string            `json:"required,omitempty"`
-	Fields     []string            `json:"fields,omitempty"`
-	Properties map[string]Property `json:"properties,omitempty"`
+	Type                 string              `json:"type"`
+	Required             []string            `json:"required,omitempty"`
+	Properties           map[string]Property `json:"properties,omitempty"`
+	AdditionalProperties interface{}         `json:"additionalProperties,omitempty"`
+	Description          string              `json:"description,omitempty"`
+	Example              interface{}         `json:"example,omitempty"`
+	Examples             []interface{}       `json:"examples,omitempty"`
 }
 
 type Property struct {
-	Type    string   `json:"type"`
-	Formats []string `json:"formats,omitempty"`
-	MaxSize string   `json:"max_size,omitempty"`
-	Enum    []string `json:"enum,omitempty"`
-	Default string   `json:"default,omitempty"`
+	Type                 string              `json:"type"`
+	Formats              []string            `json:"formats,omitempty"`
+	MaxSize              string              `json:"max_size,omitempty"`
+	Enum                 []string            `json:"enum,omitempty"`
+	Default              interface{}         `json:"default,omitempty"`
+	Items                *Property           `json:"items,omitempty"`      // For array types
+	Properties           map[string]Property `json:"properties,omitempty"` // For object types
+	Required             []string            `json:"required,omitempty"`
+	MinimumItems         int                 `json:"minItems,omitempty"`
+	MaximumItems         int                 `json:"maxItems,omitempty"`
+	Pattern              string              `json:"pattern,omitempty"`
+	Format               string              `json:"format,omitempty"`
+	AdditionalProperties interface{}         `json:"additionalProperties,omitempty"`
 }
 
 func NewAgent(

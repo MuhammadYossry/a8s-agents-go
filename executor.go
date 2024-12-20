@@ -1,3 +1,4 @@
+// executor.go
 package main
 
 import (
@@ -70,6 +71,7 @@ func (e *TaskExecutor) executeAction(ctx context.Context, task *Task, action Act
 	if err != nil {
 		return nil, fmt.Errorf("preparing request: %w", err)
 	}
+	fmt.Printf("Request_body: %v", req.Body)
 
 	resp, err := client.Do(req)
 	if err != nil {
@@ -81,12 +83,11 @@ func (e *TaskExecutor) executeAction(ctx context.Context, task *Task, action Act
 }
 
 func (e *TaskExecutor) prepareRequest(ctx context.Context, task *Task, action Action, url string) (*http.Request, error) {
-	var reqBody map[string]interface{}
+	reqBody := make(map[string]interface{})
 	if err := json.Unmarshal(task.Payload, &reqBody); err != nil {
 		return nil, fmt.Errorf("parsing payload: %w", err)
 	}
 
-	// Validate against schema
 	parser := NewSchemaParser(action)
 	if err := parser.ValidateAndPrepareRequest(reqBody); err != nil {
 		return nil, fmt.Errorf("validating request: %w", err)
@@ -97,14 +98,12 @@ func (e *TaskExecutor) prepareRequest(ctx context.Context, task *Task, action Ac
 		return nil, fmt.Errorf("marshaling request: %w", err)
 	}
 
-	req, err := http.NewRequestWithContext(ctx, action.Method, url, bytes.NewBuffer(jsonBody))
-	if err != nil {
-		return nil, err
-	}
+	// Print for debugging
+	fmt.Printf("Request payload: %s\n", string(jsonBody))
 
-	req.Header.Set("Content-Type", "application/json")
-	return req, nil
+	return http.NewRequestWithContext(ctx, action.Method, url, bytes.NewBuffer(jsonBody))
 }
+
 func (e *TaskExecutor) handleResponse(resp *http.Response, task *Task) (*TaskResult, error) {
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
@@ -112,7 +111,7 @@ func (e *TaskExecutor) handleResponse(resp *http.Response, task *Task) (*TaskRes
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		fmt.Printf("error response body: %s", body)
+		fmt.Printf("error response body: %s \n", body)
 		return &TaskResult{
 			TaskID:     task.ID,
 			Success:    false,

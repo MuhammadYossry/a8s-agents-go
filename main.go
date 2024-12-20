@@ -19,7 +19,7 @@ func main() {
 	router := NewTaskRouter(registry, broker, metrics)
 
 	loader := NewAgentLoader(broker, metrics, registry)
-	agents, err := loader.LoadAgents("examples/agents.json")
+	agents, err := loader.LoadAgents("examples/agents_generated.json")
 	if err != nil {
 		log.Fatalf("Failed to load agents: %v", err)
 	}
@@ -32,31 +32,30 @@ func main() {
 	}
 
 	generatTaskData := `{
-		"codeRequirements": {
-			"language": "Python",
-			"framework": "FastAPI",
-			"description": "Create a REST API endpoint",
-			"requirements": [
-				"FastAPI",
-				"RESTful API design",
-				"HTTP methods"
-			],
-			"requiredFunctions": [
-				"create_endpoint",
-				"handle_request",
-				"validate_request"
-			],
-			"testingRequirements": [
-				"test_endpoint_creation",
-				"test_request_handling",
-				"test_input_validation"
-			],
-			"codingStyle": {
-				"patterns": ["REST API", "Clean Architecture"],
-				"conventions": ["PEP 8", "FastAPI best practices"]
-			}
-		}
-	}`
+  "codeRequirements": {
+    "codingStyle": {
+      "conventions": ["PEP 8", "FastAPI best practices"],
+      "patterns": ["REST API", "Clean Architecture"]
+    },
+    "description": "Create a REST API endpoint",
+    "framework": "FastAPI",
+    "language": "Python",
+    "requiredFunctions": ["create_endpoint", "handle_request", "validate_request"],
+    "requirements": ["FastAPI", "RESTful API design", "HTTP methods"],
+    "testingRequirements": [
+      "test_endpoint_creation",
+      "test_request_handling",
+      "test_input_validation"
+    ]
+  },
+  "documentationLevel": "detailed",
+  "includeTests": true,
+  "styleGuide": {
+    "formatting": "black",
+    "maxLineLength": 88
+  },
+  "documentation": "This request involves creating a detailed REST API endpoint using FastAPI, adhering to PEP 8 and FastAPI best practices, while following Clean Architecture principles."
+}`
 
 	tasks := []*Task{
 		{

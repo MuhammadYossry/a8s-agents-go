@@ -1,15 +1,17 @@
-from fastapi import FastAPI, HTTPException, BackgroundTasks, Request
+# main.py
+from fastapi import FastAPI, HTTPException, BackgroundTasks
 from pydantic import BaseModel, Field, ConfigDict
 from typing import List, Optional, Dict, Any, Literal
 from enum import Enum
 import ast
 import black
 import pylint.lint
-from dataclasses import dataclass
-import json
 from datetime import datetime
 
-from manifest_generator import setup_agent_routes, agent_endpoint
+from manifest_generator import (
+    configure_agent, agent_endpoint, setup_agent_routes,
+    Capability, CapabilityMetadata
+)
 
 class BaseModelCamel(BaseModel):
     """Base model that configures camelCase support."""
@@ -21,32 +23,52 @@ class BaseModelCamel(BaseModel):
         populate_by_name=True
     )
 
-# Base Models for Code Management
+# Model definitions for code generation
+class CodingStyle(BaseModelCamel):
+    patterns: Optional[List[str]] = []
+    conventions: Optional[List[str]] = []
+
+class StyleGuide(BaseModelCamel):
+    formatting: Optional[Literal["black", "autopep8"]] = "black"
+    max_line_length: Optional[int] = 88
+
 class CodeRequirement(BaseModelCamel):
+    language: Literal["Python"]
+    framework: Literal["FastAPI", "Django"]
     description: str
+    requirements: List[str]
     required_functions: List[str]
-    dependencies: List[str] = []
-    python_version: str = "3.9"
-    testing_requirements: Optional[List[str]]
+    testing_requirements: List[str]
+    coding_style: Optional[CodingStyle]
 
 class GenerateCodeInput(BaseModelCamel):
     code_requirements: CodeRequirement
-    style_guide: Optional[str] = "PEP8"
-    include_tests: Optional[bool] = False
+    style_guide: Optional[StyleGuide]
+    include_tests: bool = True
     documentation_level: Literal["minimal", "standard", "detailed"] = "standard"
 
 class GenerateCodeOutput(BaseModelCamel):
     generated_code: str
     description: str
-    test_cases: Optional[List[str]]
-    documentation: Dict[str, str]
+    test_cases: List[str]
+    documentation: str
 
+# Model definitions for code improvement
 class CodeChange(BaseModelCamel):
-    file_path: str
-    original_code: str
-    proposed_changes: str
-    change_type: Literal["improvement", "bug_fix", "feature", "refactor"]
-    priority: Literal["low", "medium", "high"]
+    type: Literal["refactor", "optimize", "fix", "style"]
+    description: str
+    target: Optional[str]
+
+class CodeChangeOutput(BaseModelCamel):
+    type: str
+    description: str
+    before: str
+    after: str
+
+class QualityMetrics(BaseModelCamel):
+    complexity: float
+    maintainability: float
+    test_coverage: float
 
 class ImproveCodeInput(BaseModelCamel):
     changes_list: List[CodeChange]
@@ -54,21 +76,15 @@ class ImproveCodeInput(BaseModelCamel):
     run_linter: bool = True
 
 class ImproveCodeOutput(BaseModelCamel):
-    code_changes: List[CodeChange]
+    code_changes: List[CodeChangeOutput]
     changes_description: str
-    quality_metrics: Dict[str, float]
+    quality_metrics: QualityMetrics
 
+# Model definitions for testing
 class TestType(str, Enum):
     UNIT = "unit"
     INTEGRATION = "integration"
     PERFORMANCE = "performance"
-
-class TestCodeInput(BaseModelCamel):
-    test_type: TestType
-    require_passing: bool
-    test_instructions: str
-    code_to_test: str
-    minimum_coverage: float = 80.0
 
 class TestResult(BaseModelCamel):
     passed: bool
@@ -76,11 +92,27 @@ class TestResult(BaseModelCamel):
     coverage_percentage: float
     failing_tests: List[str] = []
 
-class TestCodeOutput(BaseModelCamel):
-    code_tests: List[str]
-    tests_description: str
-    coverage_status: TestResult
+class TestInstruction(BaseModelCamel):
+    description: str
+    assertions: List[str]
 
+class TestCodeInput(BaseModelCamel):
+    test_type: Literal["unit", "integration", "e2e"]
+    require_passing: bool
+    test_instructions: List[TestInstruction]
+    code_to_test: str
+    minimum_coverage: float = 80.0
+
+class CoverageStatus(BaseModelCamel):
+    percentage: float
+    uncovered_lines: List[int]
+
+class TestCodeOutput(BaseModelCamel):
+    code_tests: str
+    tests_description: str
+    coverage_status: CoverageStatus
+
+# Model definitions for deployment
 class DeployPreviewInput(BaseModelCamel):
     branch_id: str
     is_private: bool
@@ -91,26 +123,113 @@ class DeployPreviewOutput(BaseModelCamel):
     is_private: bool
     http_auth: Optional[Dict[str, str]]
     deployment_time: datetime
+
+# Define agent capabilities
+AGENT_CAPABILITIES = [
+    Capability(
+        skillPath=["Development"],
+        level="domain",
+        metadata=CapabilityMetadata(
+            expertise="advanced"
+        )
+    ),
+    Capability(
+        skillPath=["Development", "Backend", "Python"],
+        level="specialty",
+        metadata=CapabilityMetadata(
+            versions=["3.8", "3.9", "3.10"],
+            frameworks=["Django", "FastAPI"],
+            expertise="advanced"
+        )
+    ),
+    Capability(
+        skillPath=["Development", "Backend", "Python", "CodeGeneration"],
+        level="skill",
+        metadata=CapabilityMetadata(
+            versions=["3.8", "3.9", "3.10"],
+            frameworks=["Django", "FastAPI"],
+            tools=["black", "pylint"]
+        )
+    ),
+    Capability(
+        skillPath=["Development", "Testing", "Python"],
+        level="specialty",
+        metadata=CapabilityMetadata(
+            frameworks=["pytest", "unittest"],
+            expertise="advanced"
+        )
+    ),
+    Capability(
+        skillPath=["Development", "Deployment", "Python"],
+        level="specialty",
+        metadata=CapabilityMetadata(
+            platforms=["AWS", "GCP", "Azure"],
+            expertise="basic"
+        )
+    )
+]
+
 app = FastAPI()
 agent_app = FastAPI()
 
+@configure_agent(
+    base_url="http://localhost:9200/v1",
+    agent_id="python-code-agent",
+    description="Advanced Python code generation, testing, and deployment agent",
+    capabilities=AGENT_CAPABILITIES
+)
 @agent_app.post("/code_agent/python/generate_code", response_model=GenerateCodeOutput)
 @agent_endpoint(
     task_type="pythonCodeTask",
     skill_name="generateCode",
-    description="Generates Python code based on requirements"
+    description="Generates Python code based on requirements",
+    examples={
+        "validRequests": [
+            {
+                "codeRequirements": {
+                    "language": "Python",
+                    "framework": "FastAPI",
+                    "description": "Create a REST API endpoint",
+                    "requirements": [
+                        "FastAPI",
+                        "RESTful API design",
+                        "HTTP methods"
+                    ],
+                    "requiredFunctions": [
+                        "create_endpoint",
+                        "handle_request",
+                        "validate_input"
+                    ],
+                    "testingRequirements": [
+                        "test_endpoint_creation",
+                        "test_request_handling",
+                        "test_input_validation"
+                    ],
+                    "codingStyle": {
+                        "patterns": ["REST API", "Clean Architecture"],
+                        "conventions": ["PEP 8", "FastAPI best practices"]
+                    }
+                },
+                "styleGuide": {
+                    "formatting": "black",
+                    "maxLineLength": 88
+                },
+                "includeTests": True,
+                "documentationLevel": "detailed"
+            }
+        ]
+    }
 )
 async def generate_code(input_data: GenerateCodeInput) -> GenerateCodeOutput:
     try:
-        # Simulate code generation based on requirements
         generated_code = _generate_code_from_requirements(input_data.code_requirements)
         test_cases = _generate_test_cases(generated_code) if input_data.include_tests else None
         
         return GenerateCodeOutput(
             generated_code=generated_code,
             description="Generated code sample",
-            test_cases=["test1", "test2"],
-            documentation={"overview": "Sample documentation"}
+            test_cases=test_cases,
+            documentation="Generated FastAPI endpoints with standard API patterns"
         )
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
@@ -119,7 +238,22 @@ async def generate_code(input_data: GenerateCodeInput) -> GenerateCodeOutput:
 @agent_endpoint(
     task_type="pythonCodeTask",
     skill_name="improveCode",
-    description="Improves and formats existing Python code"
+    description="Improves and formats existing Python code",
+    examples={
+        "validRequests": [
+            {
+                "changesList": [{
+                    "filePath": "main.py",
+                    "originalCode": "def hello():\n  print('hello')",
+                    "proposedChanges": "def hello():\n    print('hello')",
+                    "changeType": "improvement",
+                    "priority": "medium"
+                }],
+                "applyBlackFormatting": True,
+                "runLinter": True
+            }
+        ]
+    }
 )
 async def improve_code(input_data: ImproveCodeInput) -> ImproveCodeOutput:
     try:    
@@ -144,9 +278,9 @@ async def improve_code(input_data: ImproveCodeInput) -> ImproveCodeOutput:
             ))
 
         return ImproveCodeOutput(
-            code_changes=[],
-            changes_description="Sample changes",
-            quality_metrics={"score": 100}
+            code_changes=improved_changes,
+            changes_description="Code improvements applied successfully",
+            quality_metrics={"lintScore": lint_score if lint_score else 100}
         )
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
@@ -155,11 +289,21 @@ async def improve_code(input_data: ImproveCodeInput) -> ImproveCodeOutput:
 @agent_endpoint(
     task_type="pythonTestingTask",
     skill_name="testCode",
-    description="Generates and runs tests for Python code"
+    description="Generates and runs tests for Python code",
+    examples={
+        "validRequests": [
+            {
+                "testType": "unit",
+                "requirePassing": True,
+                "testInstructions": "Test all function endpoints",
+                "codeToTest": "def add(a, b):\n    return a + b",
+                "minimumCoverage": 80.0
+            }
+        ]
+    }
 )
 async def test_code(input_data: TestCodeInput) -> TestCodeOutput:
     try:
-        # Generate and run tests based on input
         generated_tests = _generate_tests(input_data.code_to_test, input_data.test_type)
         test_result = _run_tests(generated_tests, input_data.code_to_test)
         
@@ -167,14 +311,9 @@ async def test_code(input_data: TestCodeInput) -> TestCodeOutput:
             raise HTTPException(status_code=400, detail="Tests failed")
         
         return TestCodeOutput(
-            code_tests=["test1"],
-            tests_description="Sample tests",
-            coverage_status=TestResult(
-                passed=True,
-                execution_time=1.0,
-                coverage_percentage=100.0,
-                failing_tests=[]
-            )
+            code_tests=generated_tests,
+            tests_description="Generated and executed test suite",
+            coverage_status=test_result
         )
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
@@ -183,23 +322,34 @@ async def test_code(input_data: TestCodeInput) -> TestCodeOutput:
 @agent_endpoint(
     task_type="pythonDeploymentTask",
     skill_name="deployPreview",
-    description="Creates a preview deployment for code review"
-)   
+    description="Creates a preview deployment for code review",
+    examples={
+        "validRequests": [
+            {
+                "branchId": "feature-123",
+                "isPrivate": True,
+                "environmentVars": {
+                    "DEBUG": "true",
+                    "API_KEY": "preview-key"
+                }
+            }
+        ]
+    }
+)
 async def deploy_preview(
-    input_data: DeployPreviewInput, background_tasks: BackgroundTasks
+    input_data: DeployPreviewInput, 
+    background_tasks: BackgroundTasks
 ) -> DeployPreviewOutput:
     try:
-        # Simulate deployment process
         preview_url = f"https://preview.example.com/{input_data.branch_id}"
         http_auth = {"username": "preview", "password": "secret"} if input_data.is_private else None
         
-        # Add cleanup task to background tasks
         background_tasks.add_task(_cleanup_preview, input_data.branch_id)
         
         return DeployPreviewOutput(
-            preview_url="https://example.com",
-            is_private=True,
-            http_auth={"username": "test"},
+            preview_url=preview_url,
+            is_private=input_data.is_private,
+            http_auth=http_auth,
             deployment_time=datetime.now()
         )
     except Exception as e:
@@ -278,8 +428,6 @@ async def _cleanup_preview(branch_id: str):
 url_list = [
     {"path": route.path, "name": route.name} for route in app.routes
 ]
-print(url_list)
-# Prints: [{'path': '/openapi.json', 'name': 'openapi'}, {'path': '/docs', 'name': 'swagger_ui_html'}, {'path': '/docs/oauth2-redirect', 'name': 'swagger_ui_redirect'}, {'path': '/redoc', 'name': 'redoc_html'}]
 
 
 # Mount the agent app

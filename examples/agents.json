@@ -54,13 +54,150 @@
           "path": "/code_agent/python/generate_code",
           "method": "POST",
           "inputSchema": {
-            "type": "json",
+            "type": "object",
             "required": ["codeRequirements"],
-            "optional": ["styleGuide", "includeTests", "documentationLevel"]
+            "properties": {
+              "codeRequirements": {
+                "type": "object",
+                "required": [
+                  "language",
+                  "framework",
+                  "description",
+                  "requirements",
+                  "requiredFunctions",
+                  "testingRequirements"
+                ],
+                "properties": {
+                  "language": {
+                    "type": "string",
+                    "enum": ["Python"]
+                  },
+                  "framework": {
+                    "type": "string",
+                    "enum": ["FastAPI", "Django"]
+                  },
+                  "description": {
+                    "type": "string"
+                  },
+                  "requirements": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  },
+                  "requiredFunctions": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    },
+                    "description": "List of function names that should be implemented"
+                  },
+                  "testingRequirements": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    },
+                    "description": "List of test case names"
+                  },
+                  "codingStyle": {
+                    "type": "object",
+                    "properties": {
+                      "patterns": {
+                        "type": "array",
+                        "items": {
+                          "type": "string"
+                        }
+                      },
+                      "conventions": {
+                        "type": "array",
+                        "items": {
+                          "type": "string"
+                        }
+                      }
+                    }
+                  }
+                }
+              },
+              "styleGuide": {
+                "type": "object",
+                "properties": {
+                  "formatting": {
+                    "type": "string",
+                    "enum": ["black", "autopep8"]
+                  },
+                  "maxLineLength": {
+                    "type": "integer",
+                    "default": 88
+                  }
+                }
+              },
+              "includeTests": {
+                "type": "boolean",
+                "default": true
+              },
+              "documentationLevel": {
+                "type": "string",
+                "enum": ["minimal", "standard", "detailed"],
+                "default": "standard"
+              }
+            }
           },
           "outputSchema": {
-            "type": "json",
-            "fields": ["generatedCode", "description", "testCases", "documentation"]
+            "type": "object",
+            "required": ["generatedCode", "description", "testCases"],
+            "properties": {
+              "generatedCode": {
+                "type": "string"
+              },
+              "description": {
+                "type": "string"
+              },
+              "testCases": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "documentation": {
+                "type": "string"
+              }
+            }
+          },
+          "examples": {
+            "validRequests": [
+              {
+                "codeRequirements": {
+                  "language": "Python",
+                  "framework": "FastAPI",
+                  "description": "Create a REST API endpoint",
+                  "requirements": [
+                    "FastAPI",
+                    "RESTful API design",
+                    "HTTP methods"
+                  ],
+                  "requiredFunctions": [
+                    "create_endpoint",
+                    "handle_request",
+                    "validate_input"
+                  ],
+                  "testingRequirements": [
+                    "test_endpoint_creation",
+                    "test_request_handling",
+                    "test_input_validation"
+                  ],
+                  "codingStyle": {
+                    "patterns": ["REST API", "Clean Architecture"],
+                    "conventions": ["PEP 8", "FastAPI best practices"]
+                  }
+                },
+                "styleGuide": {
+                  "formatting": "black",
+                  "maxLineLength": 88
+                },
+                "includeTests": true,
+                "documentationLevel": "detailed"
+              }
+            ]
           }
         },
         {
@@ -68,13 +205,95 @@
           "path": "/code_agent/python/improve_code",
           "method": "POST",
           "inputSchema": {
-            "type": "json",
+            "type": "object",
             "required": ["changesList"],
-            "optional": ["applyBlackFormatting", "runLinter"]
+            "properties": {
+              "changesList": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "required": ["type", "description"],
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "enum": ["refactor", "optimize", "fix", "style"]
+                    },
+                    "description": {
+                      "type": "string"
+                    },
+                    "target": {
+                      "type": "string"
+                    }
+                  }
+                }
+              },
+              "applyBlackFormatting": {
+                "type": "boolean",
+                "default": true
+              },
+              "runLinter": {
+                "type": "boolean",
+                "default": true
+              }
+            }
           },
           "outputSchema": {
-            "type": "json",
-            "fields": ["codeChanges", "changesDescription", "qualityMetrics"]
+            "type": "object",
+            "required": ["codeChanges", "changesDescription"],
+            "properties": {
+              "codeChanges": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string"
+                    },
+                    "description": {
+                      "type": "string"
+                    },
+                    "before": {
+                      "type": "string"
+                    },
+                    "after": {
+                      "type": "string"
+                    }
+                  }
+                }
+              },
+              "changesDescription": {
+                "type": "string"
+              },
+              "qualityMetrics": {
+                "type": "object",
+                "properties": {
+                  "complexity": {
+                    "type": "number"
+                  },
+                  "maintainability": {
+                    "type": "number"
+                  },
+                  "testCoverage": {
+                    "type": "number"
+                  }
+                }
+              }
+            }
+          },
+          "examples": {
+            "validRequests": [
+              {
+                "changesList": [
+                  {
+                    "type": "refactor",
+                    "description": "Extract validation logic into separate function",
+                    "target": "validate_input"
+                  }
+                ],
+                "applyBlackFormatting": true,
+                "runLinter": true
+              }
+            ]
           }
         },
         {
@@ -82,13 +301,90 @@
           "path": "/code_agent/python/test_code",
           "method": "POST",
           "inputSchema": {
-            "type": "json",
+            "type": "object",
             "required": ["testType", "requirePassing", "testInstructions", "codeToTest"],
-            "optional": ["minimumCoverage"]
+            "properties": {
+              "testType": {
+                "type": "string",
+                "enum": ["unit", "integration", "e2e"]
+              },
+              "requirePassing": {
+                "type": "boolean"
+              },
+              "testInstructions": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "required": ["description", "assertions"],
+                  "properties": {
+                    "description": {
+                      "type": "string"
+                    },
+                    "assertions": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    }
+                  }
+                }
+              },
+              "codeToTest": {
+                "type": "string"
+              },
+              "minimumCoverage": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 100,
+                "default": 80
+              }
+            }
           },
           "outputSchema": {
-            "type": "json",
-            "fields": ["codeTests", "testsDescription", "coverageStatus"]
+            "type": "object",
+            "required": ["codeTests", "testsDescription", "coverageStatus"],
+            "properties": {
+              "codeTests": {
+                "type": "string"
+              },
+              "testsDescription": {
+                "type": "string"
+              },
+              "coverageStatus": {
+                "type": "object",
+                "properties": {
+                  "percentage": {
+                    "type": "number"
+                  },
+                  "uncoveredLines": {
+                    "type": "array",
+                    "items": {
+                      "type": "number"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "examples": {
+            "validRequests": [
+              {
+                "testType": "unit",
+                "requirePassing": true,
+                "testInstructions": [
+                  {
+                    "description": "Test input validation",
+                    "assertions": [
+                      "validates required fields",
+                      "checks field types",
+                      "handles invalid input"
+                    ]
+                  }
+                ],
+                "codeToTest": "def validate_input(data): ...",
+                "minimumCoverage": 90
+              }
+            ]
           }
         },
         {
@@ -96,402 +392,63 @@
           "path": "/deploy_agent/python/preview",
           "method": "POST",
           "inputSchema": {
-            "type": "json",
+            "type": "object",
             "required": ["branchID", "isPrivate"],
-            "optional": ["environmentVars"]
-          },
-          "outputSchema": {
-            "type": "json",
-            "fields": ["previewURL", "isPrivate", "HTTPAuth", "deploymentTime"]
-          }
-        }
-      ]
-    },
-    {
-      "id": "ocr-vision-agent",
-      "type": "external",
-      "description": "Process OCR tasks by utilizing different vision models",
-      "baseURL": "http://localhost:9200/v1",
-      "capabilities": [
-        {
-          "skillPath": ["Vision"],
-          "level": "domain",
-          "metadata": {
-            "expertise": "advanced"
-          }
-        },
-        {
-          "skillPath": ["Vision", "OCR"],
-          "level": "specialty",
-          "metadata": {
-            "models": ["Tesseract", "EasyOCR"],
-            "expertise": "advanced"
-          }
-        },
-        {
-          "skillPath": ["Vision", "OCR", "DocumentProcessing"],
-          "level": "skill",
-          "metadata": {
-            "formats": ["jpg", "png"],
-            "maxSize": "10MB"
-          }
-        }
-      ],
-      "actions": [
-        {
-          "name": "describeDocument",
-          "path": "/vision-agent-ocr/describe_document",
-          "method": "POST",
-          "inputSchema": {
-            "type": "multipart/form-data",
-            "required": ["image"],
             "properties": {
-              "image": {
-                "type": "file",
-                "formats": ["jpg", "png"],
-                "maxSize": "10MB"
+              "branchID": {
+                "type": "string",
+                "pattern": "^[a-zA-Z0-9-_]+$"
               },
-              "detailLevel": {
-                "type": "string",
-                "enum": ["basic", "detailed"],
-                "default": "basic"
-              }
-            }
-          },
-          "outputSchema": {
-            "type": "json",
-            "fields": ["description"]
-          }
-        },
-        {
-          "name": "categorizeDocument",
-          "path": "/ocr-vision-agent/categorize_document",
-          "method": "POST",
-          "inputSchema": {
-            "type": "multipart/form-data",
-            "required": ["image"],
-            "properties": {
-              "image": {
-                "type": "file",
-                "formats": ["jpg", "png"],
-                "maxSize": "10MB"
+              "isPrivate": {
+                "type": "boolean"
               },
-              "detailLevel": {
-                "type": "string",
-                "enum": ["basic", "detailed"],
-                "default": "basic"
+              "environmentVars": {
+                "type": "object",
+                "additionalProperties": {
+                  "type": "string"
+                }
               }
             }
           },
           "outputSchema": {
-            "type": "json",
-            "fields": ["category", "confidence"]
-          }
-        }
-      ]
-    },
-    {
-      "id": "content-analysis-agent",
-      "type": "content",
-      "description": "Content analysis and summarization agent",
-      "baseURL": "http://localhost:9200/v1",
-      "capabilities": [
-        {
-          "skillPath": ["Content"],
-          "level": "domain",
-          "metadata": {
-            "expertise": "advanced"
-          }
-        },
-        {
-          "skillPath": ["Content", "TextAnalysis"],
-          "level": "specialty",
-          "metadata": {
-            "maxLength": "100000",
-            "languages": ["en"]
-          }
-        },
-        {
-          "skillPath": ["Content", "TextAnalysis", "Summarization"],
-          "level": "skill",
-          "metadata": {
-            "algorithms": ["extractive", "abstractive"],
-            "maxLength": "100000"
-          }
-        }
-      ],
-      "actions": [
-        {
-          "name": "book_summary",
-          "path": "/content/summarize",
-          "method": "POST",
-          "inputSchema": {
-            "type": "json",
-            "required": ["text", "maxLength"],
+            "type": "object",
+            "required": ["previewURL", "isPrivate", "deploymentTime"],
             "properties": {
-              "text": {
+              "previewURL": {
                 "type": "string",
-                "maxLength": "100000"
+                "format": "uri"
               },
-              "maxLength": {
-                "type": "integer",
-                "default": "1000"
-              }
-            }
-          },
-          "outputSchema": {
-            "type": "json",
-            "fields": ["summary", "keyPoints", "readingTime"]
-          }
-        },
-        {
-          "name": "text_analysis",
-          "path": "/content/analyze",
-          "method": "POST",
-          "inputSchema": {
-            "type": "json",
-            "required": ["text"],
-            "properties": {
-              "text": {
-                "type": "string",
-                "maxLength": "50000"
-              }
-            }
-          },
-          "outputSchema": {
-            "type": "json",
-            "fields": ["sentiment", "topics", "complexity"]
-          }
-        }
-      ]
-    },
-    {
-      "id": "media-processing-agent",
-      "type": "media",
-      "description": "Media processing and generation agent",
-      "baseURL": "http://localhost:9200/v1",
-      "capabilities": [
-        {
-          "skillPath": ["Media"],
-          "level": "domain",
-          "metadata": {
-            "expertise": "advanced"
-          }
-        },
-        {
-          "skillPath": ["Media", "Video"],
-          "level": "specialty",
-          "metadata": {
-            "formats": ["mp4", "mov"],
-            "maxDuration": "300"
-          }
-        },
-        {
-          "skillPath": ["Media", "Image"],
-          "level": "specialty",
-          "metadata": {
-            "formats": ["jpg", "png"],
-            "maxSize": "10MB"
-          }
-        }
-      ],
-      "actions": [
-        {
-          "name": "video_generation",
-          "path": "/media/generate_video",
-          "method": "POST",
-          "inputSchema": {
-            "type": "json",
-            "required": ["prompt", "duration"],
-            "properties": {
-              "prompt": {
-                "type": "string",
-                "maxLength": "1000"
+              "isPrivate": {
+                "type": "boolean"
               },
-              "duration": {
-                "type": "integer",
-                "maximum": "300"
-              }
-            }
-          },
-          "outputSchema": {
-            "type": "json",
-            "fields": ["videoUrl", "thumbnailUrl", "metadata"]
-          }
-        },
-        {
-          "name": "image_processing",
-          "path": "/media/process_image",
-          "method": "POST",
-          "inputSchema": {
-            "type": "multipart/form-data",
-            "required": ["image"],
-            "properties": {
-              "image": {
-                "type": "file",
-                "formats": ["jpg", "png"],
-                "maxSize": "10MB"
-              }
-            }
-          },
-          "outputSchema": {
-            "type": "json",
-            "fields": ["processedImageUrl", "dimensions", "format"]
-          }
-        }
-      ]
-    },
-    {
-      "id": "market-analysis-agent",
-      "type": "analysis",
-      "description": "Market and data analysis agent",
-      "baseURL": "http://localhost:9200/v1",
-      "capabilities": [
-        {
-          "skillPath": ["Analysis"],
-          "level": "domain",
-          "metadata": {
-            "expertise": "advanced"
-          }
-        },
-        {
-          "skillPath": ["Analysis", "Market"],
-          "level": "specialty",
-          "metadata": {
-            "timeframes": ["1d", "7d", "30d", "1y"],
-            "dataTypes": ["financial", "trends"]
-          }
-        },
-        {
-          "skillPath": ["Analysis", "Visualization"],
-          "level": "specialty",
-          "metadata": {
-            "chartTypes": ["line", "bar", "scatter", "pie"],
-            "formats": ["svg", "png"]
-          }
-        }
-      ],
-      "actions": [
-        {
-          "name": "market_analysis",
-          "path": "/analysis/market",
-          "method": "POST",
-          "inputSchema": {
-            "type": "json",
-            "required": ["marketData", "timeframe"],
-            "properties": {
-              "marketData": {
-                "type": "object"
+              "HTTPAuth": {
+                "type": "object",
+                "properties": {
+                  "username": {
+                    "type": "string"
+                  },
+                  "password": {
+                    "type": "string"
+                  }
+                }
               },
-              "timeframe": {
+              "deploymentTime": {
                 "type": "string",
-                "enum": ["1d", "7d", "30d", "1y"],
-                "default": "30d"
+                "format": "date-time"
               }
             }
           },
-          "outputSchema": {
-            "type": "json",
-            "fields": ["trends", "insights", "recommendations"]
-          }
-        },
-        {
-          "name": "data_visualization",
-          "path": "/analysis/visualize",
-          "method": "POST",
-          "inputSchema": {
-            "type": "json",
-            "required": ["data", "chartType"],
-            "properties": {
-              "data": {
-                "type": "array"
-              },
-              "chartType": {
-                "type": "string",
-                "enum": ["line", "bar", "scatter", "pie"],
-                "default": "line"
+          "examples": {
+            "validRequests": [
+              {
+                "branchID": "feature-api-endpoint",
+                "isPrivate": true,
+                "environmentVars": {
+                  "DEBUG": "true",
+                  "API_VERSION": "v1"
+                }
               }
-            }
-          },
-          "outputSchema": {
-            "type": "json",
-            "fields": ["chartUrl", "embedCode", "imageData"]
-          }
-        }
-      ]
-    },
-    {
-      "id": "language-processing-agent",
-      "type": "language",
-      "description": "Language processing and translation agent",
-      "baseURL": "http://localhost:9200/v1",
-      "capabilities": [
-        {
-          "skillPath": ["Language"],
-          "level": "domain",
-          "metadata": {
-            "expertise": "advanced"
-          }
-        },
-        {
-          "skillPath": ["Language", "Translation"],
-          "level": "specialty",
-          "metadata": {
-            "languages": ["en", "es", "fr", "de", "zh"],
-            "maxLength": "10000"
-          }
-        },
-        {
-          "skillPath": ["Language", "Analysis"],
-          "level": "specialty",
-          "metadata": {
-            "languages": ["en", "es", "fr", "de", "zh"],
-            "features": ["detection", "sentiment"]
-          }
-        }
-      ],
-      "actions": [
-        {
-          "name": "translation",
-          "path": "/language/translate",
-          "method": "POST",
-          "inputSchema": {
-            "type": "json",
-            "required": ["text", "targetLanguage"],
-            "properties": {
-              "text": {
-                "type": "string",
-                "maxLength": "10000"
-              },
-              "targetLanguage": {
-                "type": "string",
-                "enum": ["en", "es", "fr", "de", "zh"],
-                "default": "en"
-              }
-            }
-          },
-          "outputSchema": {
-            "type": "json",
-            "fields": ["translatedText", "sourceLanguage", "confidence"]
-          }
-        },
-        {
-          "name": "language_detection",
-          "path": "/language/detect",
-          "method": "POST",
-          "inputSchema": {
-            "type": "json",
-            "required": ["text"],
-            "properties": {
-              "text": {
-                "type": "string",
-                "maxLength": "5000"
-              }
-            }
-          },
-          "outputSchema": {
-            "type": "json",
-            "fields": ["detectedLanguage", "confidence", "alternatives"]
+            ]
           }
         }
       ]

@@ -1,0 +1,447 @@
+{
+    "agents": [
+      {
+        "id": "python-code-agent",
+        "type": "external",
+        "description": "Advanced Python code generation, testing, and deployment agent",
+        "baseURL": "http://localhost:9200",
+        "capabilities": [
+          {
+            "skillPath": [
+              "Development"
+            ],
+            "level": "domain",
+            "metadata": {
+              "expertise": "advanced"
+            }
+          },
+          {
+            "skillPath": [
+              "Development",
+              "Backend",
+              "Python"
+            ],
+            "level": "specialty",
+            "metadata": {
+              "expertise": "advanced",
+              "versions": [
+                "3.8",
+                "3.9",
+                "3.10"
+              ],
+              "frameworks": [
+                "Django",
+                "FastAPI"
+              ]
+            }
+          },
+          {
+            "skillPath": [
+              "Development",
+              "Backend",
+              "Python",
+              "CodeGeneration"
+            ],
+            "level": "skill",
+            "metadata": {
+              "versions": [
+                "3.8",
+                "3.9",
+                "3.10"
+              ],
+              "frameworks": [
+                "Django",
+                "FastAPI"
+              ],
+              "tools": [
+                "black",
+                "pylint"
+              ]
+            }
+          },
+          {
+            "skillPath": [
+              "Development",
+              "Testing",
+              "Python"
+            ],
+            "level": "specialty",
+            "metadata": {
+              "expertise": "advanced",
+              "frameworks": [
+                "pytest",
+                "unittest"
+              ]
+            }
+          },
+          {
+            "skillPath": [
+              "Development",
+              "Deployment",
+              "Python"
+            ],
+            "level": "specialty",
+            "metadata": {
+              "expertise": "basic",
+              "platforms": [
+                "AWS",
+                "GCP",
+                "Azure"
+              ]
+            }
+          }
+        ],
+        "actions": [
+          {
+            "name": "deployPreview",
+            "path": "/v1/code_agent/python/deploy_preview",
+            "method": "POST",
+            "inputSchema": {
+              "type": "object",
+              "required": [
+                "branchId",
+                "isPrivate",
+                "environmentVars"
+              ],
+              "properties": {
+                "branchId": {
+                  "title": "Branchid",
+                  "type": "string"
+                },
+                "isPrivate": {
+                  "title": "Isprivate",
+                  "type": "boolean"
+                },
+                "environmentVars": {
+                  "anyOf": [
+                    {
+                      "additionalProperties": {
+                        "type": "string"
+                      },
+                      "type": "object"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "title": "Environmentvars"
+                }
+              }
+            },
+            "outputSchema": {
+              "type": "object",
+              "required": [
+                "previewUrl",
+                "isPrivate",
+                "httpAuth",
+                "deploymentTime"
+              ],
+              "properties": {
+                "previewUrl": {
+                  "title": "Previewurl",
+                  "type": "string"
+                },
+                "isPrivate": {
+                  "title": "Isprivate",
+                  "type": "boolean"
+                },
+                "httpAuth": {
+                  "anyOf": [
+                    {
+                      "additionalProperties": {
+                        "type": "string"
+                      },
+                      "type": "object"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "title": "Httpauth"
+                },
+                "deploymentTime": {
+                  "format": "date-time",
+                  "title": "Deploymenttime",
+                  "type": "string"
+                }
+              }
+            },
+            "examples": {
+              "validRequests": [
+                {
+                  "branchId": "feature-123",
+                  "isPrivate": true,
+                  "environmentVars": {
+                    "DEBUG": "true",
+                    "API_KEY": "preview-key"
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "name": "generateCode",
+            "path": "/v1/code_agent/python/generate_code",
+            "method": "POST",
+            "inputSchema": {
+              "type": "object",
+              "required": [
+                "codeRequirements",
+                "styleGuide"
+              ],
+              "properties": {
+                "codeRequirements": {
+                  "$ref": "#/$defs/CodeRequirement"
+                },
+                "styleGuide": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/$defs/StyleGuide"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "includeTests": {
+                  "default": true,
+                  "title": "Includetests",
+                  "type": "boolean"
+                },
+                "documentationLevel": {
+                  "default": "standard",
+                  "enum": [
+                    "minimal",
+                    "standard",
+                    "detailed"
+                  ],
+                  "title": "Documentationlevel",
+                  "type": "string"
+                }
+              }
+            },
+            "outputSchema": {
+              "type": "object",
+              "required": [
+                "generatedCode",
+                "description",
+                "testCases",
+                "documentation"
+              ],
+              "properties": {
+                "generatedCode": {
+                  "title": "Generatedcode",
+                  "type": "string"
+                },
+                "description": {
+                  "title": "Description",
+                  "type": "string"
+                },
+                "testCases": {
+                  "items": {
+                    "type": "string"
+                  },
+                  "title": "Testcases",
+                  "type": "array"
+                },
+                "documentation": {
+                  "title": "Documentation",
+                  "type": "string"
+                }
+              }
+            },
+            "examples": {
+              "validRequests": [
+                {
+                  "codeRequirements": {
+                    "language": "Python",
+                    "framework": "FastAPI",
+                    "description": "Create a REST API endpoint",
+                    "requirements": [
+                      "FastAPI",
+                      "RESTful API design",
+                      "HTTP methods"
+                    ],
+                    "requiredFunctions": [
+                      "create_endpoint",
+                      "handle_request",
+                      "validate_input"
+                    ],
+                    "testingRequirements": [
+                      "test_endpoint_creation",
+                      "test_request_handling",
+                      "test_input_validation"
+                    ],
+                    "codingStyle": {
+                      "patterns": [
+                        "REST API",
+                        "Clean Architecture"
+                      ],
+                      "conventions": [
+                        "PEP 8",
+                        "FastAPI best practices"
+                      ]
+                    }
+                  },
+                  "styleGuide": {
+                    "formatting": "black",
+                    "maxLineLength": 88
+                  },
+                  "includeTests": true,
+                  "documentationLevel": "detailed"
+                }
+              ]
+            }
+          },
+          {
+            "name": "improveCode",
+            "path": "/v1/code_agent/python/improve_code",
+            "method": "POST",
+            "inputSchema": {
+              "type": "object",
+              "required": [
+                "changesList"
+              ],
+              "properties": {
+                "changesList": {
+                  "items": {
+                    "$ref": "#/$defs/CodeChange"
+                  },
+                  "title": "Changeslist",
+                  "type": "array"
+                },
+                "applyBlackFormatting": {
+                  "default": true,
+                  "title": "Applyblackformatting",
+                  "type": "boolean"
+                },
+                "runLinter": {
+                  "default": true,
+                  "title": "Runlinter",
+                  "type": "boolean"
+                }
+              }
+            },
+            "outputSchema": {
+              "type": "object",
+              "required": [
+                "codeChanges",
+                "changesDescription",
+                "qualityMetrics"
+              ],
+              "properties": {
+                "codeChanges": {
+                  "items": {
+                    "$ref": "#/$defs/CodeChangeOutput"
+                  },
+                  "title": "Codechanges",
+                  "type": "array"
+                },
+                "changesDescription": {
+                  "title": "Changesdescription",
+                  "type": "string"
+                },
+                "qualityMetrics": {
+                  "$ref": "#/$defs/QualityMetrics"
+                }
+              }
+            },
+            "examples": {
+              "validRequests": [
+                {
+                  "changesList": [
+                    {
+                      "filePath": "main.py",
+                      "originalCode": "def hello():\n  print('hello')",
+                      "proposedChanges": "def hello():\n    print('hello')",
+                      "changeType": "improvement",
+                      "priority": "medium"
+                    }
+                  ],
+                  "applyBlackFormatting": true,
+                  "runLinter": true
+                }
+              ]
+            }
+          },
+          {
+            "name": "testCode",
+            "path": "/v1/code_agent/python/test_code",
+            "method": "POST",
+            "inputSchema": {
+              "type": "object",
+              "required": [
+                "testType",
+                "requirePassing",
+                "testInstructions",
+                "codeToTest"
+              ],
+              "properties": {
+                "testType": {
+                  "enum": [
+                    "unit",
+                    "integration",
+                    "e2e"
+                  ],
+                  "title": "Testtype",
+                  "type": "string"
+                },
+                "requirePassing": {
+                  "title": "Requirepassing",
+                  "type": "boolean"
+                },
+                "testInstructions": {
+                  "items": {
+                    "$ref": "#/$defs/TestInstruction"
+                  },
+                  "title": "Testinstructions",
+                  "type": "array"
+                },
+                "codeToTest": {
+                  "title": "Codetotest",
+                  "type": "string"
+                },
+                "minimumCoverage": {
+                  "default": 80,
+                  "title": "Minimumcoverage",
+                  "type": "number"
+                }
+              }
+            },
+            "outputSchema": {
+              "type": "object",
+              "required": [
+                "codeTests",
+                "testsDescription",
+                "coverageStatus"
+              ],
+              "properties": {
+                "codeTests": {
+                  "title": "Codetests",
+                  "type": "string"
+                },
+                "testsDescription": {
+                  "title": "Testsdescription",
+                  "type": "string"
+                },
+                "coverageStatus": {
+                  "$ref": "#/$defs/CoverageStatus"
+                }
+              }
+            },
+            "examples": {
+              "validRequests": [
+                {
+                  "testType": "unit",
+                  "requirePassing": true,
+                  "testInstructions": "Test all function endpoints",
+                  "codeToTest": "def add(a, b):\n    return a + b",
+                  "minimumCoverage": 80
+                }
+              ]
+            }
+          }
+        ]
+      }
+    ]
+  }
