@@ -33,29 +33,45 @@ func main() {
 
 	generatTaskData := `{
   "codeRequirements": {
-    "codingStyle": {
-      "conventions": ["PEP 8", "FastAPI best practices"],
-      "patterns": ["REST API", "Clean Architecture"]
-    },
-    "description": "Create a REST API endpoint",
-    "framework": "FastAPI",
     "language": "Python",
-    "requiredFunctions": ["create_endpoint", "handle_request", "validate_request"],
-    "requirements": ["FastAPI", "RESTful API design", "HTTP methods"],
+    "framework": "FastAPI",
+    "description": "Create a web application for managing TODO items with basic CRUD operations",
+    "requirements": [
+      "FastAPI",
+      "Pydantic",
+      "CRUD functionality"
+    ],
+    "requiredFunctions": [
+      "create_todo",
+      "read_todo",
+      "update_todo",
+      "delete_todo"
+    ],
     "testingRequirements": [
-      "test_endpoint_creation",
-      "test_request_handling",
-      "test_input_validation"
-    ]
+      "test_todo_creation",
+      "test_todo_retrieval",
+      "test_todo_update",
+      "test_todo_deletion"
+    ],
+    "codingStyle": {
+      "patterns": [
+        "REST API",
+        "Clean Architecture"
+      ],
+      "conventions": [
+        "PEP 8",
+        "FastAPI best practices"
+      ]
+    }
   },
-  "documentationLevel": "detailed",
-  "includeTests": true,
   "styleGuide": {
     "formatting": "black",
     "maxLineLength": 88
   },
-  "documentation": "This request involves creating a detailed REST API endpoint using FastAPI, adhering to PEP 8 and FastAPI best practices, while following Clean Architecture principles."
-}`
+  "includeTests": true,
+  "documentationLevel": "detailed"
+}
+`
 
 	tasks := []*Task{
 		{
