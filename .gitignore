@@ -21,6 +21,7 @@ Thumbs.db
 /vendor/
 /go.sum
 /go.mod
+.dapr/
 # Python modules for Pyhon examples
 /__pycache__/
 __pycache__/

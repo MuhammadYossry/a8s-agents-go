@@ -1,0 +1,17 @@
+apiVersion: dapr.io/v1alpha1
+kind: Component
+metadata:
+  name: internal-agents
+  namespace: default
+spec:
+  type: pubsub.redis
+  version: v1
+  metadata:
+    - name: redisHost
+      value: localhost:6379  # Update to your Redis host
+    - name: redisPassword    # Add this if Redis is password-protected
+      value: ""
+    - name: consumerID       # Unique ID for this subscription group
+      value: internal-agents-consumer-group
+    - name: enableTLS
+      value: "false"

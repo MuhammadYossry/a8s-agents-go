@@ -7,7 +7,7 @@ import black
 import pylint.lint
 from datetime import datetime
 
-from manifest_generator import (
+from examples.python_code_agent.manifest_generator import (
     configure_agent, agent_endpoint, setup_agent_routes,
     Capability, CapabilityMetadata, BaseSchemaModel
 )
