@@ -1,5 +1,5 @@
 // schema.go
-package main
+package core
 
 import (
 	"fmt"

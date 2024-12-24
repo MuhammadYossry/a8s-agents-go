@@ -1,5 +1,5 @@
 // executor.go
-package main
+package core
 
 import (
 	"bytes"

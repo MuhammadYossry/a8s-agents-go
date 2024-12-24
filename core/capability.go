@@ -1,4 +1,4 @@
-package main
+package core
 
 import (
 	"strings"
@@ -79,6 +79,33 @@ func matchesCapabilityPath(capPath []string, taskPath TaskPath) bool {
 		}
 	}
 	return true
+}
+
+func (r *CapabilityRegistry) GetCapabilityByAgent(agentID AgentID) (AgentCapability, bool) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+
+	cap, exists := r.capabilities[agentID]
+	return cap, exists
+}
+
+// GetCapabilitiesBySkill returns all agent capabilities that have a specific skill
+func (r *CapabilityRegistry) GetCapabilitiesBySkill(skill string) []AgentCapability {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+
+	var result []AgentCapability
+	for _, cap := range r.capabilities {
+		for _, capability := range cap.Capabilities {
+			for _, skillPath := range capability.SkillPath {
+				if strings.Contains(skillPath, skill) {
+					result = append(result, cap)
+					break
+				}
+			}
+		}
+	}
+	return result
 }
 
 func (r *CapabilityRegistry) RegisterWorkflow(workflowID WorkFlowID, cap WorkFlowCapability) {

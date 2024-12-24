@@ -1,5 +1,5 @@
 // router.go
-package main
+package core
 
 import (
 	"context"

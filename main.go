@@ -10,6 +10,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/Relax-N-Tax/AgentNexus/core"
 	dapr "github.com/dapr/go-sdk/client"
 )
 
@@ -99,12 +100,12 @@ func main() {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	broker := NewPubSub()
-	metrics := NewMetrics()
-	registry := NewCapabilityRegistry()
-	router := NewTaskRouter(registry, broker, metrics)
+	broker := core.NewPubSub()
+	metrics := core.NewMetrics()
+	registry := core.NewCapabilityRegistry()
+	router := core.NewTaskRouter(registry, broker, metrics)
 
-	loader := NewAgentLoader(broker, metrics, registry)
+	loader := core.NewAgentLoader(broker, metrics, registry)
 	agents, err := loader.LoadAgents("examples/agents_generated.json")
 	if err != nil {
 		log.Fatalf("Failed to load agents: %v", err)
@@ -159,20 +160,20 @@ func main() {
 }
 `
 
-	tasks := []*Task{
+	tasks := []*core.Task{
 		{
 			ID:          "task1",
 			Title:       "Create a REST API endpoint",
 			Description: "Create a REST API endpoint using Python",
-			Requirements: TaskRequirement{
-				SkillPath: TaskPath{"Development", "Backend", "Python", "CodeGeneration"},
+			Requirements: core.TaskRequirement{
+				SkillPath: core.TaskPath{"Development", "Backend", "Python", "CodeGeneration"},
 				Action:    "generateCode",
 				Parameters: map[string]interface{}{
 					"framework": "FastAPI",
 				},
 			},
 			Payload:   []byte(generatTaskData),
-			Status:    TaskStatusPending,
+			Status:    core.TaskStatusPending,
 			CreatedAt: time.Now(),
 		},
 	}
