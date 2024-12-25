@@ -5,23 +5,26 @@ import (
 	"context"
 	"log"
 	"time"
+
+	"github.com/Relax-N-Tax/AgentNexus/metrics"
+	"github.com/Relax-N-Tax/AgentNexus/types"
 )
 
 const (
-	AgentTypeInternal AgentType = "internal"
-	AgentTypeExternal AgentType = "external"
+	AgentTypeInternal types.AgentType = "internal"
+	AgentTypeExternal types.AgentType = "external"
 )
 
 // Implment core.Agenter interface
 type Agent struct {
-	ID              AgentID
-	Type            AgentType
+	ID              types.AgentID
+	Type            types.AgentType
 	Description     string
 	BaseURL         string
 	agentDefinition *AgentDefinition
 	broker          Broker
 	executor        Executor
-	metrics         *Metrics
+	metrics         *metrics.Metrics
 	registry        *CapabilityRegistry
 	cancelFunc      context.CancelFunc
 }
@@ -30,12 +33,12 @@ func NewAgent(
 	def *AgentDefinition,
 	broker Broker,
 	executor Executor,
-	metrics *Metrics,
+	metrics *metrics.Metrics,
 	registry *CapabilityRegistry,
 ) *Agent {
 	return &Agent{
-		ID:              AgentID(def.ID),
-		Type:            AgentType(def.Type),
+		ID:              types.AgentID(def.ID),
+		Type:            types.AgentType(def.Type),
 		Description:     def.Description,
 		BaseURL:         def.BaseURL,
 		agentDefinition: def,
@@ -50,7 +53,7 @@ func (a *Agent) Start(ctx context.Context) error {
 	ctx, cancel := context.WithCancel(ctx)
 	a.cancelFunc = cancel
 
-	agentCap := AgentCapability{
+	agentCap := types.AgentCapability{
 		AgentID:      a.ID,
 		Capabilities: a.agentDefinition.Capabilities,
 		Actions:      a.agentDefinition.Actions,
@@ -92,7 +95,7 @@ func (a *Agent) Stop(ctx context.Context) error {
 	return nil
 }
 
-func (a *Agent) Execute(ctx context.Context, task *Task) (*TaskResult, error) {
+func (a *Agent) Execute(ctx context.Context, task *types.Task) (*types.TaskResult, error) {
 	log.Printf("Agent %s processing task: %s (Required Skills: %v)",
 		a.ID, task.Title, task.Requirements.SkillPath)
 
@@ -109,13 +112,13 @@ func (a *Agent) Execute(ctx context.Context, task *Task) (*TaskResult, error) {
 		// a.metrics.RecordTaskError(task.Type, fmt.Errorf("task completed unsuccessfully"))
 		log.Printf("Agent %s task completed but unsuccessful: %s", a.ID, task.Title)
 	}
-	return &TaskResult{
+	return &types.TaskResult{
 		TaskID:     task.ID,
 		Success:    true,
 		FinishedAt: time.Now(),
 	}, nil
 }
 
-func (a *Agent) GetCapabilities() []AgentCapability {
+func (a *Agent) GetCapabilities() []types.AgentCapability {
 	return a.registry.GetCapabilitiesBySkill(string(a.ID))
 }

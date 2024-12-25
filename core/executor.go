@@ -9,23 +9,49 @@ import (
 	"io"
 	"net/http"
 	"time"
+
+	"github.com/Relax-N-Tax/AgentNexus/internal/agents"
+	"github.com/Relax-N-Tax/AgentNexus/types"
 )
 
 type Executor interface {
-	Execute(ctx context.Context, task *Task) (*TaskResult, error)
+	Execute(ctx context.Context, task *types.Task) (*types.TaskResult, error)
 }
 
 type TaskExecutor struct {
-	AgentDef *AgentDefinition
+	AgentDef     *AgentDefinition
+	payloadAgent *agents.PayloadAgent
+	client       *http.Client
 }
 
-func NewTaskExecutor(agentDefinition *AgentDefinition) *TaskExecutor {
-	return &TaskExecutor{AgentDef: agentDefinition}
+type TaskExecutorConfig struct {
+	AgentDefinition *AgentDefinition
+	PayloadAgent    *agents.PayloadAgent
+	HTTPTimeout     time.Duration
 }
 
-func (e *TaskExecutor) findActionForTask(task *Task) (*Action, error) {
+func NewTaskExecutor(config TaskExecutorConfig) *TaskExecutor {
+	if config.HTTPTimeout == 0 {
+		config.HTTPTimeout = 30 * time.Second
+	}
+
+	return &TaskExecutor{
+		AgentDef:     config.AgentDefinition,
+		payloadAgent: config.PayloadAgent,
+		client: &http.Client{
+			Timeout: config.HTTPTimeout,
+			Transport: &http.Transport{
+				MaxIdleConns:       100,
+				IdleConnTimeout:    90 * time.Second,
+				DisableCompression: true,
+			},
+		},
+	}
+}
+
+func (e *TaskExecutor) findActionForTask(task *types.Task) (*types.Action, error) {
 	matcher := NewCapabilityMatcher(nil, DefaultMatcherConfig())
-	matches := matcher.calculateAgentMatch(task.Requirements, AgentCapability{
+	matches := matcher.calculateAgentMatch(task.Requirements, types.AgentCapability{
 		Capabilities: e.AgentDef.Capabilities,
 		Actions:      e.AgentDef.Actions,
 	})
@@ -38,9 +64,9 @@ func (e *TaskExecutor) findActionForTask(task *Task) (*Action, error) {
 	return &actionCopy, nil
 }
 
-func (e *TaskExecutor) Execute(ctx context.Context, task *Task) (*TaskResult, error) {
+func (e *TaskExecutor) Execute(ctx context.Context, task *types.Task) (*types.TaskResult, error) {
 	if e.AgentDef.Type != "external" {
-		return &TaskResult{
+		return &types.TaskResult{
 			TaskID:     task.ID,
 			Success:    true,
 			FinishedAt: time.Now(),
@@ -49,31 +75,21 @@ func (e *TaskExecutor) Execute(ctx context.Context, task *Task) (*TaskResult, er
 
 	action, err := e.findActionForTask(task)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("finding action: %w", err)
 	}
 
 	return e.executeAction(ctx, task, *action)
 }
 
-func (e *TaskExecutor) executeAction(ctx context.Context, task *Task, action Action) (*TaskResult, error) {
+func (e *TaskExecutor) executeAction(ctx context.Context, task *types.Task, action types.Action) (*types.TaskResult, error) {
 	url := fmt.Sprintf("%s%s", e.AgentDef.BaseURL, action.Path)
-
-	client := &http.Client{
-		Timeout: 30 * time.Second,
-		Transport: &http.Transport{
-			MaxIdleConns:       100,
-			IdleConnTimeout:    90 * time.Second,
-			DisableCompression: true,
-		},
-	}
 
 	req, err := e.prepareRequest(ctx, task, action, url)
 	if err != nil {
 		return nil, fmt.Errorf("preparing request: %w", err)
 	}
-	fmt.Printf("Request_body: %v", req.Body)
 
-	resp, err := client.Do(req)
+	resp, err := e.client.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("executing request: %w", err)
 	}
@@ -82,9 +98,33 @@ func (e *TaskExecutor) executeAction(ctx context.Context, task *Task, action Act
 	return e.handleResponse(resp, task)
 }
 
-func (e *TaskExecutor) prepareRequest(ctx context.Context, task *Task, action Action, url string) (*http.Request, error) {
-	reqBody := make(map[string]interface{})
-	if err := json.Unmarshal(task.Payload, &reqBody); err != nil {
+func (e *TaskExecutor) prepareRequest(ctx context.Context, task *types.Task, action types.Action, url string) (*http.Request, error) {
+	var payload []byte
+	var err error
+	fmt.Println(len(task.Payload))
+
+	// If task payload is empty, generate it using PayloadAgent
+	if len(task.Payload) == 0 && e.payloadAgent != nil {
+		// Extract capabilities for context
+		capabilities := make([]string, 0)
+		for _, cap := range e.AgentDef.Capabilities {
+			if desc, ok := cap.Metadata["description"].(string); ok {
+				capabilities = append(capabilities, desc)
+			}
+		}
+
+		// Generate payload using PayloadAgent
+		payload, err = e.payloadAgent.GeneratePayload(ctx, task, action)
+		if err != nil {
+			return nil, fmt.Errorf("generating payload: %w", err)
+		}
+	} else {
+		payload = task.Payload
+	}
+
+	// Parse and validate payload
+	var reqBody map[string]interface{}
+	if err := json.Unmarshal(payload, &reqBody); err != nil {
 		return nil, fmt.Errorf("parsing payload: %w", err)
 	}
 
@@ -93,26 +133,32 @@ func (e *TaskExecutor) prepareRequest(ctx context.Context, task *Task, action Ac
 		return nil, fmt.Errorf("validating request: %w", err)
 	}
 
+	// Marshal back to JSON
 	jsonBody, err := json.Marshal(reqBody)
 	if err != nil {
 		return nil, fmt.Errorf("marshaling request: %w", err)
 	}
 
-	// Print for debugging
-	fmt.Printf("Request payload: %s\n", string(jsonBody))
+	// Create request with context
+	req, err := http.NewRequestWithContext(ctx, action.Method, url, bytes.NewBuffer(jsonBody))
+	if err != nil {
+		return nil, fmt.Errorf("creating request: %w", err)
+	}
 
-	return http.NewRequestWithContext(ctx, action.Method, url, bytes.NewBuffer(jsonBody))
+	// Set headers
+	req.Header.Set("Content-Type", "application/json")
+
+	return req, nil
 }
 
-func (e *TaskExecutor) handleResponse(resp *http.Response, task *Task) (*TaskResult, error) {
+func (e *TaskExecutor) handleResponse(resp *http.Response, task *types.Task) (*types.TaskResult, error) {
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return nil, fmt.Errorf("reading response: %w", err)
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		fmt.Printf("error response body: %s \n", body)
-		return &TaskResult{
+		return &types.TaskResult{
 			TaskID:     task.ID,
 			Success:    false,
 			Error:      fmt.Sprintf("request failed with status %d: %s", resp.StatusCode, string(body)),
@@ -120,13 +166,13 @@ func (e *TaskExecutor) handleResponse(resp *http.Response, task *Task) (*TaskRes
 		}, nil
 	}
 
+	// Parse response for validation
 	var response map[string]interface{}
 	if err := json.Unmarshal(body, &response); err != nil {
 		return nil, fmt.Errorf("parsing response: %w", err)
 	}
-	fmt.Printf("agent response: %s", body)
 
-	return &TaskResult{
+	return &types.TaskResult{
 		TaskID:     task.ID,
 		Success:    true,
 		Output:     body,

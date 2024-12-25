@@ -7,31 +7,32 @@ import (
 	"sync"
 	"time"
 
-	"github.com/Relax-N-Tax/AgentNexus/core"
+	"github.com/Relax-N-Tax/AgentNexus/metrics"
+	"github.com/Relax-N-Tax/AgentNexus/types"
 )
 
 // InternalAgent implements the core.Agent interface
 type InternalAgent struct {
-	id           core.AgentID
-	agentType    core.AgentType
+	id           types.AgentID
+	agentType    types.AgentType
 	description  string
 	capabilities map[string]*InternalCapability
-	actions      []core.Action
+	actions      []types.Action
 	memory       *Memory
-	llmClient    *LLMClient
-	promptMgr    *PromptManager
-	metrics      *core.Metrics
-	mu           sync.RWMutex
+	// llmClient    *LLMClient
+	// promptMgr    *PromptManager
+	metrics *metrics.Metrics
+	mu      sync.RWMutex
 }
 
-func NewInternalAgent(id string, agentType core.AgentType, description string) *InternalAgent {
+func NewInternalAgent(id string, agentType types.AgentType, description string) *InternalAgent {
 	return &InternalAgent{
-		id:           core.AgentID(id),
+		id:           types.AgentID(id),
 		agentType:    agentType,
 		description:  description,
 		capabilities: make(map[string]*InternalCapability),
 		memory:       NewMemory(1000),
-		metrics:      core.NewMetrics(),
+		metrics:      metrics.NewMetrics(),
 	}
 }
 
@@ -53,7 +54,7 @@ func (a *InternalAgent) Stop(ctx context.Context) error {
 	return nil
 }
 
-func (a *InternalAgent) Execute(ctx context.Context, task *core.Task) (*core.TaskResult, error) {
+func (a *InternalAgent) Execute(ctx context.Context, task *types.Task) (*types.TaskResult, error) {
 	log.Printf("Internal Agent %s processing task: %s (Required Skills: %v)",
 		a.id, task.Title, task.Requirements.SkillPath)
 
@@ -73,7 +74,7 @@ func (a *InternalAgent) Execute(ctx context.Context, task *core.Task) (*core.Tas
 			"task_id": task.ID,
 			"error":   err.Error(),
 		})
-		return &core.TaskResult{
+		return &types.TaskResult{
 			TaskID:     task.ID,
 			Success:    false,
 			Error:      err.Error(),
@@ -88,7 +89,7 @@ func (a *InternalAgent) Execute(ctx context.Context, task *core.Task) (*core.Tas
 			"task_id": task.ID,
 			"error":   err.Error(),
 		})
-		return &core.TaskResult{
+		return &types.TaskResult{
 			TaskID:     task.ID,
 			Success:    false,
 			Error:      err.Error(),
@@ -104,16 +105,16 @@ func (a *InternalAgent) Execute(ctx context.Context, task *core.Task) (*core.Tas
 	return result, nil
 }
 
-func (a *InternalAgent) GetCapabilities() []core.AgentCapability {
+func (a *InternalAgent) GetCapabilities() []types.AgentCapability {
 	a.mu.RLock()
 	defer a.mu.RUnlock()
 
-	capabilities := make([]core.Capability, 0, len(a.capabilities))
+	capabilities := make([]types.Capability, 0, len(a.capabilities))
 	for _, cap := range a.capabilities {
 		capabilities = append(capabilities, cap.Capability)
 	}
 
-	return []core.AgentCapability{{
+	return []types.AgentCapability{{
 		AgentID:      a.id,
 		Capabilities: capabilities,
 		Actions:      a.actions,
@@ -152,9 +153,9 @@ func (a *InternalAgent) ExecuteCapability(ctx context.Context, name string, payl
 	}
 
 	// Create a task for the capability
-	task := &core.Task{
+	task := &types.Task{
 		ID: fmt.Sprintf("task-%d", time.Now().UnixNano()),
-		Requirements: core.TaskRequirement{
+		Requirements: types.TaskRequirement{
 			Action:     name,
 			SkillPath:  cap.GetSkillPath(),
 			Parameters: make(map[string]interface{}),

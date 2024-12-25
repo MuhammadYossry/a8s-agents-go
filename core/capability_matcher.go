@@ -3,12 +3,14 @@ package core
 import (
 	"sort"
 	"strings"
+
+	"github.com/Relax-N-Tax/AgentNexus/types"
 )
 
 type MatchResult struct {
-	AgentID AgentID
+	AgentID types.AgentID
 	Score   float64
-	Action  Action
+	Action  types.Action
 }
 
 type MatcherConfig struct {
@@ -39,7 +41,7 @@ func NewCapabilityMatcher(registry *CapabilityRegistry, config MatcherConfig) *C
 	}
 }
 
-func (m *CapabilityMatcher) FindMatchingAgents(task *Task) []MatchResult {
+func (m *CapabilityMatcher) FindMatchingAgents(task *types.Task) []MatchResult {
 	m.registry.mu.RLock()
 	defer m.registry.mu.RUnlock()
 
@@ -55,7 +57,7 @@ func (m *CapabilityMatcher) FindMatchingAgents(task *Task) []MatchResult {
 	return m.selectTopMatches(matches)
 }
 
-func (m *CapabilityMatcher) calculateAgentMatch(req TaskRequirement, agentCap AgentCapability) MatchResult {
+func (m *CapabilityMatcher) calculateAgentMatch(req types.TaskRequirement, agentCap types.AgentCapability) MatchResult {
 	var bestMatch MatchResult
 	bestMatch.Score = -1
 
@@ -76,7 +78,7 @@ func (m *CapabilityMatcher) calculateAgentMatch(req TaskRequirement, agentCap Ag
 	return bestMatch
 }
 
-func (m *CapabilityMatcher) calculatePathScore(reqPath TaskPath, capPath []string) float64 {
+func (m *CapabilityMatcher) calculatePathScore(reqPath types.TaskPath, capPath []string) float64 {
 	if len(reqPath) == 0 || len(capPath) == 0 {
 		return 0.0
 	}

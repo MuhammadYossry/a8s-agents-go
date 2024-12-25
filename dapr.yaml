@@ -18,13 +18,13 @@ apps:
     appDirPath: ./
     appPort: 9200
     appProtocol: http
-    command: ["poetry", "run", "uvicorn", "examples.python_code_agent.main:app", "--port", "9200", "--reload"]
+    command: ["poetry", "run", "uvicorn", "--app-dir", "examples/python_code_agent", "main:app", "--port", "9200", "--reload"]
 
   - appID: internal-request-generator
     appDirPath: ./
     appPort: 9100
     appProtocol: http
-    command: ["poetry", "run", "uvicorn", "internal.request_generator.main:app", "--port", "9100", "--reload"]
+    command: ["poetry", "run", "uvicorn", "--app-dir", "internal/request_generator", "main:app", "--port", "9100", "--reload"]
 
 
 

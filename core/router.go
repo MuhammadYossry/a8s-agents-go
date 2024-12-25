@@ -5,16 +5,19 @@ import (
 	"context"
 	"fmt"
 	"time"
+
+	"github.com/Relax-N-Tax/AgentNexus/metrics"
+	"github.com/Relax-N-Tax/AgentNexus/types"
 )
 
 type TaskRouter struct {
 	registry *CapabilityRegistry
 	broker   Broker
-	metrics  *Metrics
+	metrics  *metrics.Metrics
 	matcher  *CapabilityMatcher
 }
 
-func NewTaskRouter(registry *CapabilityRegistry, broker Broker, metrics *Metrics) *TaskRouter {
+func NewTaskRouter(registry *CapabilityRegistry, broker Broker, metrics *metrics.Metrics) *TaskRouter {
 	return &TaskRouter{
 		registry: registry,
 		broker:   broker,
@@ -24,7 +27,7 @@ func NewTaskRouter(registry *CapabilityRegistry, broker Broker, metrics *Metrics
 }
 
 // RouteTask attempts to find and assign a task to a capable agent
-func (tr *TaskRouter) RouteTask(ctx context.Context, task *Task) error {
+func (tr *TaskRouter) RouteTask(ctx context.Context, task *types.Task) error {
 	// Use capability matcher to find matching agents/workflows
 	matches := tr.matcher.FindMatchingAgents(task)
 	if len(matches) == 0 {
@@ -36,7 +39,7 @@ func (tr *TaskRouter) RouteTask(ctx context.Context, task *Task) error {
 
 	// Select the highest scoring match
 	selectedMatch := matches[0]
-	task.Status = TaskStatusPending
+	task.Status = types.TaskStatusPending
 	task.UpdatedAt = time.Now()
 
 	topic := string(selectedMatch.AgentID)
@@ -51,7 +54,7 @@ func (tr *TaskRouter) RouteTask(ctx context.Context, task *Task) error {
 
 // GetAgentLoad returns the number of pending tasks for an agent
 // This could be used for load balancing in future implementations
-func (tr *TaskRouter) GetAgentLoad(agentID AgentID) (int, error) {
+func (tr *TaskRouter) GetAgentLoad(agentID types.AgentID) (int, error) {
 	// TODO: Implement agent load tracking
 	return 0, nil
 }

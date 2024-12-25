@@ -3,40 +3,36 @@ package core
 import (
 	"strings"
 	"sync"
+
+	"github.com/Relax-N-Tax/AgentNexus/types"
 )
 
 type TaskCapability struct {
 	Skills []string
 }
 
-type Capability struct {
-	SkillPath []string               `json:"skillPath"`
-	Level     string                 `json:"level"`
-	Metadata  map[string]interface{} `json:"metadata"`
-}
-
 type CapabilityRegistry struct {
 	mu           sync.RWMutex
-	capabilities map[AgentID]AgentCapability
+	capabilities map[types.AgentID]types.AgentCapability
 }
 
 func NewCapabilityRegistry() *CapabilityRegistry {
 	return &CapabilityRegistry{
-		capabilities: make(map[AgentID]AgentCapability),
+		capabilities: make(map[types.AgentID]types.AgentCapability),
 	}
 }
 
-func (r *CapabilityRegistry) Register(agentID AgentID, cap AgentCapability) {
+func (r *CapabilityRegistry) Register(agentID types.AgentID, cap types.AgentCapability) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	r.capabilities[agentID] = cap
 }
 
-func (r *CapabilityRegistry) FindMatchingAgents(task *Task) []AgentID {
+func (r *CapabilityRegistry) FindMatchingAgents(task *types.Task) []types.AgentID {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 
-	var matchingAgents []AgentID
+	var matchingAgents []types.AgentID
 	for agentID, agentCap := range r.capabilities {
 		if supportsTaskRequirements(agentCap, task.Requirements) {
 			matchingAgents = append(matchingAgents, agentID)
@@ -45,7 +41,7 @@ func (r *CapabilityRegistry) FindMatchingAgents(task *Task) []AgentID {
 	return matchingAgents
 }
 
-func supportsTaskRequirements(agentCap AgentCapability, req TaskRequirement) bool {
+func supportsTaskRequirements(agentCap types.AgentCapability, req types.TaskRequirement) bool {
 	// Check if agent has matching capability path
 	hasMatchingPath := false
 	for _, cap := range agentCap.Capabilities {
@@ -67,7 +63,7 @@ func supportsTaskRequirements(agentCap AgentCapability, req TaskRequirement) boo
 	return false
 }
 
-func matchesCapabilityPath(capPath []string, taskPath TaskPath) bool {
+func matchesCapabilityPath(capPath []string, taskPath types.TaskPath) bool {
 	if len(taskPath) > len(capPath) {
 		return false
 	}
@@ -81,7 +77,7 @@ func matchesCapabilityPath(capPath []string, taskPath TaskPath) bool {
 	return true
 }
 
-func (r *CapabilityRegistry) GetCapabilityByAgent(agentID AgentID) (AgentCapability, bool) {
+func (r *CapabilityRegistry) GetCapabilityByAgent(agentID types.AgentID) (types.AgentCapability, bool) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 
@@ -90,11 +86,11 @@ func (r *CapabilityRegistry) GetCapabilityByAgent(agentID AgentID) (AgentCapabil
 }
 
 // GetCapabilitiesBySkill returns all agent capabilities that have a specific skill
-func (r *CapabilityRegistry) GetCapabilitiesBySkill(skill string) []AgentCapability {
+func (r *CapabilityRegistry) GetCapabilitiesBySkill(skill string) []types.AgentCapability {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 
-	var result []AgentCapability
+	var result []types.AgentCapability
 	for _, cap := range r.capabilities {
 		for _, capability := range cap.Capabilities {
 			for _, skillPath := range capability.SkillPath {
@@ -112,10 +108,10 @@ func (r *CapabilityRegistry) RegisterWorkflow(workflowID WorkFlowID, cap WorkFlo
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
-	agentCap := AgentCapability{
-		AgentID:      AgentID(workflowID),
+	agentCap := types.AgentCapability{
+		AgentID:      types.AgentID(workflowID),
 		Capabilities: cap.Capabilities,
 		Resources:    cap.Resources,
 	}
-	r.capabilities[AgentID(workflowID)] = agentCap
+	r.capabilities[types.AgentID(workflowID)] = agentCap
 }

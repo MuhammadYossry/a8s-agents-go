@@ -2,18 +2,32 @@
 package agents
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"time"
 )
 
+type LLMProvider string
+
+const (
+	OpenAI LLMProvider = "openai"
+	Qwen   LLMProvider = "qwen"
+)
+
+const DefaultSystemMessage = "You are a helpful assistant."
+
 type LLMConfig struct {
-	BaseURL string
-	APIKey  string
-	Model   string
-	Timeout time.Duration
+	Provider      LLMProvider
+	BaseURL       string
+	APIKey        string
+	Model         string
+	Timeout       time.Duration
+	SystemMessage string
+	Options       map[string]interface{} // Additional provider-specific options
 }
 
 type LLMClient struct {
@@ -22,6 +36,20 @@ type LLMClient struct {
 }
 
 func NewLLMClient(config *LLMConfig) *LLMClient {
+	if config.Options == nil {
+		config.Options = make(map[string]interface{})
+	}
+
+	// Set default options if not provided
+	if _, ok := config.Options["temperature"]; !ok {
+		config.Options["temperature"] = 0.7
+	}
+
+	// Set default system message if not provided
+	if config.SystemMessage == "" {
+		config.SystemMessage = DefaultSystemMessage
+	}
+
 	return &LLMClient{
 		config: config,
 		httpClient: &http.Client{
@@ -30,62 +58,156 @@ func NewLLMClient(config *LLMConfig) *LLMClient {
 	}
 }
 
+type Message struct {
+	Role    string `json:"role"`
+	Content string `json:"content"`
+}
+
+// CreateChatCompletionWithSystemMessage allows overriding the system message for a specific request
+func (c *LLMClient) CreateChatCompletionWithSystemMessage(ctx context.Context, prompt, systemMessage string) (string, error) {
+	if systemMessage == "" {
+		systemMessage = c.config.SystemMessage
+	}
+	return c.createCompletion(ctx, prompt, systemMessage)
+}
+
+// CreateChatCompletion uses the default system message
 func (c *LLMClient) CreateChatCompletion(ctx context.Context, prompt string) (string, error) {
-	// Construct the request payload
-	payload := map[string]interface{}{
-		"model": c.config.Model,
-		"messages": []map[string]string{
-			{
-				"role":    "system",
-				"content": "You are an API request generator.",
-			},
-			{
-				"role":    "user",
-				"content": prompt,
-			},
-		},
-		"temperature": 0.7,
+	return c.createCompletion(ctx, prompt, c.config.SystemMessage)
+}
+
+func (c *LLMClient) createCompletion(ctx context.Context, prompt, systemMessage string) (string, error) {
+	var requestBody []byte
+	var err error
+
+	switch c.config.Provider {
+	case OpenAI:
+		requestBody, err = c.createOpenAIRequest(prompt, systemMessage)
+	case Qwen:
+		requestBody, err = c.createQwenRequest(prompt, systemMessage)
+	default:
+		return "", fmt.Errorf("unsupported LLM provider: %s", c.config.Provider)
 	}
 
-	// Convert payload to JSON
-	_, err := json.Marshal(payload)
 	if err != nil {
-		return "", fmt.Errorf("marshaling request: %w", err)
+		return "", fmt.Errorf("creating request body: %w", err)
 	}
 
-	// Create HTTP request
-	req, err := http.NewRequestWithContext(ctx, "POST", c.config.BaseURL+"/chat/completions", nil)
+	req, err := http.NewRequestWithContext(
+		ctx,
+		"POST",
+		c.config.BaseURL+"/chat/completions",
+		bytes.NewBuffer(requestBody),
+	)
 	if err != nil {
 		return "", fmt.Errorf("creating request: %w", err)
 	}
 
-	// Set headers
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Authorization", "Bearer "+c.config.APIKey)
 
-	// Send request
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
 		return "", fmt.Errorf("sending request: %w", err)
 	}
 	defer resp.Body.Close()
 
-	// Parse response
-	var result struct {
-		Choices []struct {
-			Message struct {
-				Content string `json:"content"`
-			} `json:"message"`
-		} `json:"choices"`
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return "", fmt.Errorf("reading response body: %w", err)
 	}
 
-	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
-		return "", fmt.Errorf("decoding response: %w", err)
+	if resp.StatusCode != http.StatusOK {
+		return "", fmt.Errorf("API request failed with status %d: %s", resp.StatusCode, string(body))
 	}
 
-	if len(result.Choices) == 0 {
-		return "", fmt.Errorf("no completion choices returned")
+	return c.parseResponse(body)
+}
+
+func (c *LLMClient) createOpenAIRequest(prompt, systemMessage string) ([]byte, error) {
+	payload := map[string]interface{}{
+		"model": c.config.Model,
+		"messages": []Message{
+			{
+				Role:    "system",
+				Content: systemMessage,
+			},
+			{
+				Role:    "user",
+				Content: prompt,
+			},
+		},
+		"temperature": c.config.Options["temperature"],
 	}
 
-	return result.Choices[0].Message.Content, nil
+	return json.Marshal(payload)
+}
+
+func (c *LLMClient) createQwenRequest(prompt, systemMessage string) ([]byte, error) {
+	payload := map[string]interface{}{
+		"model": c.config.Model,
+		"messages": []Message{
+			{
+				Role:    "system",
+				Content: systemMessage,
+			},
+			{
+				Role:    "user",
+				Content: prompt,
+			},
+		},
+		"temperature":   c.config.Options["temperature"],
+		"top_p":         0.8,
+		"result_format": "message",
+		"stream":        false,
+	}
+
+	for k, v := range c.config.Options {
+		if k != "temperature" {
+			payload[k] = v
+		}
+	}
+
+	return json.Marshal(payload)
+}
+
+func (c *LLMClient) parseResponse(body []byte) (string, error) {
+	switch c.config.Provider {
+	case OpenAI:
+		var result struct {
+			Choices []struct {
+				Message struct {
+					Content string `json:"content"`
+				} `json:"message"`
+			} `json:"choices"`
+		}
+		if err := json.Unmarshal(body, &result); err != nil {
+			return "", fmt.Errorf("parsing OpenAI response: %w", err)
+		}
+		if len(result.Choices) == 0 {
+			return "", fmt.Errorf("no completion choices returned")
+		}
+		return result.Choices[0].Message.Content, nil
+
+	case Qwen:
+		var result struct {
+			Output struct {
+				Choices []struct {
+					Message struct {
+						Content string `json:"content"`
+					} `json:"message"`
+				} `json:"choices"`
+			} `json:"output"`
+		}
+		if err := json.Unmarshal(body, &result); err != nil {
+			return "", fmt.Errorf("parsing Qwen response: %w", err)
+		}
+		if len(result.Output.Choices) == 0 {
+			return "", fmt.Errorf("no completion choices returned")
+		}
+		return result.Output.Choices[0].Message.Content, nil
+
+	default:
+		return "", fmt.Errorf("unsupported LLM provider: %s", c.config.Provider)
+	}
 }

@@ -5,25 +5,25 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/Relax-N-Tax/AgentNexus/core"
+	"github.com/Relax-N-Tax/AgentNexus/types"
 )
 
 // CapabilityExecutor defines the common interface for all capabilities
 type CapabilityExecutor interface {
-	Execute(ctx context.Context, task *core.Task) (*core.TaskResult, error)
+	Execute(ctx context.Context, task *types.Task) (*types.TaskResult, error)
 	GetSkillPath() []string
 	GetLevel() string
 	GetMetadata() map[string]interface{}
-	ValidateRequirements(req core.TaskRequirement) error
+	ValidateRequirements(req types.TaskRequirement) error
 }
 
 // InternalCapability extends core.Capability for internal agent use
 type InternalCapability struct {
-	core.Capability // Embed core.Capability
-	Handler         CapabilityHandler
-	ValidationRules []ValidationRule
-	lastExecutedAt  time.Time
-	executionCount  int64
+	types.Capability // Embed core.Capability
+	Handler          CapabilityHandler
+	ValidationRules  []ValidationRule
+	lastExecutedAt   time.Time
+	executionCount   int64
 }
 
 // CapabilityHandler defines the execution function signature
@@ -32,13 +32,13 @@ type CapabilityHandler func(ctx context.Context, payload []byte) ([]byte, error)
 // ValidationRule defines a single validation rule
 type ValidationRule struct {
 	Name     string
-	Validate func(req core.TaskRequirement) error
+	Validate func(req types.TaskRequirement) error
 }
 
 // NewInternalCapability creates a new internal capability
 func NewInternalCapability(config InternalCapabilityConfig) *InternalCapability {
 	return &InternalCapability{
-		Capability: core.Capability{
+		Capability: types.Capability{
 			SkillPath: config.SkillPath,
 			Level:     config.Level,
 			Metadata: map[string]interface{}{
@@ -66,9 +66,9 @@ type InternalCapabilityConfig struct {
 }
 
 // Implement CapabilityExecutor interface
-func (ic *InternalCapability) Execute(ctx context.Context, task *core.Task) (*core.TaskResult, error) {
+func (ic *InternalCapability) Execute(ctx context.Context, task *types.Task) (*types.TaskResult, error) {
 	if err := ic.ValidateRequirements(task.Requirements); err != nil {
-		return &core.TaskResult{
+		return &types.TaskResult{
 			TaskID:     task.ID,
 			Success:    false,
 			Error:      fmt.Sprintf("validation failed: %v", err),
@@ -78,7 +78,7 @@ func (ic *InternalCapability) Execute(ctx context.Context, task *core.Task) (*co
 
 	output, err := ic.Handler(ctx, task.Payload)
 	if err != nil {
-		return &core.TaskResult{
+		return &types.TaskResult{
 			TaskID:     task.ID,
 			Success:    false,
 			Error:      err.Error(),
@@ -89,7 +89,7 @@ func (ic *InternalCapability) Execute(ctx context.Context, task *core.Task) (*co
 	ic.lastExecutedAt = time.Now()
 	ic.executionCount++
 
-	return &core.TaskResult{
+	return &types.TaskResult{
 		TaskID:     task.ID,
 		Success:    true,
 		Output:     output,
@@ -97,7 +97,7 @@ func (ic *InternalCapability) Execute(ctx context.Context, task *core.Task) (*co
 	}, nil
 }
 
-func (ic *InternalCapability) ValidateRequirements(req core.TaskRequirement) error {
+func (ic *InternalCapability) ValidateRequirements(req types.TaskRequirement) error {
 	// Validate skill path
 	if !ic.matchesSkillPath(req.SkillPath) {
 		return fmt.Errorf("skill path mismatch: required %v, have %v", req.SkillPath, ic.SkillPath)
@@ -157,7 +157,7 @@ func ExampleCreateCapability() *InternalCapability {
 		ValidationRules: []ValidationRule{
 			{
 				Name: "LanguageValidation",
-				Validate: func(req core.TaskRequirement) error {
+				Validate: func(req types.TaskRequirement) error {
 					lang, ok := req.Parameters["language"]
 					if !ok {
 						return fmt.Errorf("language parameter is required")

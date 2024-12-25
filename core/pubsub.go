@@ -3,27 +3,29 @@ package core
 import (
 	"context"
 	"sync"
+
+	"github.com/Relax-N-Tax/AgentNexus/types"
 )
 
 type Broker interface {
-	Publish(ctx context.Context, topic string, task *Task) error
-	Subscribe(ctx context.Context, topic string) (<-chan *Task, error)
+	Publish(ctx context.Context, topic string, task *types.Task) error
+	Subscribe(ctx context.Context, topic string) (<-chan *types.Task, error)
 	Close() error
 }
 
 type PubSub struct {
 	mu     sync.RWMutex
-	subs   map[string][]chan *Task
+	subs   map[string][]chan *types.Task
 	closed bool
 }
 
 func NewPubSub() *PubSub {
 	return &PubSub{
-		subs: make(map[string][]chan *Task),
+		subs: make(map[string][]chan *types.Task),
 	}
 }
 
-func (ps *PubSub) Publish(ctx context.Context, topic string, task *Task) error {
+func (ps *PubSub) Publish(ctx context.Context, topic string, task *types.Task) error {
 	ps.mu.RLock()
 	defer ps.mu.RUnlock()
 
@@ -43,11 +45,11 @@ func (ps *PubSub) Publish(ctx context.Context, topic string, task *Task) error {
 	return nil
 }
 
-func (ps *PubSub) Subscribe(ctx context.Context, topic string) (<-chan *Task, error) {
+func (ps *PubSub) Subscribe(ctx context.Context, topic string) (<-chan *types.Task, error) {
 	ps.mu.Lock()
 	defer ps.mu.Unlock()
 
-	ch := make(chan *Task, 100)
+	ch := make(chan *types.Task, 100)
 	ps.subs[topic] = append(ps.subs[topic], ch)
 	return ch, nil
 }

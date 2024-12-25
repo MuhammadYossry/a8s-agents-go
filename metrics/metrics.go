@@ -1,13 +1,14 @@
 // metrics.go
-package core
+package metrics
 
 import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/Relax-N-Tax/AgentNexus/types"
 )
 
-// MetricsData holds the counters and statistics for a specific task type
 type MetricsData struct {
 	TasksCompleted        int
 	TasksFailed           int
@@ -38,7 +39,7 @@ func NewMetrics() *Metrics {
 	}
 }
 
-func createMetricsKey(req TaskRequirement) MetricsKey {
+func createMetricsKey(req types.TaskRequirement) MetricsKey {
 	return MetricsKey{
 		SkillPath: strings.Join(req.SkillPath, "."),
 		Action:    req.Action,
@@ -53,7 +54,7 @@ func (m *Metrics) RecordTaskStart(taskID string) {
 }
 
 // RecordTaskComplete updates metrics for a completed task
-func (m *Metrics) RecordTaskComplete(requirements TaskRequirement, taskID string) {
+func (m *Metrics) RecordTaskComplete(requirements types.TaskRequirement, taskID string) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
@@ -89,7 +90,7 @@ func (m *Metrics) initMetricsIfNeeded(key MetricsKey) *MetricsData {
 }
 
 // RecordTaskError updates metrics for a failed task
-func (m *Metrics) RecordTaskError(requirements TaskRequirement, err error) {
+func (m *Metrics) RecordTaskError(requirements types.TaskRequirement, err error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
@@ -101,7 +102,7 @@ func (m *Metrics) RecordTaskError(requirements TaskRequirement, err error) {
 }
 
 // RecordRoutingSuccess updates metrics for successful task routing
-func (m *Metrics) RecordRoutingSuccess(requirements TaskRequirement, agentID string) {
+func (m *Metrics) RecordRoutingSuccess(requirements types.TaskRequirement, agentID string) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
@@ -111,7 +112,7 @@ func (m *Metrics) RecordRoutingSuccess(requirements TaskRequirement, agentID str
 }
 
 // GetMetrics returns the current metrics for a task type
-func (m *Metrics) GetMetrics(requirements TaskRequirement) *MetricsData {
+func (m *Metrics) GetMetrics(requirements types.TaskRequirement) *MetricsData {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 
@@ -129,7 +130,7 @@ func (m *Metrics) GetMetrics(requirements TaskRequirement) *MetricsData {
 }
 
 // RecordRoutingFailure updates metrics for failed task routing
-func (m *Metrics) RecordRoutingFailure(requirements TaskRequirement, reason string) {
+func (m *Metrics) RecordRoutingFailure(requirements types.TaskRequirement, reason string) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 

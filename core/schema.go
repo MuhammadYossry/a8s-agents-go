@@ -3,14 +3,16 @@ package core
 
 import (
 	"fmt"
+
+	"github.com/Relax-N-Tax/AgentNexus/types"
 )
 
 type SchemaParser struct {
-	inputSchema  SchemaConfig
-	outputSchema SchemaConfig
+	inputSchema  types.SchemaConfig
+	outputSchema types.SchemaConfig
 }
 
-func NewSchemaParser(action Action) *SchemaParser {
+func NewSchemaParser(action types.Action) *SchemaParser {
 	return &SchemaParser{
 		inputSchema:  action.InputSchema,
 		outputSchema: action.OutputSchema,
@@ -31,7 +33,7 @@ func (p *SchemaParser) ValidateResponse(response map[string]interface{}) error {
 	return nil
 }
 
-func (p *SchemaParser) validateSchema(data map[string]interface{}, schema SchemaConfig) error {
+func (p *SchemaParser) validateSchema(data map[string]interface{}, schema types.SchemaConfig) error {
 	// Validate required fields
 	for _, field := range schema.Required {
 		if _, exists := data[field]; !exists {
@@ -43,7 +45,7 @@ func (p *SchemaParser) validateSchema(data map[string]interface{}, schema Schema
 	return p.validateProperties(data, schema.Properties)
 }
 
-func (p *SchemaParser) validateProperties(data map[string]interface{}, properties map[string]Property) error {
+func (p *SchemaParser) validateProperties(data map[string]interface{}, properties map[string]types.Property) error {
 	for fieldName, prop := range properties {
 		value, exists := data[fieldName]
 		if !exists {
@@ -57,7 +59,7 @@ func (p *SchemaParser) validateProperties(data map[string]interface{}, propertie
 	return nil
 }
 
-func (p *SchemaParser) validateProperty(fieldName string, prop Property, value interface{}) error {
+func (p *SchemaParser) validateProperty(fieldName string, prop types.Property, value interface{}) error {
 	if value == nil {
 		return nil // Skip validation for nil values
 	}
@@ -78,7 +80,7 @@ func (p *SchemaParser) validateProperty(fieldName string, prop Property, value i
 	return nil
 }
 
-func (p *SchemaParser) validateObject(fieldName string, prop Property, value interface{}) error {
+func (p *SchemaParser) validateObject(fieldName string, prop types.Property, value interface{}) error {
 	obj, ok := value.(map[string]interface{})
 	if !ok {
 		return fmt.Errorf("field %s must be an object", fieldName)
@@ -100,7 +102,7 @@ func (p *SchemaParser) validateObject(fieldName string, prop Property, value int
 	return nil
 }
 
-func (p *SchemaParser) validateArray(fieldName string, prop Property, value interface{}) error {
+func (p *SchemaParser) validateArray(fieldName string, prop types.Property, value interface{}) error {
 	arr, ok := value.([]interface{})
 	if !ok {
 		return fmt.Errorf("field %s must be an array", fieldName)
@@ -126,7 +128,7 @@ func (p *SchemaParser) validateArray(fieldName string, prop Property, value inte
 	return nil
 }
 
-func (p *SchemaParser) validateString(fieldName string, prop Property, value interface{}) error {
+func (p *SchemaParser) validateString(fieldName string, prop types.Property, value interface{}) error {
 	str, ok := value.(string)
 	if !ok {
 		return fmt.Errorf("field %s must be a string", fieldName)
@@ -154,7 +156,7 @@ func (p *SchemaParser) validateString(fieldName string, prop Property, value int
 	return nil
 }
 
-func (p *SchemaParser) validateNumber(fieldName string, _ Property, value interface{}) error {
+func (p *SchemaParser) validateNumber(fieldName string, _ types.Property, value interface{}) error {
 	// Handle both float64 and int
 	switch value.(type) {
 	case float64:
@@ -166,7 +168,7 @@ func (p *SchemaParser) validateNumber(fieldName string, _ Property, value interf
 	}
 }
 
-func (p *SchemaParser) validateBoolean(fieldName string, _ Property, value interface{}) error {
+func (p *SchemaParser) validateBoolean(fieldName string, _ types.Property, value interface{}) error {
 	if _, ok := value.(bool); !ok {
 		return fmt.Errorf("field %s must be a boolean", fieldName)
 	}

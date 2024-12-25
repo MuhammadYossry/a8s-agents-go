@@ -1,18 +1,25 @@
 package core
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
+	"log"
 	"os"
+	"time"
+
+	internal_agents "github.com/Relax-N-Tax/AgentNexus/internal/agents"
+	"github.com/Relax-N-Tax/AgentNexus/metrics"
+	"github.com/Relax-N-Tax/AgentNexus/types"
 )
 
 type AgentLoader struct {
 	broker   Broker
-	metrics  *Metrics
+	metrics  *metrics.Metrics
 	registry *CapabilityRegistry
 }
 
-func NewAgentLoader(broker Broker, metrics *Metrics, registry *CapabilityRegistry) *AgentLoader {
+func NewAgentLoader(broker Broker, metrics *metrics.Metrics, registry *CapabilityRegistry) *AgentLoader {
 	return &AgentLoader{
 		broker:   broker,
 		metrics:  metrics,
@@ -32,12 +39,35 @@ func (l *AgentLoader) LoadAgents(filepath string) ([]*Agent, error) {
 	}
 
 	agents := make([]*Agent, 0, len(config.Agents))
+	// Initialize PayloadAgent first
+	payloadAgentConfig := types.PayloadAgentConfig{
+		LLMConfig: struct {
+			BaseURL string
+			APIKey  string
+			Model   string
+			Timeout time.Duration
+		}{
+			BaseURL: os.Getenv("RNT_OPENAI_URL"),
+			APIKey:  os.Getenv("RNT_OPENAI_API_KEY"),
+			Model:   "Qwen-2.5-72B-Chat",
+			Timeout: 30 * time.Second,
+		},
+	}
+
+	payloadAgent, err := internal_agents.GetPayloadAgent(context.Background(), payloadAgentConfig)
+	if err != nil {
+		log.Fatal(err)
+	}
 	for _, def := range config.Agents {
 		if err := l.validateAgentDefinition(&def); err != nil {
 			return nil, fmt.Errorf("invalid agent definition %s: %w", def.ID, err)
 		}
 
-		taskExecutor := NewTaskExecutor(&def)
+		taskExecutor := NewTaskExecutor(TaskExecutorConfig{
+			AgentDefinition: &def,
+			PayloadAgent:    payloadAgent,
+			HTTPTimeout:     30 * time.Second,
+		})
 		agent := NewAgent(&def, l.broker, taskExecutor, l.metrics, l.registry)
 		agents = append(agents, agent)
 	}
@@ -60,7 +90,7 @@ func (l *AgentLoader) validateAgentDefinition(def *AgentDefinition) error {
 	return nil
 }
 
-func (l *AgentLoader) validateAction(action Action) error {
+func (l *AgentLoader) validateAction(action types.Action) error {
 	if action.Name == "" {
 		return fmt.Errorf("missing action name")
 	}
