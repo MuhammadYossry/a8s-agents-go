@@ -42,14 +42,14 @@ Example Valid Request(Ign):
 Generate a valid JSON payload following the schema and example structure, incorporating the task requirements. The response should be only the JSON payload, with no additional text or explanations.`
 
 // GetPayloadAgent returns the singleton instance of PayloadAgent
-func GetPayloadAgent(ctx context.Context, config types.PayloadAgentConfig) (*PayloadAgent, error) {
+func GetPayloadAgent(ctx context.Context, config types.InternalAgentConfig) (*PayloadAgent, error) {
 	once.Do(func() {
 		instance = initializePayloadAgent(config)
 	})
 	return instance, nil
 }
 
-func initializePayloadAgent(config types.PayloadAgentConfig) *PayloadAgent {
+func initializePayloadAgent(config types.InternalAgentConfig) *PayloadAgent {
 	llmClient := NewLLMClient(&LLMConfig{
 		BaseURL: config.LLMConfig.BaseURL,
 		APIKey:  config.LLMConfig.APIKey,

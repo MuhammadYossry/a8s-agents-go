@@ -9,7 +9,7 @@ type AgentType string
 type TaskStatus string
 type TaskPath []string
 
-type PayloadAgentConfig struct {
+type InternalAgentConfig struct {
 	LLMConfig struct {
 		BaseURL string
 		APIKey  string
@@ -95,4 +95,31 @@ type TaskRequirement struct {
 	SkillPath  TaskPath               `json:"path"`       // e.g. ["Development", "Backend", "Python", "CodeGeneration"]
 	Action     string                 `json:"action"`     // e.g. "generateCode"
 	Parameters map[string]interface{} `json:"parameters"` // Additional parameters for matching
+}
+
+// types/action_planner.go
+
+type ActionPlan struct {
+	SelectedAction string               `json:"selectedAction"`
+	Confidence     float64              `json:"confidence"`
+	Reasoning      ActionPlanReasoning  `json:"reasoning"`
+	Implementation ActionImplementation `json:"implementation"`
+	Validation     ActionValidation     `json:"validation"`
+}
+
+type ActionPlanReasoning struct {
+	PrimaryReason     string   `json:"primary_reason"`
+	AlignmentPoints   []string `json:"alignment_points"`
+	PotentialConcerns []string `json:"potential_concerns"`
+}
+
+type ActionImplementation struct {
+	RequiredParameters        map[string]interface{} `json:"required_parameters"`
+	RecommendedOptionalParams map[string]interface{} `json:"recommended_optional_parameters"`
+}
+
+type ActionValidation struct {
+	FrameworkCompatible bool     `json:"framework_compatible"`
+	SkillPathSupported  bool     `json:"skill_path_supported"`
+	MissingRequirements []string `json:"missing_requirements"`
 }

@@ -40,7 +40,7 @@ func (l *AgentLoader) LoadAgents(filepath string) ([]*Agent, error) {
 
 	agents := make([]*Agent, 0, len(config.Agents))
 	// Initialize PayloadAgent first
-	payloadAgentConfig := types.PayloadAgentConfig{
+	internalAgentConfig := types.InternalAgentConfig{
 		LLMConfig: struct {
 			BaseURL string
 			APIKey  string
@@ -54,7 +54,11 @@ func (l *AgentLoader) LoadAgents(filepath string) ([]*Agent, error) {
 		},
 	}
 
-	payloadAgent, err := internal_agents.GetPayloadAgent(context.Background(), payloadAgentConfig)
+	payloadAgent, err := internal_agents.GetPayloadAgent(context.Background(), internalAgentConfig)
+	if err != nil {
+		log.Fatal(err)
+	}
+	actionPlannerAgent, err := internal_agents.GetActionPlannerAgent(context.Background(), internalAgentConfig)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -64,9 +68,10 @@ func (l *AgentLoader) LoadAgents(filepath string) ([]*Agent, error) {
 		}
 
 		taskExecutor := NewTaskExecutor(TaskExecutorConfig{
-			AgentDefinition: &def,
-			PayloadAgent:    payloadAgent,
-			HTTPTimeout:     30 * time.Second,
+			AgentDefinition:    &def,
+			PayloadAgent:       payloadAgent,
+			ActionPlannerAgent: actionPlannerAgent,
+			HTTPTimeout:        30 * time.Second,
 		})
 		agent := NewAgent(&def, l.broker, taskExecutor, l.metrics, l.registry)
 		agents = append(agents, agent)
