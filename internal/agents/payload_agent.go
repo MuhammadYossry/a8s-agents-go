@@ -43,11 +43,13 @@ Example:
 {{.exampleStr}}
 
 IMPORTANT:
-- Return valid JSON only
-- Arrays must use [] even for single items
+- Return pure JSON only without markdown or code blocks
+- Arrays must use [] even for single items (e.g. ["item"] not "item")
 - Required fields: {{.requiredFields}}
 - Follow all type constraints and patterns
-- Respect enums and const values`
+- Respect enums and const values
+
+Remember: Return ONLY the JSON object, without kind of quotes or single quotes or any other formatting.`
 
 func GetPayloadAgent(ctx context.Context, config types.InternalAgentConfig) (*PayloadAgent, error) {
 	once.Do(func() {
@@ -166,6 +168,7 @@ func formatTypeDetails(schema types.SchemaConfig, defs map[string]types.SchemaCo
 	var b strings.Builder
 
 	for name, prop := range schema.Properties {
+
 		b.WriteString(fmt.Sprintf("\n%s:\n", name))
 		if prop.Ref != "" {
 			if def, ok := resolveRef(prop.Ref, defs); ok {
@@ -447,10 +450,21 @@ func getCompletionWithRetries(ctx context.Context, client *LLMClient, prompt str
 }
 
 func validateAndFormatJSON(input string, schema types.SchemaConfig) ([]byte, error) {
-	input = strings.Trim(strings.TrimSpace(input), "`")
+	// Remove markdown code blocks and any surrounding whitespace
+	input = strings.TrimSpace(input)
+	if strings.HasPrefix(input, "```json") {
+		input = strings.TrimPrefix(input, "```json")
+		input = strings.TrimSuffix(input, "```")
+	} else if strings.HasPrefix(input, "```") {
+		input = strings.TrimPrefix(input, "```")
+		input = strings.TrimSuffix(input, "```")
+	}
+	input = strings.TrimSpace(input)
 
 	var jsonData interface{}
 	if err := json.Unmarshal([]byte(input), &jsonData); err != nil {
+		// Add debug logging
+		log.Printf("Failed to parse JSON input: %s", input)
 		return nil, fmt.Errorf("invalid JSON: %w", err)
 	}
 
