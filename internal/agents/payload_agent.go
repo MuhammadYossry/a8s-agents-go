@@ -26,29 +26,28 @@ var (
 	once     sync.Once
 )
 
-const payloadPromptTemplate = `System Message:
-You are a JSON schema expert. Create a payload that exactly matches this schema:
+const payloadPromptTemplate = `Create a payload matching this schema considering the task *context*:
 
-Schema Details:
-{{.schemaStr}}
+Schema: {{.schemaStr}}
 
-Task Context:
-{{- if .taskContext}}
-{{.taskContext}}
-{{- end}}
+Type Details:
+{{.typeDetails}}
+
+Constraints:
+{{.constraints}}
+
+{{if .taskContext}}Context:
+{{.taskContext}}{{end}}
 
 Example:
 {{.exampleStr}}
 
 IMPORTANT:
-- Return ONLY a valid JSON object
-- All values must match their defined types exactly
-- Arrays must contain items of the correct type
-- Include all required fields
-- Follow any format/pattern requirements
-- Respect enum value restrictions
-
-Response format: JSON object only.`
+- Return valid JSON only
+- Arrays must use [] even for single items
+- Required fields: {{.requiredFields}}
+- Follow all type constraints and patterns
+- Respect enums and const values`
 
 func GetPayloadAgent(ctx context.Context, config types.InternalAgentConfig) (*PayloadAgent, error) {
 	once.Do(func() {
@@ -86,27 +85,28 @@ func initializePayloadAgent(config types.InternalAgentConfig) *PayloadAgent {
 	}
 }
 
-func (a *PayloadAgent) GeneratePayload(ctx context.Context, task *types.Task, action types.Action) ([]byte, error) {
-	schemaInfo := formatSchema(action.InputSchema)
-	example := generateExample(action.InputSchema, task)
-	taskContext := generateTaskContext(task)
-
-	promptData := map[string]interface{}{
-		"schemaStr":   schemaInfo,
-		"exampleStr":  string(example),
-		"taskContext": taskContext,
+func (p *PayloadAgent) GeneratePayload(ctx context.Context, task *types.Task, action types.Action) ([]byte, error) {
+	// Extract defs from schema
+	defs := make(map[string]types.SchemaConfig)
+	if action.InputSchema.Defs != nil {
+		defs = action.InputSchema.Defs
 	}
 
-	prompt, err := a.promptMgr.GeneratePrompt("payloadPrompt", promptData)
+	promptData := map[string]interface{}{
+		"schemaStr":      formatSchema(action.InputSchema),
+		"typeDetails":    formatTypeDetails(action.InputSchema, defs),
+		"constraints":    formatConstraints(action.InputSchema),
+		"requiredFields": strings.Join(action.InputSchema.Required, ", "),
+		"taskContext":    generateTaskContext(task),
+		"exampleStr":     string(generateExample(action.InputSchema, task)),
+	}
+
+	prompt, err := p.promptMgr.GeneratePrompt("payloadPrompt", promptData)
 	if err != nil {
 		return nil, fmt.Errorf("generating prompt: %w", err)
 	}
 
-	if Debug {
-		log.Printf("Generated prompt:\n%s\n", prompt)
-	}
-
-	completion, err := getCompletionWithRetries(ctx, a.llmClient, prompt)
+	completion, err := getCompletionWithRetries(ctx, p.llmClient, prompt)
 	if err != nil {
 		return nil, err
 	}
@@ -117,24 +117,7 @@ func (a *PayloadAgent) GeneratePayload(ctx context.Context, task *types.Task, ac
 func formatSchema(schema types.SchemaConfig) string {
 	var b strings.Builder
 	b.WriteString(fmt.Sprintf("Type: %s\n", schema.Type))
-	if schema.Description != "" {
-		b.WriteString(fmt.Sprintf("Description: %s\n", schema.Description))
-	}
-
-	if len(schema.Required) > 0 {
-		b.WriteString("\nRequired Fields:\n")
-		for _, field := range schema.Required {
-			prop := schema.Properties[field]
-			formatProperty(&b, field, prop, true)
-		}
-	}
-
-	for name, prop := range schema.Properties {
-		if !contains(schema.Required, name) {
-			formatProperty(&b, name, prop, false)
-		}
-	}
-
+	b.WriteString(fmt.Sprintf("Description: %s\n", schema.Description))
 	return b.String()
 }
 
@@ -177,6 +160,199 @@ func formatProperty(b *strings.Builder, name string, prop types.Property, requir
 			formatProperty(b, subName, subProp, isRequired)
 		}
 	}
+}
+
+func formatTypeDetails(schema types.SchemaConfig, defs map[string]types.SchemaConfig) string {
+	var b strings.Builder
+
+	for name, prop := range schema.Properties {
+		b.WriteString(fmt.Sprintf("\n%s:\n", name))
+		if prop.Ref != "" {
+			if def, ok := resolveRef(prop.Ref, defs); ok {
+				writeSchemaDetails(&b, def, "  ", defs)
+			}
+		} else if prop.AnyOf != nil {
+			b.WriteString("  AnyOf:\n")
+			for _, subProp := range prop.AnyOf {
+				if subProp.Ref != "" {
+					if def, ok := resolveRef(subProp.Ref, defs); ok {
+						writeSchemaDetails(&b, def, "    ", defs)
+					}
+				} else {
+					writePropertyDetails(&b, subProp, "    ", defs)
+				}
+			}
+		} else {
+			writePropertyDetails(&b, prop, "  ", defs)
+		}
+	}
+	return b.String()
+}
+
+func writeSchemaDetails(b *strings.Builder, schema types.SchemaConfig, indent string, defs map[string]types.SchemaConfig) {
+	b.WriteString(fmt.Sprintf("%sType: %s\n", indent, schema.Type))
+	if schema.Description != "" {
+		b.WriteString(fmt.Sprintf("%sDescription: %s\n", indent, schema.Description))
+	}
+	if len(schema.Properties) > 0 {
+		b.WriteString(fmt.Sprintf("%sProperties:\n", indent))
+		for name, prop := range schema.Properties {
+			b.WriteString(fmt.Sprintf("%s  %s:\n", indent, name))
+			writePropertyDetails(b, prop, indent+"    ", defs)
+		}
+	}
+	if len(schema.Required) > 0 {
+		b.WriteString(fmt.Sprintf("%sRequired: [%s]\n", indent, strings.Join(schema.Required, ", ")))
+	}
+}
+
+func writePropertyDetails(b *strings.Builder, prop types.Property, indent string, defs map[string]types.SchemaConfig) {
+	b.WriteString(fmt.Sprintf("%sType: %s\n", indent, prop.Type))
+
+	if prop.Const != "" {
+		b.WriteString(fmt.Sprintf("%sConst: %s\n", indent, prop.Const))
+	}
+	if len(prop.Enum) > 0 {
+		b.WriteString(fmt.Sprintf("%sEnum: [%s]\n", indent, strings.Join(prop.Enum, ", ")))
+	}
+	if prop.Default != nil {
+		b.WriteString(fmt.Sprintf("%sDefault: %v\n", indent, prop.Default))
+	}
+	if prop.Type == "array" && prop.Items != nil {
+		b.WriteString(fmt.Sprintf("%sArray items:\n", indent))
+		writePropertyDetails(b, *prop.Items, indent+"  ", defs)
+	}
+}
+
+func formatPropertyDetails(b *strings.Builder, prop types.Property, indent string, defs map[string]types.SchemaConfig) {
+	b.WriteString(fmt.Sprintf("%sType: %s\n", indent, prop.Type))
+
+	if prop.Const != "" {
+		b.WriteString(fmt.Sprintf("%sConst: %s\n", indent, prop.Const))
+	}
+
+	if len(prop.Enum) > 0 {
+		b.WriteString(fmt.Sprintf("%sEnum: [%s]\n", indent, strings.Join(prop.Enum, ", ")))
+	}
+
+	if prop.Default != nil {
+		b.WriteString(fmt.Sprintf("%sDefault: %v\n", indent, prop.Default))
+	}
+
+	if prop.Type == "object" && len(prop.Properties) > 0 {
+		b.WriteString(fmt.Sprintf("%sProperties:\n", indent))
+		for name, subProp := range prop.Properties {
+			b.WriteString(fmt.Sprintf("%s  %s:\n", indent, name))
+			formatPropertyDetails(b, subProp, indent+"    ", defs)
+		}
+		if len(prop.Required) > 0 {
+			b.WriteString(fmt.Sprintf("%s  Required: [%s]\n", indent, strings.Join(prop.Required, ", ")))
+		}
+	}
+
+	if prop.Type == "array" && prop.Items != nil {
+		b.WriteString(fmt.Sprintf("%sArray items:\n", indent))
+		formatPropertyDetails(b, *prop.Items, indent+"  ", defs)
+	}
+}
+
+func resolveRef(ref string, defs map[string]types.SchemaConfig) (types.SchemaConfig, bool) {
+	parts := strings.Split(strings.TrimPrefix(ref, "#/$defs/"), "/")
+	if len(parts) > 0 {
+		if def, ok := defs[parts[len(parts)-1]]; ok {
+			return def, true
+		}
+	}
+	return types.SchemaConfig{}, false
+}
+
+func formatValidationConstraints(b *strings.Builder, prop types.Property, indent string) {
+	if prop.Pattern != "" {
+		b.WriteString(fmt.Sprintf("%sPattern: %s\n", indent, prop.Pattern))
+	}
+	if prop.Minimum != nil {
+		b.WriteString(fmt.Sprintf("%sMin: %v\n", indent, *prop.Minimum))
+	}
+	if prop.Maximum != nil {
+		b.WriteString(fmt.Sprintf("%sMax: %v\n", indent, *prop.Maximum))
+	}
+	if prop.MinimumItems > 0 {
+		b.WriteString(fmt.Sprintf("%sMin items: %d\n", indent, prop.MinimumItems))
+	}
+	if prop.MaximumItems > 0 {
+		b.WriteString(fmt.Sprintf("%sMax items: %d\n", indent, prop.MaximumItems))
+	}
+}
+
+func formatConstraints(schema types.SchemaConfig) string {
+	var b strings.Builder
+	formatSchemaConstraints(&b, schema, "", make(map[string]bool))
+	return b.String()
+}
+
+func formatSchemaConstraints(b *strings.Builder, schema types.SchemaConfig, prefix string, visited map[string]bool) {
+	for name, prop := range schema.Properties {
+		fullName := prefix + name
+		if visited[fullName] {
+			continue
+		}
+		visited[fullName] = true
+
+		if prop.Pattern != "" || prop.Minimum != nil || prop.Maximum != nil ||
+			prop.MinimumItems > 0 || prop.MaximumItems > 0 {
+			b.WriteString(fmt.Sprintf("\n%s:\n", fullName))
+			formatValidationConstraints(b, prop, "  ")
+		}
+
+		// Recurse into nested objects
+		if prop.Type == "object" && len(prop.Properties) > 0 {
+			formatSchemaConstraints(b, types.SchemaConfig{Properties: prop.Properties}, fullName+".", visited)
+		}
+	}
+}
+
+func formatArrayInfo(schema types.SchemaConfig) string {
+	var b strings.Builder
+	b.WriteString("Array fields must be enclosed in [] even for single values:\n")
+
+	for name, prop := range schema.Properties {
+		if prop.Type == "array" {
+			b.WriteString(fmt.Sprintf("- %s: ", name))
+			if prop.Items != nil {
+				b.WriteString(fmt.Sprintf("array of %s", prop.Items.Type))
+				if len(prop.Items.Enum) > 0 {
+					b.WriteString(fmt.Sprintf(" (allowed values: %s)", strings.Join(prop.Items.Enum, ", ")))
+				}
+			}
+			b.WriteString("\n")
+		}
+	}
+	return b.String()
+}
+
+func formatTypeConstraints(schema types.SchemaConfig) string {
+	var b strings.Builder
+	for name, prop := range schema.Properties {
+		if prop.Minimum != nil || prop.Maximum != nil || prop.MinimumItems > 0 || prop.MaximumItems > 0 || prop.Pattern != "" {
+			b.WriteString(fmt.Sprintf("\nField '%s' constraints:\n", name))
+			if prop.Minimum != nil {
+				b.WriteString(fmt.Sprintf("- Minimum: %v\n", *prop.Minimum))
+			}
+			if prop.Maximum != nil {
+				b.WriteString(fmt.Sprintf("- Maximum: %v\n", *prop.Maximum))
+			}
+			if prop.MinimumItems > 0 {
+				b.WriteString(fmt.Sprintf("- Minimum items: %d\n", prop.MinimumItems))
+			}
+			if prop.MaximumItems > 0 {
+				b.WriteString(fmt.Sprintf("- Maximum items: %d\n", prop.MaximumItems))
+			}
+			if prop.Pattern != "" {
+				b.WriteString(fmt.Sprintf("- Must match pattern: %s\n", prop.Pattern))
+			}
+		}
+	}
+	return b.String()
 }
 
 func generateExample(schema types.SchemaConfig, task *types.Task) []byte {
@@ -380,41 +556,82 @@ IMPORTANT:
 Response format: JSON object only.`
 
 // Add these methods to PayloadAgent struct
+// In payload_agent.go
 func (a *PayloadAgent) GeneratePayloadWithRetry(ctx context.Context, task *types.Task, action types.Action) ([]byte, error) {
-	payload, err := a.GeneratePayload(ctx, task, action)
-	if err != nil {
-		return nil, err
-	}
+	var payload []byte
+	var err error
+	maxRetries := 3
 
-	// Try to send the payload to the endpoint (we'll need the URL and method from the action)
-	client := &http.Client{Timeout: 30 * time.Second}
-	url := fmt.Sprintf("%s%s", action.Name, action.Path)
-
-	req, err := http.NewRequestWithContext(ctx, action.Method, url, bytes.NewBuffer(payload))
-	if err != nil {
-		return nil, fmt.Errorf("creating request: %w", err)
-	}
-
-	req.Header.Set("Content-Type", "application/json")
-
-	resp, err := client.Do(req)
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
-
-	// If we get a 422 (Validation Error), try to fix the payload
-	if resp.StatusCode == http.StatusUnprocessableEntity {
-		body, err := io.ReadAll(resp.Body)
-		if err != nil {
-			return nil, fmt.Errorf("reading error response: %w", err)
+	for attempt := 0; attempt < maxRetries; attempt++ {
+		if attempt > 0 {
+			log.Printf("Retry attempt %d/%d for generating payload for task %s", attempt+1, maxRetries, task.ID)
+			time.Sleep(time.Duration(attempt) * time.Second)
 		}
 
-		// Try to fix the payload with the validation errors
-		return a.fixPayloadWithErrors(ctx, task, action, payload, body)
+		// Generate initial payload
+		payload, err = a.GeneratePayload(ctx, task, action)
+		if err != nil {
+			log.Printf("Error generating payload on attempt %d: %v", attempt+1, err)
+			continue
+		}
+
+		// Validate payload against schema before sending
+		var reqBody map[string]interface{}
+		if err := json.Unmarshal(payload, &reqBody); err != nil {
+			log.Printf("Invalid JSON payload on attempt %d: %v", attempt+1, err)
+			continue
+		}
+
+		// Try to send the payload to the endpoint
+		client := &http.Client{Timeout: 30 * time.Second}
+
+		// Format URL properly
+		baseURL := strings.TrimRight(action.BaseURL, "/")
+		path := "/" + strings.TrimLeft(action.Path, "/")
+		url := baseURL + path
+
+		req, err := http.NewRequestWithContext(ctx, action.Method, url, bytes.NewBuffer(payload))
+		if err != nil {
+			return nil, fmt.Errorf("creating request: %w", err)
+		}
+
+		req.Header.Set("Content-Type", "application/json")
+
+		resp, err := client.Do(req)
+		if err != nil {
+			log.Printf("Error sending request on attempt %d: %v", attempt+1, err)
+			continue
+		}
+
+		// Read response body
+		body, err := io.ReadAll(resp.Body)
+		resp.Body.Close()
+
+		if err != nil {
+			log.Printf("Error reading response body on attempt %d: %v", attempt+1, err)
+			continue
+		}
+
+		// Handle different response status codes
+		switch resp.StatusCode {
+		case http.StatusOK:
+			return payload, nil
+		case http.StatusUnprocessableEntity:
+			log.Printf("Validation error on attempt %d, trying to fix payload", attempt+1)
+			// Try to fix the payload with the validation errors
+			if fixedPayload, err := a.fixPayloadWithErrors(ctx, task, action, payload, body); err == nil {
+				return fixedPayload, nil
+			}
+		default:
+			log.Printf("Unexpected status code %d on attempt %d", resp.StatusCode, attempt+1)
+		}
 	}
 
-	return payload, nil
+	if err != nil {
+		return nil, fmt.Errorf("failed after %d attempts: %w", maxRetries, err)
+	}
+
+	return nil, fmt.Errorf("failed to generate valid payload after %d attempts", maxRetries)
 }
 
 func (a *PayloadAgent) fixPayloadWithErrors(ctx context.Context, task *types.Task, action types.Action, previousPayload []byte, errorBody []byte) ([]byte, error) {

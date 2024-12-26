@@ -32,36 +32,50 @@ type Capability struct {
 }
 
 type Action struct {
-	Name         string       `json:"name"`
+	Name         string `json:"name"`
+	BaseURL      string
 	Path         string       `json:"path"`
 	Method       string       `json:"method"`
 	InputSchema  SchemaConfig `json:"inputSchema"`
 	OutputSchema SchemaConfig `json:"outputSchema"`
 }
-type SchemaConfig struct {
-	Type                 string              `json:"type"`
-	Required             []string            `json:"required,omitempty"`
-	Properties           map[string]Property `json:"properties,omitempty"`
-	AdditionalProperties interface{}         `json:"additionalProperties,omitempty"`
-	Description          string              `json:"description,omitempty"`
-	Example              interface{}         `json:"example,omitempty"`
-	Examples             []interface{}       `json:"examples,omitempty"`
-}
 
+type SchemaConfig struct {
+	Type                 string                  `json:"type"`
+	Required             []string                `json:"required,omitempty"`
+	Properties           map[string]Property     `json:"properties,omitempty"` // Changed from SchemaProperty to Property
+	Description          string                  `json:"description,omitempty"`
+	Title                string                  `json:"title,omitempty"`
+	Defs                 map[string]SchemaConfig `json:"$defs,omitempty"`
+	Ref                  string                  `json:"$ref,omitempty"`
+	AdditionalProperties *Property               `json:"additionalProperties,omitempty"` // Changed from SchemaProperty to Property
+	Default              interface{}             `json:"default,omitempty"`
+	Examples             []interface{}           `json:"examples,omitempty"` // Added Examples field
+	Example              interface{}             `json:"example,omitempty"`  // Added Example field
+}
 type Property struct {
 	Type                 string              `json:"type"`
-	Formats              []string            `json:"formats,omitempty"`
-	MaxSize              string              `json:"max_size,omitempty"`
-	Enum                 []string            `json:"enum,omitempty"`
+	Title                string              `json:"title,omitempty"`
+	Description          string              `json:"description,omitempty"`
+	Format               string              `json:"format,omitempty"`
+	Pattern              string              `json:"pattern,omitempty"` // Added Pattern field
 	Default              interface{}         `json:"default,omitempty"`
-	Items                *Property           `json:"items,omitempty"`      // For array types
-	Properties           map[string]Property `json:"properties,omitempty"` // For object types
+	Enum                 []string            `json:"enum,omitempty"`
+	Const                string              `json:"const,omitempty"`
+	Items                *Property           `json:"items,omitempty"`
+	Properties           map[string]Property `json:"properties,omitempty"`
 	Required             []string            `json:"required,omitempty"`
 	MinimumItems         int                 `json:"minItems,omitempty"`
 	MaximumItems         int                 `json:"maxItems,omitempty"`
-	Pattern              string              `json:"pattern,omitempty"`
-	Format               string              `json:"format,omitempty"`
-	AdditionalProperties interface{}         `json:"additionalProperties,omitempty"`
+	Minimum              *float64            `json:"minimum,omitempty"`
+	Maximum              *float64            `json:"maximum,omitempty"`
+	AnyOf                []Property          `json:"anyOf,omitempty"`
+	AllOf                []Property          `json:"allOf,omitempty"`
+	OneOf                []Property          `json:"oneOf,omitempty"`
+	Ref                  string              `json:"$ref,omitempty"`
+	AdditionalProperties *Property           `json:"additionalProperties,omitempty"`
+	Examples             []interface{}       `json:"examples,omitempty"`
+	Example              interface{}         `json:"example,omitempty"`
 }
 
 const (

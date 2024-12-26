@@ -88,6 +88,8 @@ func (l *AgentLoader) validateAgentDefinition(def *AgentDefinition) error {
 		return fmt.Errorf("missing base URL")
 	}
 	for _, action := range def.Actions {
+		// XXX: I should use def.BaseURL only if action.BaseURL is not provided
+		action.BaseURL = def.BaseURL
 		if err := l.validateAction(action); err != nil {
 			return fmt.Errorf("invalid action %s: %w", action.Name, err)
 		}
