@@ -5,7 +5,9 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log"
 	"sync"
+	"time"
 
 	"github.com/Relax-N-Tax/AgentNexus/types"
 )
@@ -96,14 +98,23 @@ func GetActionPlannerAgent(ctx context.Context, config types.InternalAgentConfig
 
 func initializeActionPlannerAgent(config types.InternalAgentConfig) *ActionPlannerAgent {
 	llmClient := NewLLMClient(&LLMConfig{
-		BaseURL: config.LLMConfig.BaseURL,
-		APIKey:  config.LLMConfig.APIKey,
-		Model:   config.LLMConfig.Model,
-		Timeout: config.LLMConfig.Timeout,
+		Provider: Qwen,
+		BaseURL:  config.LLMConfig.BaseURL,
+		APIKey:   config.LLMConfig.APIKey,
+		Model:    config.LLMConfig.Model,
+		Timeout:  90 * time.Second, // Increased timeout
+		Debug:    true,             // Enable debug logging
+		Options: map[string]interface{}{
+			"temperature":   0.7,
+			"top_p":         0.8,
+			"result_format": "message",
+			"stream":        false,
+		},
 	})
 
 	promptMgr := NewPromptManager()
 	if err := promptMgr.RegisterTemplate("actionPlannerPrompt", actionPlannerPromptTemplate); err != nil {
+		log.Printf("Warning: Failed to register action planner prompt template: %v", err)
 		panic(fmt.Sprintf("Failed to register action planner prompt template: %v", err))
 	}
 

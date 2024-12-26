@@ -3,6 +3,7 @@ package core
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"time"
 
@@ -96,27 +97,56 @@ func (a *Agent) Stop(ctx context.Context) error {
 }
 
 func (a *Agent) Execute(ctx context.Context, task *types.Task) (*types.TaskResult, error) {
+	if task == nil {
+		return nil, fmt.Errorf("task cannot be nil")
+	}
+
 	log.Printf("Agent %s processing task: %s (Required Skills: %v)",
 		a.ID, task.Title, task.Requirements.SkillPath)
 
-	result, err := a.executor.Execute(ctx, task)
+	// Execute the task with timeout
+	taskCtx, cancel := context.WithTimeout(ctx, 5*time.Minute)
+	defer cancel()
+
+	result, err := a.executor.Execute(taskCtx, task)
+
+	// Handle execution error
 	if err != nil {
 		log.Printf("Agent %s failed to execute task %s: %v", a.ID, task.Title, err)
-		// a.metrics.RecordTaskError(task.Type, err)
+		// a.metrics.IncrementMetric("task_errors")
+
+		// Return a proper error result instead of propagating the error
+		return &types.TaskResult{
+			TaskID:     task.ID,
+			Success:    false,
+			Error:      fmt.Sprintf("execution error: %v", err),
+			FinishedAt: time.Now(),
+		}, nil
 	}
 
-	if result.Success {
-		// a.metrics.RecordTaskComplete(task.Type, task.ID)
-		log.Printf("Agent %s successfully completed task: %s", a.ID, task.Title)
-	} else {
-		// a.metrics.RecordTaskError(task.Type, fmt.Errorf("task completed unsuccessfully"))
-		log.Printf("Agent %s task completed but unsuccessful: %s", a.ID, task.Title)
+	// Handle nil result
+	if result == nil {
+		log.Printf("Agent %s received nil result for task %s", a.ID, task.Title)
+		return &types.TaskResult{
+			TaskID:     task.ID,
+			Success:    false,
+			Error:      "task execution returned nil result",
+			FinishedAt: time.Now(),
+		}, nil
 	}
-	return &types.TaskResult{
-		TaskID:     task.ID,
-		Success:    true,
-		FinishedAt: time.Now(),
-	}, nil
+
+	// Handle task result
+	if result.Success {
+		log.Printf("Agent %s successfully completed task: %s", a.ID, task.Title)
+		// a.metrics.IncrementMetric("tasks_completed")
+	} else {
+		log.Printf("Agent %s task completed but unsuccessful: %s - Error: %s",
+			a.ID, task.Title, result.Error)
+		// a.metrics.IncrementMetric("task_failures")
+	}
+
+	// Always return the actual result from the executor
+	return result, nil
 }
 
 func (a *Agent) GetCapabilities() []types.AgentCapability {

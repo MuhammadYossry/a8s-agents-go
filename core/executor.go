@@ -132,7 +132,10 @@ func (e *TaskExecutor) findActionForTask(ctx context.Context, task *types.Task) 
 }
 
 func (e *TaskExecutor) Execute(ctx context.Context, task *types.Task) (*types.TaskResult, error) {
+	// Handle internal agents differently
 	if e.AgentDef.Type != "external" {
+		// For internal agents, we might want to implement different logic
+		// For now, just return success
 		return &types.TaskResult{
 			TaskID:     task.ID,
 			Success:    true,
@@ -140,79 +143,132 @@ func (e *TaskExecutor) Execute(ctx context.Context, task *types.Task) (*types.Ta
 		}, nil
 	}
 
+	// Find appropriate action
 	action, err := e.findActionForTask(ctx, task)
 	if err != nil {
-		return nil, fmt.Errorf("finding action: %w", err)
+		return &types.TaskResult{
+			TaskID:     task.ID,
+			Success:    false,
+			Error:      fmt.Sprintf("action selection failed: %v", err),
+			FinishedAt: time.Now(),
+		}, nil
 	}
 
+	// Execute the action with proper error handling
 	return e.executeAction(ctx, task, *action)
 }
 
 func (e *TaskExecutor) executeAction(ctx context.Context, task *types.Task, action types.Action) (*types.TaskResult, error) {
 	url := fmt.Sprintf("%s%s", e.AgentDef.BaseURL, action.Path)
 
+	// Prepare request with proper error handling
 	req, err := e.prepareRequest(ctx, task, action, url)
 	if err != nil {
-		return nil, fmt.Errorf("preparing request: %w", err)
+		return &types.TaskResult{
+			TaskID:     task.ID,
+			Success:    false,
+			Error:      fmt.Sprintf("request preparation failed: %v", err),
+			FinishedAt: time.Now(),
+		}, nil
 	}
 
-	resp, err := e.client.Do(req)
+	// Execute request with retries
+	var resp *http.Response
+	var lastErr error
+	maxRetries := 3
+
+	for attempt := 0; attempt < maxRetries; attempt++ {
+		if attempt > 0 {
+			select {
+			case <-ctx.Done():
+				return &types.TaskResult{
+					TaskID:     task.ID,
+					Success:    false,
+					Error:      "task cancelled during retry",
+					FinishedAt: time.Now(),
+				}, nil
+			case <-time.After(time.Duration(attempt) * 2 * time.Second):
+				// Exponential backoff
+			}
+		}
+
+		resp, err = e.client.Do(req)
+		if err == nil {
+			break
+		}
+		lastErr = err
+	}
+
 	if err != nil {
-		return nil, fmt.Errorf("executing request: %w", err)
+		return &types.TaskResult{
+			TaskID:     task.ID,
+			Success:    false,
+			Error:      fmt.Sprintf("request failed after %d attempts: %v", maxRetries, lastErr),
+			FinishedAt: time.Now(),
+		}, nil
 	}
 	defer resp.Body.Close()
 
-	return e.handleResponse(resp, task)
+	// Handle response
+	result, err := e.handleResponse(resp, task)
+	if err != nil {
+		return &types.TaskResult{
+			TaskID:  task.ID,
+			Success: false,
+			Error:   fmt.Sprintf("response handling failed: %v", err),
+			// StartedAt:  startTime,
+			FinishedAt: time.Now(),
+		}, nil
+	}
+
+	// Add timing information
+	// result.StartedAt = startTime
+	result.FinishedAt = time.Now()
+
+	return result, nil
 }
 
 func (e *TaskExecutor) prepareRequest(ctx context.Context, task *types.Task, action types.Action, url string) (*http.Request, error) {
 	var payload []byte
 	var err error
-	fmt.Println(len(task.Payload))
 
-	// If task payload is empty, generate it using PayloadAgent
-	if len(task.Payload) == 0 && e.payloadAgent != nil {
-		// Extract capabilities for context
-		capabilities := make([]string, 0)
-		for _, cap := range e.AgentDef.Capabilities {
-			if desc, ok := cap.Metadata["description"].(string); ok {
-				capabilities = append(capabilities, desc)
-			}
+	// Generate or use existing payload
+	if len(task.Payload) == 0 {
+		if e.payloadAgent == nil {
+			return nil, fmt.Errorf("no payload provided and no payload agent available")
 		}
 
-		// Generate payload using PayloadAgent
-		payload, err = e.payloadAgent.GeneratePayload(ctx, task, action)
+		// Use GeneratePayloadWithRetry instead of GeneratePayload
+		payload, err = e.payloadAgent.GeneratePayloadWithRetry(ctx, task, action)
 		if err != nil {
 			return nil, fmt.Errorf("generating payload: %w", err)
+		}
+
+		if len(payload) == 0 {
+			return nil, fmt.Errorf("payload agent generated empty payload")
 		}
 	} else {
 		payload = task.Payload
 	}
 
-	// Parse and validate payload
+	// Validate payload
 	var reqBody map[string]interface{}
 	if err := json.Unmarshal(payload, &reqBody); err != nil {
-		return nil, fmt.Errorf("parsing payload: %w", err)
+		return nil, fmt.Errorf("invalid payload JSON: %w", err)
 	}
 
+	// Validate against schema
 	parser := NewSchemaParser(action)
 	if err := parser.ValidateAndPrepareRequest(reqBody); err != nil {
-		return nil, fmt.Errorf("validating request: %w", err)
+		return nil, fmt.Errorf("payload validation failed: %w", err)
 	}
 
-	// Marshal back to JSON
-	jsonBody, err := json.Marshal(reqBody)
-	if err != nil {
-		return nil, fmt.Errorf("marshaling request: %w", err)
-	}
-
-	// Create request with context
-	req, err := http.NewRequestWithContext(ctx, action.Method, url, bytes.NewBuffer(jsonBody))
+	// Create request
+	req, err := http.NewRequestWithContext(ctx, action.Method, url, bytes.NewBuffer(payload))
 	if err != nil {
 		return nil, fmt.Errorf("creating request: %w", err)
 	}
 
-	// Set headers
 	req.Header.Set("Content-Type", "application/json")
 
 	return req, nil
@@ -221,28 +277,32 @@ func (e *TaskExecutor) prepareRequest(ctx context.Context, task *types.Task, act
 func (e *TaskExecutor) handleResponse(resp *http.Response, task *types.Task) (*types.TaskResult, error) {
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return nil, fmt.Errorf("reading response: %w", err)
+		return nil, fmt.Errorf("reading response body: %w", err)
 	}
 
+	// Handle empty response
+	if len(body) == 0 {
+		return nil, fmt.Errorf("empty response body")
+	}
+
+	// Handle non-200 responses
 	if resp.StatusCode != http.StatusOK {
 		return &types.TaskResult{
-			TaskID:     task.ID,
-			Success:    false,
-			Error:      fmt.Sprintf("request failed with status %d: %s", resp.StatusCode, string(body)),
-			FinishedAt: time.Now(),
+			TaskID:  task.ID,
+			Success: false,
+			Error:   fmt.Sprintf("request failed with status %d: %s", resp.StatusCode, string(body)),
 		}, nil
 	}
 
-	// Parse response for validation
+	// Validate response format
 	var response map[string]interface{}
 	if err := json.Unmarshal(body, &response); err != nil {
-		return nil, fmt.Errorf("parsing response: %w", err)
+		return nil, fmt.Errorf("invalid response JSON: %w", err)
 	}
 
 	return &types.TaskResult{
-		TaskID:     task.ID,
-		Success:    true,
-		Output:     body,
-		FinishedAt: time.Now(),
+		TaskID:  task.ID,
+		Success: true,
+		Output:  body,
 	}, nil
 }
