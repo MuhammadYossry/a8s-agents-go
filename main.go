@@ -8,6 +8,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/Relax-N-Tax/AgentNexus/capability"
 	"github.com/Relax-N-Tax/AgentNexus/core"
 	"github.com/Relax-N-Tax/AgentNexus/metrics"
 	"github.com/Relax-N-Tax/AgentNexus/types"
@@ -19,7 +20,7 @@ func main() {
 
 	broker := core.NewPubSub()
 	metrics := metrics.NewMetrics()
-	registry := core.NewCapabilityRegistry()
+	registry := capability.GetCapabilityRegistry()
 	router := core.NewTaskRouter(registry, broker, metrics)
 
 	loader := core.NewAgentLoader(broker, metrics, registry)
@@ -66,7 +67,7 @@ func main() {
 		}
 
 		// Add delay between tasks for readable logs
-		time.Sleep(500 * time.Millisecond)
+		time.Sleep(7 * time.Second)
 	}
 
 	// Wait for shutdown signal

@@ -8,6 +8,7 @@ type AgentID string
 type AgentType string
 type TaskStatus string
 type TaskPath []string
+type WorkFlowID string
 
 type InternalAgentConfig struct {
 	LLMConfig struct {
@@ -136,4 +137,10 @@ type ActionValidation struct {
 	FrameworkCompatible bool     `json:"framework_compatible"`
 	SkillPathSupported  bool     `json:"skill_path_supported"`
 	MissingRequirements []string `json:"missing_requirements"`
+}
+
+type WorkFlowCapability struct {
+	WorkFlowID   WorkFlowID
+	Capabilities []Capability
+	Resources    map[string]int
 }

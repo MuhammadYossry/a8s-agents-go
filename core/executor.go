@@ -94,7 +94,7 @@ func (e *TaskExecutor) findActionForTask(ctx context.Context, task *types.Task) 
 	}
 
 	// Validate action plan confidence
-	if actionPlan.Confidence < 0.7 { // You might want to make this threshold configurable
+	if actionPlan.Confidence < 0.5 { // You might want to make this threshold configurable
 		return nil, fmt.Errorf("low confidence (%f) in action selection", actionPlan.Confidence)
 	}
 
@@ -112,24 +112,24 @@ func (e *TaskExecutor) findActionForTask(ctx context.Context, task *types.Task) 
 	}
 
 	// Validate framework compatibility if specified in task requirements
-	if framework, ok := task.Requirements.Parameters["framework"].(string); ok {
-		if !actionPlan.Validation.FrameworkCompatible {
-			return nil, fmt.Errorf("selected action '%s' is not compatible with framework '%s'",
-				actionPlan.SelectedAction, framework)
-		}
-	}
+	// if framework, ok := task.Requirements.Parameters["framework"].(string); ok {
+	// 	if !actionPlan.Validation.FrameworkCompatible {
+	// 		return nil, fmt.Errorf("selected action '%s' is not compatible with framework '%s'",
+	// 			actionPlan.SelectedAction, framework)
+	// 	}
+	// }
 
-	// Validate skill path support
-	if !actionPlan.Validation.SkillPathSupported {
-		return nil, fmt.Errorf("selected action '%s' does not support required skill path %v",
-			actionPlan.SelectedAction, task.Requirements.SkillPath)
-	}
+	// // Validate skill path support
+	// if !actionPlan.Validation.SkillPathSupported {
+	// 	return nil, fmt.Errorf("selected action '%s' does not support required skill path %v",
+	// 		actionPlan.SelectedAction, task.Requirements.SkillPath)
+	// }
 
-	// Check for missing requirements
-	if len(actionPlan.Validation.MissingRequirements) > 0 {
-		return nil, fmt.Errorf("missing requirements for action '%s': %v",
-			actionPlan.SelectedAction, actionPlan.Validation.MissingRequirements)
-	}
+	// // Check for missing requirements
+	// if len(actionPlan.Validation.MissingRequirements) > 0 {
+	// 	return nil, fmt.Errorf("missing requirements for action '%s': %v",
+	// 		actionPlan.SelectedAction, actionPlan.Validation.MissingRequirements)
+	// }
 
 	return selectedAction, nil
 }

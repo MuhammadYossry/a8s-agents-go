@@ -123,47 +123,6 @@ func formatSchema(schema types.SchemaConfig) string {
 	return b.String()
 }
 
-func formatProperty(b *strings.Builder, name string, prop types.Property, required bool) {
-	indent := "  "
-	var marker string
-	if required {
-		marker = "*"
-	} else {
-		marker = "-"
-	}
-
-	b.WriteString(fmt.Sprintf("%s %s:\n", marker, name))
-	b.WriteString(fmt.Sprintf("%sType: %s\n", indent, prop.Type))
-
-	if len(prop.Enum) > 0 {
-		b.WriteString(fmt.Sprintf("%sAllowed values: [%s]\n", indent, strings.Join(prop.Enum, ", ")))
-	}
-
-	if prop.Format != "" {
-		b.WriteString(fmt.Sprintf("%sFormat: %s\n", indent, prop.Format))
-	}
-
-	if prop.Pattern != "" {
-		b.WriteString(fmt.Sprintf("%sPattern: %s\n", indent, prop.Pattern))
-	}
-
-	if prop.Type == "array" && prop.Items != nil {
-		b.WriteString(fmt.Sprintf("%sArray items:\n", indent))
-		b.WriteString(fmt.Sprintf("%s  Type: %s\n", indent, prop.Items.Type))
-		if len(prop.Items.Enum) > 0 {
-			b.WriteString(fmt.Sprintf("%s  Allowed values: [%s]\n", indent, strings.Join(prop.Items.Enum, ", ")))
-		}
-	}
-
-	if prop.Type == "object" && len(prop.Properties) > 0 {
-		b.WriteString(fmt.Sprintf("%sObject properties:\n", indent))
-		for subName, subProp := range prop.Properties {
-			isRequired := contains(prop.Required, subName)
-			formatProperty(b, subName, subProp, isRequired)
-		}
-	}
-}
-
 func formatTypeDetails(schema types.SchemaConfig, defs map[string]types.SchemaConfig) string {
 	var b strings.Builder
 
@@ -227,38 +186,6 @@ func writePropertyDetails(b *strings.Builder, prop types.Property, indent string
 	}
 }
 
-func formatPropertyDetails(b *strings.Builder, prop types.Property, indent string, defs map[string]types.SchemaConfig) {
-	b.WriteString(fmt.Sprintf("%sType: %s\n", indent, prop.Type))
-
-	if prop.Const != "" {
-		b.WriteString(fmt.Sprintf("%sConst: %s\n", indent, prop.Const))
-	}
-
-	if len(prop.Enum) > 0 {
-		b.WriteString(fmt.Sprintf("%sEnum: [%s]\n", indent, strings.Join(prop.Enum, ", ")))
-	}
-
-	if prop.Default != nil {
-		b.WriteString(fmt.Sprintf("%sDefault: %v\n", indent, prop.Default))
-	}
-
-	if prop.Type == "object" && len(prop.Properties) > 0 {
-		b.WriteString(fmt.Sprintf("%sProperties:\n", indent))
-		for name, subProp := range prop.Properties {
-			b.WriteString(fmt.Sprintf("%s  %s:\n", indent, name))
-			formatPropertyDetails(b, subProp, indent+"    ", defs)
-		}
-		if len(prop.Required) > 0 {
-			b.WriteString(fmt.Sprintf("%s  Required: [%s]\n", indent, strings.Join(prop.Required, ", ")))
-		}
-	}
-
-	if prop.Type == "array" && prop.Items != nil {
-		b.WriteString(fmt.Sprintf("%sArray items:\n", indent))
-		formatPropertyDetails(b, *prop.Items, indent+"  ", defs)
-	}
-}
-
 func resolveRef(ref string, defs map[string]types.SchemaConfig) (types.SchemaConfig, bool) {
 	parts := strings.Split(strings.TrimPrefix(ref, "#/$defs/"), "/")
 	if len(parts) > 0 {
@@ -312,50 +239,6 @@ func formatSchemaConstraints(b *strings.Builder, schema types.SchemaConfig, pref
 			formatSchemaConstraints(b, types.SchemaConfig{Properties: prop.Properties}, fullName+".", visited)
 		}
 	}
-}
-
-func formatArrayInfo(schema types.SchemaConfig) string {
-	var b strings.Builder
-	b.WriteString("Array fields must be enclosed in [] even for single values:\n")
-
-	for name, prop := range schema.Properties {
-		if prop.Type == "array" {
-			b.WriteString(fmt.Sprintf("- %s: ", name))
-			if prop.Items != nil {
-				b.WriteString(fmt.Sprintf("array of %s", prop.Items.Type))
-				if len(prop.Items.Enum) > 0 {
-					b.WriteString(fmt.Sprintf(" (allowed values: %s)", strings.Join(prop.Items.Enum, ", ")))
-				}
-			}
-			b.WriteString("\n")
-		}
-	}
-	return b.String()
-}
-
-func formatTypeConstraints(schema types.SchemaConfig) string {
-	var b strings.Builder
-	for name, prop := range schema.Properties {
-		if prop.Minimum != nil || prop.Maximum != nil || prop.MinimumItems > 0 || prop.MaximumItems > 0 || prop.Pattern != "" {
-			b.WriteString(fmt.Sprintf("\nField '%s' constraints:\n", name))
-			if prop.Minimum != nil {
-				b.WriteString(fmt.Sprintf("- Minimum: %v\n", *prop.Minimum))
-			}
-			if prop.Maximum != nil {
-				b.WriteString(fmt.Sprintf("- Maximum: %v\n", *prop.Maximum))
-			}
-			if prop.MinimumItems > 0 {
-				b.WriteString(fmt.Sprintf("- Minimum items: %d\n", prop.MinimumItems))
-			}
-			if prop.MaximumItems > 0 {
-				b.WriteString(fmt.Sprintf("- Maximum items: %d\n", prop.MaximumItems))
-			}
-			if prop.Pattern != "" {
-				b.WriteString(fmt.Sprintf("- Must match pattern: %s\n", prop.Pattern))
-			}
-		}
-	}
-	return b.String()
 }
 
 func generateExample(schema types.SchemaConfig, task *types.Task) []byte {
@@ -532,15 +415,6 @@ func validateProperty(value interface{}, prop types.Property) error {
 		}
 	}
 	return nil
-}
-
-func contains(slice []string, item string) bool {
-	for _, s := range slice {
-		if s == item {
-			return true
-		}
-	}
-	return false
 }
 
 const payloadFixPromptTemplate = `Your previous JSON payload had validation errors:

@@ -8,6 +8,7 @@ import (
 	"os"
 	"time"
 
+	"github.com/Relax-N-Tax/AgentNexus/capability"
 	internal_agents "github.com/Relax-N-Tax/AgentNexus/internal/agents"
 	"github.com/Relax-N-Tax/AgentNexus/metrics"
 	"github.com/Relax-N-Tax/AgentNexus/types"
@@ -16,10 +17,10 @@ import (
 type AgentLoader struct {
 	broker   Broker
 	metrics  *metrics.Metrics
-	registry *CapabilityRegistry
+	registry *capability.CapabilityRegistry
 }
 
-func NewAgentLoader(broker Broker, metrics *metrics.Metrics, registry *CapabilityRegistry) *AgentLoader {
+func NewAgentLoader(broker Broker, metrics *metrics.Metrics, registry *capability.CapabilityRegistry) *AgentLoader {
 	return &AgentLoader{
 		broker:   broker,
 		metrics:  metrics,
@@ -53,6 +54,18 @@ func (l *AgentLoader) LoadAgents(filepath string) ([]*Agent, error) {
 			Timeout: 30 * time.Second,
 		},
 	}
+	ctx := context.Background()
+	agent, err := internal_agents.GetTaskExtractionAgent(ctx, internalAgentConfig)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	result, err := agent.ExtractTaskWithRetry(ctx, "Build a REST API using Python Django Rest")
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	fmt.Printf("Extracted Task: %+v\n", result)
 
 	payloadAgent, err := internal_agents.GetPayloadAgent(context.Background(), internalAgentConfig)
 	if err != nil {

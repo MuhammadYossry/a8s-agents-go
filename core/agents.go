@@ -7,6 +7,7 @@ import (
 	"log"
 	"time"
 
+	"github.com/Relax-N-Tax/AgentNexus/capability"
 	"github.com/Relax-N-Tax/AgentNexus/metrics"
 	"github.com/Relax-N-Tax/AgentNexus/types"
 )
@@ -26,7 +27,7 @@ type Agent struct {
 	broker          Broker
 	executor        Executor
 	metrics         *metrics.Metrics
-	registry        *CapabilityRegistry
+	registry        *capability.CapabilityRegistry
 	cancelFunc      context.CancelFunc
 }
 
@@ -35,7 +36,7 @@ func NewAgent(
 	broker Broker,
 	executor Executor,
 	metrics *metrics.Metrics,
-	registry *CapabilityRegistry,
+	registry *capability.CapabilityRegistry,
 ) *Agent {
 	return &Agent{
 		ID:              types.AgentID(def.ID),

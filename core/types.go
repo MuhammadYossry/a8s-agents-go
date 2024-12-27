@@ -7,8 +7,6 @@ import (
 	"github.com/Relax-N-Tax/AgentNexus/types"
 )
 
-type WorkFlowID string
-
 // Agenter interface defines the core functionality required by all agents
 type Agenter interface {
 	Start(ctx context.Context) error
@@ -35,10 +33,4 @@ type AgentDefinition struct {
 	BaseURL      string             `json:"baseURL"`
 	Capabilities []types.Capability `json:"capabilities"`
 	Actions      []types.Action     `json:"actions"`
-}
-
-type WorkFlowCapability struct {
-	WorkFlowID   WorkFlowID
-	Capabilities []types.Capability
-	Resources    map[string]int
 }

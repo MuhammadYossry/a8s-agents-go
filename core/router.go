@@ -6,23 +6,24 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/Relax-N-Tax/AgentNexus/capability"
 	"github.com/Relax-N-Tax/AgentNexus/metrics"
 	"github.com/Relax-N-Tax/AgentNexus/types"
 )
 
 type TaskRouter struct {
-	registry *CapabilityRegistry
+	registry *capability.CapabilityRegistry
 	broker   Broker
 	metrics  *metrics.Metrics
-	matcher  *CapabilityMatcher
+	matcher  *capability.CapabilityMatcher
 }
 
-func NewTaskRouter(registry *CapabilityRegistry, broker Broker, metrics *metrics.Metrics) *TaskRouter {
+func NewTaskRouter(registry *capability.CapabilityRegistry, broker Broker, metrics *metrics.Metrics) *TaskRouter {
 	return &TaskRouter{
 		registry: registry,
 		broker:   broker,
 		metrics:  metrics,
-		matcher:  NewCapabilityMatcher(registry, DefaultMatcherConfig()),
+		matcher:  capability.NewCapabilityMatcher(registry, capability.DefaultMatcherConfig()),
 	}
 }
 
