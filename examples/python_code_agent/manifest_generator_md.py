@@ -5,7 +5,6 @@ from fastapi.responses import PlainTextResponse, Response
 from fastapi import FastAPI, APIRouter
 import json
 from datetime import datetime
-from tabulate import tabulate
 
 class MarkdownGenerator:
     """Enhanced Markdown documentation generator with detailed schema information."""
@@ -14,27 +13,36 @@ class MarkdownGenerator:
         self.registry = registry
 
     def _format_property_table(self, properties: Dict[str, Any], required_fields: List[str]) -> str:
-        """Format properties as a markdown table with detailed information."""
-        headers = ["Field", "Type", "Required", "Description", "Default", "Constraints"]
-        rows = []
+        """Format properties in a structured, LLM-friendly format."""
+        md = ""
         
         for prop_name, prop_details in properties.items():
             prop_type = self._get_property_type(prop_details)
-            is_required = "✓" if prop_name in required_fields else ""
+            is_required = prop_name in required_fields
             description = prop_details.get("description", "")
             default = self._get_default_value(prop_details)
             constraints = self._get_constraints(prop_details)
             
-            rows.append([
-                f"`{prop_name}`",
-                f"`{prop_type}`",
-                is_required,
-                description,
-                default,
-                constraints
-            ])
+            md += f"- `{prop_name}`: {description}\n"
+            md += f"  * Type: `{prop_type}`\n"
+            if is_required:
+                md += f"  * Required: Yes\n"
+            if default != "-":
+                md += f"  * Default: {default}\n"
+            if constraints != "-":
+                md += f"  * Constraints: {constraints}\n"
+            
+            # Add nested properties if any
+            if prop_details.get("type") == "object" and "properties" in prop_details:
+                md += "  * Properties:\n"
+                nested_props = self._format_property_table(
+                    prop_details["properties"],
+                    prop_details.get("required", [])
+                )
+                md += "    " + nested_props.replace("\n", "\n    ") + "\n"
+            md += "\n"
         
-        return tabulate(rows, headers, tablefmt="pipe")
+        return md
 
     def _get_property_type(self, prop_details: Dict[str, Any]) -> str:
         """Get detailed type information including enums."""
@@ -92,25 +100,23 @@ class MarkdownGenerator:
         return md
 
     def _format_capability(self, capability: Dict[str, Any]) -> str:
-        """Format a capability with detailed metadata."""
+        """Format a capability with detailed metadata in an LLM-friendly format."""
         skill_path = " → ".join(capability["skillPath"])
         md = f"### {skill_path}\n\n"
         
         metadata = capability.get("metadata", {})
         if metadata:
-            headers = ["Property", "Value"]
-            rows = []
+            md += "**Capability Details:**\n"
             for key, value in metadata.items():
                 if value:
                     formatted_value = value if isinstance(value, str) else ", ".join(value)
-                    rows.append([f"**{key}**", formatted_value])
-            
-            md += tabulate(rows, headers, tablefmt="pipe") + "\n\n"
+                    md += f"- {key}: {formatted_value}\n"
+            md += "\n"
         
         return md
 
     def _format_error_responses(self, schema: Dict[str, Any]) -> str:
-        """Format possible error responses."""
+        """Format possible error responses in an LLM-friendly format."""
         md = "\n#### Error Responses\n\n"
         
         common_errors = {
@@ -122,10 +128,8 @@ class MarkdownGenerator:
             "500": "Internal Server Error - Server-side error occurred"
         }
         
-        headers = ["Status Code", "Description", "Example Response"]
-        rows = []
-        
         for code, description in common_errors.items():
+            md += f"**Status {code}**: {description}\n"
             example = {
                 "error": {
                     "code": code,
@@ -133,13 +137,9 @@ class MarkdownGenerator:
                     "details": "Additional error context would appear here"
                 }
             }
-            rows.append([
-                code,
-                description,
-                f"```json\n{json.dumps(example, indent=2)}\n```"
-            ])
+            md += "Example:\n```json\n" + json.dumps(example, indent=2) + "\n```\n\n"
         
-        return md + tabulate(rows, headers, tablefmt="pipe") + "\n"
+        return md
 
     def _format_endpoint(self, endpoint: Dict[str, Any]) -> str:
         """Format an endpoint with comprehensive documentation."""
@@ -231,16 +231,12 @@ def extend_app_with_markdown(app: FastAPI) -> None:
     markdown_generator = MarkdownGenerator(registry)
     router = APIRouter()
     
-    @app.get("/agents.md", response_class=PlainTextResponse)
+    @router.get("/agents.md")
     async def get_agent_markdown():
         content = markdown_generator.generate_markdown()
         return Response(
             content=content,
             media_type="text/markdown"
         )
-
+    
     app.include_router(router)
-
-# Example usage:
-# In your main.py, after setup_agent_routes(app), add:
-# extend_app_with_markdown(app)
