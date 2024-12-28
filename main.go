@@ -8,9 +8,7 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/Relax-N-Tax/AgentNexus/capability"
-	"github.com/Relax-N-Tax/AgentNexus/core"
-	"github.com/Relax-N-Tax/AgentNexus/metrics"
+	"github.com/Relax-N-Tax/AgentNexus/orchestrator"
 	"github.com/Relax-N-Tax/AgentNexus/types"
 )
 
@@ -18,48 +16,42 @@ func main() {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	broker := core.NewPubSub()
-	metrics := metrics.NewMetrics()
-	registry := capability.GetCapabilityRegistry()
-	router := core.NewTaskRouter(registry, broker, metrics)
-	config := types.InternalAgentConfig{
-		LLMConfig: struct {
-			BaseURL string
-			APIKey  string
-			Model   string
-			Timeout time.Duration
-		}{
-			BaseURL: os.Getenv("RNT_OPENAI_URL"),
-			APIKey:  os.Getenv("RNT_OPENAI_API_KEY"),
-			Model:   "Qwen-2.5-72B-Chat",
-			Timeout: 50 * time.Second,
+	config := orchestrator.Config{
+		AgentsConfigPath: "examples/agents_generated.json",
+		InternalConfig: types.InternalAgentConfig{
+			LLMConfig: struct {
+				BaseURL string
+				APIKey  string
+				Model   string
+				Timeout time.Duration
+			}{
+				BaseURL: os.Getenv("RNT_OPENAI_URL"),
+				APIKey:  os.Getenv("RNT_OPENAI_API_KEY"),
+				Model:   "Qwen-2.5-72B-Chat",
+				Timeout: 50 * time.Second,
+			},
 		},
 	}
 
-	orchestrator, err := core.NewAgentOrchestrator(config, broker, metrics, registry)
+	orchestrator, err := orchestrator.New(config)
 	if err != nil {
-		log.Fatal(err)
+		log.Fatalf("Failed to create orchestrator: %v", err)
 	}
 
-	ctx, err = orchestrator.ProcessQuery(ctx, "Build a REST API using Python Django Rest")
+	// Start orchestrator
+	if err := orchestrator.Start(ctx); err != nil {
+		log.Fatalf("Failed to start orchestrator: %v", err)
+	}
+
+	ctx, err = orchestrator.ProcessQuery(ctx,
+		"I want to buid a REST API using Python  Fastapi Django Rest",
+	)
 	if err != nil {
 		log.Fatal(err)
 	}
 
 	result := ctx.Value(types.TaskExtractionResultKey).(string)
 	log.Printf("Extracted Task: %s\n", result)
-
-	agents, err := orchestrator.LoadAndStartAgents(ctx, "examples/agents_generated.json")
-	if err != nil {
-		log.Fatalf("Failed to load agents: %v", err)
-	}
-
-	// Start agents
-	for _, agent := range agents {
-		if err := agent.Start(ctx); err != nil {
-			log.Fatalf("Failed to start agent %s: %v", agent.ID, err)
-		}
-	}
 
 	tasks := []*types.Task{
 		{
@@ -95,29 +87,29 @@ func main() {
 			Status:    types.TaskStatusPending,
 			CreatedAt: time.Now(),
 		},
-		// {
-		// 	ID:          "task3",
-		// 	Title:       "Improve Code Quality",
-		// 	Description: "Refactor and optimize Python codebase",
-		// 	Requirements: types.TaskRequirement{
-		// 		SkillPath: types.TaskPath{"Development", "Backend", "Python", "CodeGeneration"},
-		// 		Action:    "improveCode",
-		// 		Parameters: map[string]interface{}{
-		// 			"changesList": []map[string]interface{}{
-		// 				{
-		// 					"type":        "refactor",
-		// 					"description": "Improve function structure",
-		// 					"target":      "main.py",
-		// 					"priority":    "medium",
-		// 				},
-		// 			},
-		// 			"applyBlackFormatting": true,
-		// 			"runLinter":            true,
-		// 		},
-		// 	},
-		// 	Status:    types.TaskStatusPending,
-		// 	CreatedAt: time.Now(),
-		// },
+		{
+			ID:          "task3",
+			Title:       "Improve Code Quality",
+			Description: "Refactor and optimize Python codebase",
+			Requirements: types.TaskRequirement{
+				SkillPath: types.TaskPath{"Development", "Backend", "Python", "CodeGeneration"},
+				Action:    "improveCode",
+				Parameters: map[string]interface{}{
+					"changesList": []map[string]interface{}{
+						{
+							"type":        "refactor",
+							"description": "Improve function structure",
+							"target":      "main.py",
+							"priority":    "medium",
+						},
+					},
+					"applyBlackFormatting": true,
+					"runLinter":            true,
+				},
+			},
+			Status:    types.TaskStatusPending,
+			CreatedAt: time.Now(),
+		},
 		{
 			ID:          "task4",
 			Title:       "Test API Implementation",
@@ -147,22 +139,12 @@ func main() {
 	// Add a small delay before sending tasks
 	time.Sleep(1 * time.Second)
 
-	// Route tasks
-	for _, task := range tasks {
-		log.Printf("Routing task: %s (Type: %s, Required Skills: %v)",
-			task.Title, task.ID, task.Requirements.SkillPath)
-
-		if err := router.RouteTask(ctx, task); err != nil {
-			log.Printf("Failed to route task: %v", err)
-			continue
-		}
-
-		// Add delay between tasks for readable logs
-		time.Sleep(7 * time.Second)
+	// Execute tasks
+	if err := orchestrator.ExecuteTasks(ctx, tasks); err != nil {
+		log.Printf("Error executing tasks: %v", err)
 	}
 
-	// Wait for shutdown signal
-	// Handle shutdown
+	// Handle shutdown gracefully
 	sigCh := make(chan os.Signal, 1)
 	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
 
@@ -173,18 +155,7 @@ func main() {
 	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer shutdownCancel()
 
-	// Print metrics before shutdown
-	log.Println("\nTask Execution Metrics:")
-	log.Println("----------------------")
-
-	// Shutdown agents
-	for _, agent := range agents {
-		if err := agent.Stop(shutdownCtx); err != nil {
-			log.Printf("Error stopping agent %s: %v", agent.ID, err)
-		}
-	}
-	// Close broker
-	if err := broker.Close(); err != nil {
-		log.Printf("Error closing broker: %v", err)
+	if err := orchestrator.Shutdown(shutdownCtx); err != nil {
+		log.Printf("Error during shutdown: %v", err)
 	}
 }
