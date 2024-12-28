@@ -51,21 +51,9 @@ func (l *AgentLoader) LoadAgents(filepath string) ([]*Agent, error) {
 			BaseURL: os.Getenv("RNT_OPENAI_URL"),
 			APIKey:  os.Getenv("RNT_OPENAI_API_KEY"),
 			Model:   "Qwen-2.5-72B-Chat",
-			Timeout: 30 * time.Second,
+			Timeout: 50 * time.Second,
 		},
 	}
-	ctx := context.Background()
-	agent, err := internal_agents.GetTaskExtractionAgent(ctx, internalAgentConfig)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	result, err := agent.ExtractTaskWithRetry(ctx, "Build a REST API using Python Django Rest")
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	fmt.Printf("Extracted Task: %+v\n", result)
 
 	payloadAgent, err := internal_agents.GetPayloadAgent(context.Background(), internalAgentConfig)
 	if err != nil {

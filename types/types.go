@@ -144,3 +144,11 @@ type WorkFlowCapability struct {
 	Capabilities []Capability
 	Resources    map[string]int
 }
+
+type contextKey string
+
+const (
+	TaskExtractionResultKey contextKey = "task_extraction_result"
+	AuthTokenKey            contextKey = "authToken"
+	ProcessStatus           contextKey = "processStatus"
+)
