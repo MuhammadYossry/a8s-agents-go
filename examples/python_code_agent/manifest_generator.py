@@ -246,7 +246,6 @@ def setup_agent_routes(app: FastAPI) -> None:
                     path=route_path,
                     endpoint_info=func._endpoint_info
                 )
-    print(app.routes)
     register_routes(app.routes)
 
     @app.get("/agents.json")

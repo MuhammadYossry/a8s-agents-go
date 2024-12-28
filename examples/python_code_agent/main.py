@@ -12,6 +12,11 @@ from manifest_generator import (
     Capability, CapabilityMetadata, BaseSchemaModel
 )
 
+from manifest_generator_md import extend_app_with_markdown
+
+
+
+
 class BaseModelCamel(BaseModel):
     """Base model that configures camelCase support."""
     model_config = ConfigDict(
@@ -433,7 +438,9 @@ async def _cleanup_preview(branch_id: str):
 app.mount("/v1", agent_app)
 
 # Set up the agents.json endpoint
+print(app.routes)
 setup_agent_routes(app)
+extend_app_with_markdown(app)
 
 if __name__ == "__main__":
     import uvicorn
