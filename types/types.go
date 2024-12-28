@@ -148,7 +148,7 @@ type WorkFlowCapability struct {
 type contextKey string
 
 const (
+	RawAgentsDataKey        contextKey = "agents_definations"
 	TaskExtractionResultKey contextKey = "task_extraction_result"
-	AuthTokenKey            contextKey = "authToken"
 	ProcessStatus           contextKey = "processStatus"
 )

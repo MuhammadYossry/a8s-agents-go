@@ -28,57 +28,44 @@ func NewAgentLoader(broker Broker, metrics *metrics.Metrics, registry *capabilit
 	}
 }
 
-func (l *AgentLoader) LoadAgents(filepath string) ([]*Agent, error) {
+func (l *AgentLoader) LoadAgents(ctx context.Context, filepath string, internalAgentConfig types.InternalAgentConfig) (context.Context, []*Agent, error) {
 	data, err := os.ReadFile(filepath)
 	if err != nil {
-		return nil, fmt.Errorf("reading config file: %w", err)
+		return ctx, nil, fmt.Errorf("reading config file: %w", err)
 	}
+	updatedContext := context.WithValue(ctx, types.RawAgentsDataKey, data)
 
 	var config AgentConfig
 	if err := json.Unmarshal(data, &config); err != nil {
-		return nil, fmt.Errorf("parsing config: %w", err)
+		return ctx, nil, fmt.Errorf("parsing config: %w", err)
 	}
 
 	agents := make([]*Agent, 0, len(config.Agents))
 	// Initialize PayloadAgent first
-	internalAgentConfig := types.InternalAgentConfig{
-		LLMConfig: struct {
-			BaseURL string
-			APIKey  string
-			Model   string
-			Timeout time.Duration
-		}{
-			BaseURL: os.Getenv("RNT_OPENAI_URL"),
-			APIKey:  os.Getenv("RNT_OPENAI_API_KEY"),
-			Model:   "Qwen-2.5-72B-Chat",
-			Timeout: 50 * time.Second,
-		},
+	payloadAgent, err := internal_agents.GetPayloadAgent(ctx, internalAgentConfig)
+	if err != nil {
+		log.Fatal(err)
 	}
+	// result, err := json.Marshal(config.Agents)
+	// if err != nil {
+	// 	return ctx, nil, fmt.Errorf("failed to Marshak agent definition: %w", err)
+	// }
 
-	payloadAgent, err := internal_agents.GetPayloadAgent(context.Background(), internalAgentConfig)
-	if err != nil {
-		log.Fatal(err)
-	}
-	actionPlannerAgent, err := internal_agents.GetActionPlannerAgent(context.Background(), internalAgentConfig)
-	if err != nil {
-		log.Fatal(err)
-	}
 	for _, def := range config.Agents {
 		if err := l.validateAgentDefinition(&def); err != nil {
-			return nil, fmt.Errorf("invalid agent definition %s: %w", def.ID, err)
+			return ctx, nil, fmt.Errorf("invalid agent definition %s: %w", def.ID, err)
 		}
 
 		taskExecutor := NewTaskExecutor(TaskExecutorConfig{
-			AgentDefinition:    &def,
-			PayloadAgent:       payloadAgent,
-			ActionPlannerAgent: actionPlannerAgent,
-			HTTPTimeout:        30 * time.Second,
+			AgentDefinition: &def,
+			PayloadAgent:    payloadAgent,
+			HTTPTimeout:     30 * time.Second,
 		})
 		agent := NewAgent(&def, l.broker, taskExecutor, l.metrics, l.registry)
 		agents = append(agents, agent)
 	}
 
-	return agents, nil
+	return updatedContext, agents, nil
 }
 
 func (l *AgentLoader) validateAgentDefinition(def *AgentDefinition) error {

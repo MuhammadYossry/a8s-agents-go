@@ -1,4 +1,4 @@
-// action_planner_agent.go
+// task_routing_agent.go
 package agents
 
 import (
@@ -12,22 +12,22 @@ import (
 	"github.com/Relax-N-Tax/AgentNexus/types"
 )
 
-// ActionPlannerAgent determines the most suitable action for a given task
-type ActionPlannerAgent struct {
+// TaskRoutingAgent determines the most suitable action for a given task
+type TaskRoutingAgent struct {
 	llmClient *LLMClient
 	promptMgr *PromptManager
 }
 
-type ActionPlannerConfig struct {
+type RoutingAgentConfig struct {
 	LLMConfig LLMConfig
 }
 
 var (
-	actionPlannerInstance *ActionPlannerAgent
-	actionPlannerOnce     sync.Once
+	routingAgentInstance *TaskRoutingAgent
+	routingAgentOnce     sync.Once
 )
 
-const actionPlannerPromptTemplate = `System Message:
+const taskRoutingPromptTemplate = `System Message:
 You are a technical assistant that analyzes software development requirements and determines the most suitable action to execute.
 
 Task Information:
@@ -63,13 +63,13 @@ Please analyze and provide your response in the following JSON structure:
       string,
       ...
     ],
-    "potential_concerns": [           // Any potential issues to consider
+    "potential_concerns": [           // Optional: Any potential issues to consider
       string,
       ...
     ]
   },
   "implementation": {
-    "required_parameters": {          // Parameters that must be provided
+    "required_parameters": {          // Optional: Parameters that must be provided
       parameter_name: parameter_value,
       ...
     },
@@ -86,17 +86,21 @@ Please analyze and provide your response in the following JSON structure:
       ...
     ]
   }
-}`
+}
+CONSTRAINTS:
+- Output must be valid JSON only
+- No explanatory text before or after JSON
+- All fields essential fields like selectedAction, confidence and reasoning must be present`
 
-// GetActionPlannerAgent returns the singleton instance of ActionPlannerAgent
-func GetActionPlannerAgent(ctx context.Context, config types.InternalAgentConfig) (*ActionPlannerAgent, error) {
-	actionPlannerOnce.Do(func() {
-		actionPlannerInstance = initializeActionPlannerAgent(config)
+// GetTaskRoutingAgent returns the singleton instance of TaskRoutingAgent
+func GetTaskRoutingAgent(ctx context.Context, config types.InternalAgentConfig) (*TaskRoutingAgent, error) {
+	routingAgentOnce.Do(func() {
+		routingAgentInstance = initializeTaskRoutingAgent(config)
 	})
-	return actionPlannerInstance, nil
+	return routingAgentInstance, nil
 }
 
-func initializeActionPlannerAgent(config types.InternalAgentConfig) *ActionPlannerAgent {
+func initializeTaskRoutingAgent(config types.InternalAgentConfig) *TaskRoutingAgent {
 	llmClient := NewLLMClient(&LLMConfig{
 		Provider: Qwen,
 		BaseURL:  config.LLMConfig.BaseURL,
@@ -113,19 +117,19 @@ func initializeActionPlannerAgent(config types.InternalAgentConfig) *ActionPlann
 	})
 
 	promptMgr := NewPromptManager()
-	if err := promptMgr.RegisterTemplate("actionPlannerPrompt", actionPlannerPromptTemplate); err != nil {
-		log.Printf("Warning: Failed to register action planner prompt template: %v", err)
-		panic(fmt.Sprintf("Failed to register action planner prompt template: %v", err))
+	if err := promptMgr.RegisterTemplate("taskRoutingPrompt", taskRoutingPromptTemplate); err != nil {
+		log.Printf("Warning: Failed to register task routing prompt template: %v", err)
+		panic(fmt.Sprintf("Failed to register task routing prompt template: %v", err))
 	}
 
-	return &ActionPlannerAgent{
+	return &TaskRoutingAgent{
 		llmClient: llmClient,
 		promptMgr: promptMgr,
 	}
 }
 
 // PlanAction determines the most suitable action for the given task
-func (a *ActionPlannerAgent) PlanAction(ctx context.Context, task *types.Task, availableActions []types.Action) (*types.ActionPlan, error) {
+func (a *TaskRoutingAgent) PlanAction(ctx context.Context, task *types.Task, availableActions []types.Action) (*types.ActionPlan, error) {
 	// Prepare prompt data
 	promptData := map[string]interface{}{
 		"task":    task,
@@ -133,9 +137,9 @@ func (a *ActionPlannerAgent) PlanAction(ctx context.Context, task *types.Task, a
 	}
 
 	// Generate prompt
-	prompt, err := a.promptMgr.GeneratePrompt("actionPlannerPrompt", promptData)
-	fmt.Println("Action Planner Prompt")
-	fmt.Println(prompt)
+	prompt, err := a.promptMgr.GeneratePrompt("taskRoutingPrompt", promptData)
+	log.Println("Task Routing Prompt:")
+	log.Println(prompt)
 	if err != nil {
 		return nil, fmt.Errorf("generating prompt: %w", err)
 	}

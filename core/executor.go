@@ -22,17 +22,15 @@ type Executor interface {
 }
 
 type TaskExecutor struct {
-	AgentDef           *AgentDefinition
-	payloadAgent       *agents.PayloadAgent
-	actionPlannerAgent *agents.ActionPlannerAgent
-	client             *http.Client
+	AgentDef     *AgentDefinition
+	payloadAgent *agents.PayloadAgent
+	client       *http.Client
 }
 
 type TaskExecutorConfig struct {
-	AgentDefinition    *AgentDefinition
-	PayloadAgent       *agents.PayloadAgent
-	ActionPlannerAgent *agents.ActionPlannerAgent
-	HTTPTimeout        time.Duration
+	AgentDefinition *AgentDefinition
+	PayloadAgent    *agents.PayloadAgent
+	HTTPTimeout     time.Duration
 }
 
 func NewTaskExecutor(config TaskExecutorConfig) *TaskExecutor {
@@ -41,9 +39,8 @@ func NewTaskExecutor(config TaskExecutorConfig) *TaskExecutor {
 	}
 
 	return &TaskExecutor{
-		AgentDef:           config.AgentDefinition,
-		payloadAgent:       config.PayloadAgent,
-		actionPlannerAgent: config.ActionPlannerAgent,
+		AgentDef:     config.AgentDefinition,
+		payloadAgent: config.PayloadAgent,
 		client: &http.Client{
 			Timeout: config.HTTPTimeout,
 			Transport: &http.Transport{
@@ -55,61 +52,44 @@ func NewTaskExecutor(config TaskExecutorConfig) *TaskExecutor {
 	}
 }
 
-// func (e *TaskExecutor) findActionForTask(task *types.Task) (*types.Action, error) {
-// 	matcher := NewCapabilityMatcher(nil, DefaultMatcherConfig())
-// 	matches := matcher.calculateAgentMatch(task.Requirements, types.AgentCapability{
-// 		Capabilities: e.AgentDef.Capabilities,
-// 		Actions:      e.AgentDef.Actions,
-// 	})
-
-// 	if matches.Score < DefaultMatcherConfig().MinimumScore {
-// 		return nil, fmt.Errorf("no suitable action found for task requirements")
-// 	}
-
-// 	actionCopy := matches.Action
-// 	return &actionCopy, nil
-// }
-
 func (e *TaskExecutor) findActionForTask(ctx context.Context, task *types.Task) (*types.Action, error) {
-	// If no action planner agent is available, fall back to capability matcher
-	if e.actionPlannerAgent == nil {
-		matcher := NewCapabilityMatcher(nil, DefaultMatcherConfig())
-		matches := matcher.calculateAgentMatch(task.Requirements, types.AgentCapability{
-			Capabilities: e.AgentDef.Capabilities,
-			Actions:      e.AgentDef.Actions,
-		})
+	return nil, fmt.Errorf("task executor is still WIP")
+	// matcher := capability.NewCapabilityMatcher(nil, capability.DefaultMatcherConfig())
+	// matches := matcher.calculateAgentMatch(task.Requirements, types.AgentCapability{
+	// 	Capabilities: e.AgentDef.Capabilities,
+	// 	Actions:      e.AgentDef.Actions,
+	// })
 
-		if matches.Score < DefaultMatcherConfig().MinimumScore {
-			return nil, fmt.Errorf("no suitable action found for task requirements")
-		}
+	// if matches.Score < capability.DefaultMatcherConfig().MinimumScore {
+	// 	return nil, fmt.Errorf("no suitable action found for task requirements")
+	// }
 
-		actionCopy := matches.Action
-		return &actionCopy, nil
-	}
+	// actionCopy := matches.Action
+	// return &actionCopy, nil
 
 	// Use ActionPlannerAgent to determine the most suitable action
-	actionPlan, err := e.actionPlannerAgent.PlanAction(ctx, task, e.AgentDef.Actions)
-	if err != nil {
-		return nil, fmt.Errorf("planning action: %w", err)
-	}
+	// actionPlan, err := e.actionPlannerAgent.PlanAction(ctx, task, e.AgentDef.Actions)
+	// if err != nil {
+	// 	return nil, fmt.Errorf("planning action: %w", err)
+	// }
 
 	// Validate action plan confidence
-	if actionPlan.Confidence < 0.5 { // You might want to make this threshold configurable
-		return nil, fmt.Errorf("low confidence (%f) in action selection", actionPlan.Confidence)
-	}
+	// if actionPlan.Confidence < 0.5 { // You might want to make this threshold configurable
+	// 	return nil, fmt.Errorf("low confidence (%f) in action selection", actionPlan.Confidence)
+	// }
 
 	// Find the selected action in the agent's available actions
-	var selectedAction *types.Action
-	for _, action := range e.AgentDef.Actions {
-		if action.Name == actionPlan.SelectedAction {
-			selectedAction = &action
-			break
-		}
-	}
+	// var selectedAction *types.Action
+	// for _, action := range e.AgentDef.Actions {
+	// 	if action.Name == actionPlan.SelectedAction {
+	// 		selectedAction = &action
+	// 		break
+	// 	}
+	// }
 
-	if selectedAction == nil {
-		return nil, fmt.Errorf("selected action '%s' not found in available actions", actionPlan.SelectedAction)
-	}
+	// if selectedAction == nil {
+	// 	return nil, fmt.Errorf("selected action '%s' not found in available actions", actionPlan.SelectedAction)
+	// }
 
 	// Validate framework compatibility if specified in task requirements
 	// if framework, ok := task.Requirements.Parameters["framework"].(string); ok {
@@ -131,7 +111,7 @@ func (e *TaskExecutor) findActionForTask(ctx context.Context, task *types.Task) 
 	// 		actionPlan.SelectedAction, actionPlan.Validation.MissingRequirements)
 	// }
 
-	return selectedAction, nil
+	// return selectedAction, nil
 }
 
 func (e *TaskExecutor) Execute(ctx context.Context, task *types.Task) (*types.TaskResult, error) {
@@ -147,18 +127,18 @@ func (e *TaskExecutor) Execute(ctx context.Context, task *types.Task) (*types.Ta
 	// }
 
 	// Find appropriate action
-	action, err := e.findActionForTask(ctx, task)
-	if err != nil {
-		return &types.TaskResult{
-			TaskID:     task.ID,
-			Success:    false,
-			Error:      fmt.Sprintf("action selection failed: %v", err),
-			FinishedAt: time.Now(),
-		}, nil
-	}
+	_, err := e.findActionForTask(ctx, task)
+	// if err != nil {
+	return &types.TaskResult{
+		TaskID:     task.ID,
+		Success:    false,
+		Error:      fmt.Sprintf("action selection failed: %v", err),
+		FinishedAt: time.Now(),
+	}, nil
+	// }
 
 	// Execute the action with proper error handling
-	return e.executeAction(ctx, task, *action)
+	// return e.executeAction(ctx, task, *action)
 }
 
 func (e *TaskExecutor) executeAction(ctx context.Context, task *types.Task, action types.Action) (*types.TaskResult, error) {

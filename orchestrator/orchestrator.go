@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"os"
 	"sync"
 	"time"
 
@@ -31,6 +32,7 @@ type Orchestrator struct {
 
 // Config holds orchestrator initialization options
 type Config struct {
+	// I want to replace AgentConfigPath with
 	AgentsConfigPath string
 	InternalConfig   types.InternalAgentConfig
 }
@@ -40,8 +42,11 @@ func New(cfg Config) (*Orchestrator, error) {
 	broker := core.NewPubSub()
 	metrics := metrics.NewMetrics()
 	registry := capability.GetCapabilityRegistry()
-	router := core.NewTaskRouter(registry, broker, metrics)
-
+	taskRoutingAgent, err := agents.GetTaskRoutingAgent(context.Background(), cfg.InternalConfig)
+	if err != nil {
+		log.Fatal(err)
+	}
+	router := core.NewTaskRouter(registry, broker, metrics, taskRoutingAgent)
 	extractor, err := agents.GetTaskExtractionAgent(context.Background(), cfg.InternalConfig)
 	if err != nil {
 		return nil, fmt.Errorf("failed to initialize task extractor: %w", err)
@@ -61,7 +66,11 @@ func New(cfg Config) (*Orchestrator, error) {
 func (o *Orchestrator) Start(ctx context.Context) error {
 	loader := core.NewAgentLoader(o.broker, o.metrics, o.registry)
 
-	agents, err := loader.LoadAgents(o.config.AgentsConfigPath)
+	ctx, agents, err := loader.LoadAgents(ctx, o.config.AgentsConfigPath, o.config.InternalConfig)
+	// fmt.Printf("agentsDefination: %v", agents)
+	// for _, agent := range agents {
+	// 	fmt.Printf("agent-defination: %v", agent)
+	// }
 	if err != nil {
 		return fmt.Errorf("failed to load agents: %w", err)
 	}
@@ -82,12 +91,29 @@ func (o *Orchestrator) Start(ctx context.Context) error {
 
 // ProcessQuery handles a user query through the task extraction pipeline
 func (o *Orchestrator) ProcessQuery(ctx context.Context, query string) (context.Context, error) {
+	// First extract the task
 	ctx, err := o.extractor.ExtractTaskWithRetry(ctx, query)
 	if err != nil {
 		return ctx, fmt.Errorf("task extraction failed: %w", err)
 	}
 
+	// Add raw agents data to context
+	agentsData, err := o.loadRawAgentsData()
+	if err != nil {
+		return ctx, fmt.Errorf("failed to load agents data: %w", err)
+	}
+	ctx = context.WithValue(ctx, types.RawAgentsDataKey, agentsData)
+
 	return ctx, nil
+}
+
+func (o *Orchestrator) loadRawAgentsData() (string, error) {
+	// Load and return agents config data as string
+	data, err := os.ReadFile(o.config.AgentsConfigPath)
+	if err != nil {
+		return "", err
+	}
+	return string(data), nil
 }
 
 // ExecuteTasks executes the provided tasks through the agent pipeline
