@@ -14,39 +14,34 @@ The following sections detail the specific capabilities of this agent:
 
 ### Development
 
-| Property      | Value    |
-|:--------------|:---------|
-| **expertise** | advanced |
+**Capability Details:**
+- expertise: advanced
 
 ### Development → Backend → Python
 
-| Property       | Value           |
-|:---------------|:----------------|
-| **expertise**  | advanced        |
-| **versions**   | 3.8, 3.9, 3.10  |
-| **frameworks** | Django, FastAPI |
+**Capability Details:**
+- expertise: advanced
+- versions: 3.8, 3.9, 3.10
+- frameworks: Django, FastAPI
 
 ### Development → Backend → Python → CodeGeneration
 
-| Property       | Value           |
-|:---------------|:----------------|
-| **versions**   | 3.8, 3.9, 3.10  |
-| **frameworks** | Django, FastAPI |
-| **tools**      | black, pylint   |
+**Capability Details:**
+- versions: 3.8, 3.9, 3.10
+- frameworks: Django, FastAPI
+- tools: black, pylint
 
 ### Development → Testing → Python
 
-| Property       | Value            |
-|:---------------|:-----------------|
-| **expertise**  | advanced         |
-| **frameworks** | pytest, unittest |
+**Capability Details:**
+- expertise: advanced
+- frameworks: pytest, unittest
 
 ### Development → Deployment → Python
 
-| Property      | Value           |
-|:--------------|:----------------|
-| **expertise** | basic           |
-| **platforms** | AWS, GCP, Azure |
+**Capability Details:**
+- expertise: basic
+- platforms: AWS, GCP, Azure
 
 ## Available Endpoints
 
@@ -62,11 +57,19 @@ Input model for deployment preview endpoint.
 
 **Properties:**
 
-| Field             | Type      | Required   | Description   | Default   | Constraints   |
-|:------------------|:----------|:-----------|:--------------|:----------|:--------------|
-| `branchId`        | `string`  | ✓          |               | -         | -             |
-| `isPrivate`       | `boolean` | ✓          |               | -         | -             |
-| `environmentVars` | `any`     |            |               | `null`    | -             |
+- `branchId`: 
+  * Type: `string`
+  * Required: Yes
+
+- `isPrivate`: 
+  * Type: `boolean`
+  * Required: Yes
+
+- `environmentVars`: 
+  * Type: `any`
+  * Default: `null`
+
+
 
 #### Output Schema
 
@@ -74,12 +77,23 @@ Output model for deployment preview endpoint.
 
 **Properties:**
 
-| Field            | Type      | Required   | Description   | Default   | Constraints   |
-|:-----------------|:----------|:-----------|:--------------|:----------|:--------------|
-| `previewUrl`     | `string`  | ✓          |               | -         | -             |
-| `isPrivate`      | `boolean` | ✓          |               | -         | -             |
-| `httpAuth`       | `any`     |            |               | `null`    | -             |
-| `deploymentTime` | `string`  | ✓          |               | -         | -             |
+- `previewUrl`: 
+  * Type: `string`
+  * Required: Yes
+
+- `isPrivate`: 
+  * Type: `boolean`
+  * Required: Yes
+
+- `httpAuth`: 
+  * Type: `any`
+  * Default: `null`
+
+- `deploymentTime`: 
+  * Type: `string`
+  * Required: Yes
+
+
 
 
 #### Examples
@@ -101,62 +115,78 @@ Example 1:
 
 #### Error Responses
 
-|   Status Code | Description                                        | Example Response                                                     |
-|--------------:|:---------------------------------------------------|:---------------------------------------------------------------------|
-|           400 | Bad Request - Invalid input parameters             | ```json                                                              |
-|               |                                                    | {                                                                    |
-|               |                                                    |   "error": {                                                         |
-|               |                                                    |     "code": "400",                                                   |
-|               |                                                    |     "message": "Bad Request - Invalid input parameters",             |
-|               |                                                    |     "details": "Additional error context would appear here"          |
-|               |                                                    |   }                                                                  |
-|               |                                                    | }                                                                    |
-|               |                                                    | ```                                                                  |
-|           401 | Unauthorized - Authentication required             | ```json                                                              |
-|               |                                                    | {                                                                    |
-|               |                                                    |   "error": {                                                         |
-|               |                                                    |     "code": "401",                                                   |
-|               |                                                    |     "message": "Unauthorized - Authentication required",             |
-|               |                                                    |     "details": "Additional error context would appear here"          |
-|               |                                                    |   }                                                                  |
-|               |                                                    | }                                                                    |
-|               |                                                    | ```                                                                  |
-|           403 | Forbidden - Insufficient permissions               | ```json                                                              |
-|               |                                                    | {                                                                    |
-|               |                                                    |   "error": {                                                         |
-|               |                                                    |     "code": "403",                                                   |
-|               |                                                    |     "message": "Forbidden - Insufficient permissions",               |
-|               |                                                    |     "details": "Additional error context would appear here"          |
-|               |                                                    |   }                                                                  |
-|               |                                                    | }                                                                    |
-|               |                                                    | ```                                                                  |
-|           404 | Not Found - Resource not found                     | ```json                                                              |
-|               |                                                    | {                                                                    |
-|               |                                                    |   "error": {                                                         |
-|               |                                                    |     "code": "404",                                                   |
-|               |                                                    |     "message": "Not Found - Resource not found",                     |
-|               |                                                    |     "details": "Additional error context would appear here"          |
-|               |                                                    |   }                                                                  |
-|               |                                                    | }                                                                    |
-|               |                                                    | ```                                                                  |
-|           422 | Unprocessable Entity - Validation error            | ```json                                                              |
-|               |                                                    | {                                                                    |
-|               |                                                    |   "error": {                                                         |
-|               |                                                    |     "code": "422",                                                   |
-|               |                                                    |     "message": "Unprocessable Entity - Validation error",            |
-|               |                                                    |     "details": "Additional error context would appear here"          |
-|               |                                                    |   }                                                                  |
-|               |                                                    | }                                                                    |
-|               |                                                    | ```                                                                  |
-|           500 | Internal Server Error - Server-side error occurred | ```json                                                              |
-|               |                                                    | {                                                                    |
-|               |                                                    |   "error": {                                                         |
-|               |                                                    |     "code": "500",                                                   |
-|               |                                                    |     "message": "Internal Server Error - Server-side error occurred", |
-|               |                                                    |     "details": "Additional error context would appear here"          |
-|               |                                                    |   }                                                                  |
-|               |                                                    | }                                                                    |
-|               |                                                    | ```                                                                  |
+**Status 400**: Bad Request - Invalid input parameters
+Example:
+```json
+{
+  "error": {
+    "code": "400",
+    "message": "Bad Request - Invalid input parameters",
+    "details": "Additional error context would appear here"
+  }
+}
+```
+
+**Status 401**: Unauthorized - Authentication required
+Example:
+```json
+{
+  "error": {
+    "code": "401",
+    "message": "Unauthorized - Authentication required",
+    "details": "Additional error context would appear here"
+  }
+}
+```
+
+**Status 403**: Forbidden - Insufficient permissions
+Example:
+```json
+{
+  "error": {
+    "code": "403",
+    "message": "Forbidden - Insufficient permissions",
+    "details": "Additional error context would appear here"
+  }
+}
+```
+
+**Status 404**: Not Found - Resource not found
+Example:
+```json
+{
+  "error": {
+    "code": "404",
+    "message": "Not Found - Resource not found",
+    "details": "Additional error context would appear here"
+  }
+}
+```
+
+**Status 422**: Unprocessable Entity - Validation error
+Example:
+```json
+{
+  "error": {
+    "code": "422",
+    "message": "Unprocessable Entity - Validation error",
+    "details": "Additional error context would appear here"
+  }
+}
+```
+
+**Status 500**: Internal Server Error - Server-side error occurred
+Example:
+```json
+{
+  "error": {
+    "code": "500",
+    "message": "Internal Server Error - Server-side error occurred",
+    "details": "Additional error context would appear here"
+  }
+}
+```
+
 ### generateCode
 
 **Endpoint:** `POST /v1/code_agent/python/generate_code`
@@ -167,12 +197,23 @@ Input model for code generation endpoint.
 
 **Properties:**
 
-| Field                | Type                                         | Required   | Description   | Default      | Constraints   |
-|:---------------------|:---------------------------------------------|:-----------|:--------------|:-------------|:--------------|
-| `codeRequirements`   | `any`                                        | ✓          |               | -            | -             |
-| `styleGuide`         | `any`                                        |            |               | `null`       | -             |
-| `includeTests`       | `boolean`                                    |            |               | `true`       | -             |
-| `documentationLevel` | `string (enum: minimal, standard, detailed)` |            |               | `"standard"` | -             |
+- `codeRequirements`: 
+  * Type: `any`
+  * Required: Yes
+
+- `styleGuide`: 
+  * Type: `any`
+  * Default: `null`
+
+- `includeTests`: 
+  * Type: `boolean`
+  * Default: `true`
+
+- `documentationLevel`: 
+  * Type: `string (enum: minimal, standard, detailed)`
+  * Default: `"standard"`
+
+
 
 #### Output Schema
 
@@ -180,12 +221,23 @@ Output model for code generation endpoint.
 
 **Properties:**
 
-| Field           | Type              | Required   | Description   | Default   | Constraints   |
-|:----------------|:------------------|:-----------|:--------------|:----------|:--------------|
-| `generatedCode` | `string`          | ✓          |               | -         | -             |
-| `description`   | `string`          | ✓          |               | -         | -             |
-| `testCases`     | `array of string` | ✓          |               | -         | -             |
-| `documentation` | `string`          | ✓          |               | -         | -             |
+- `generatedCode`: 
+  * Type: `string`
+  * Required: Yes
+
+- `description`: 
+  * Type: `string`
+  * Required: Yes
+
+- `testCases`: 
+  * Type: `array of string`
+  * Required: Yes
+
+- `documentation`: 
+  * Type: `string`
+  * Required: Yes
+
+
 
 
 #### Examples
@@ -237,62 +289,78 @@ Example 1:
 
 #### Error Responses
 
-|   Status Code | Description                                        | Example Response                                                     |
-|--------------:|:---------------------------------------------------|:---------------------------------------------------------------------|
-|           400 | Bad Request - Invalid input parameters             | ```json                                                              |
-|               |                                                    | {                                                                    |
-|               |                                                    |   "error": {                                                         |
-|               |                                                    |     "code": "400",                                                   |
-|               |                                                    |     "message": "Bad Request - Invalid input parameters",             |
-|               |                                                    |     "details": "Additional error context would appear here"          |
-|               |                                                    |   }                                                                  |
-|               |                                                    | }                                                                    |
-|               |                                                    | ```                                                                  |
-|           401 | Unauthorized - Authentication required             | ```json                                                              |
-|               |                                                    | {                                                                    |
-|               |                                                    |   "error": {                                                         |
-|               |                                                    |     "code": "401",                                                   |
-|               |                                                    |     "message": "Unauthorized - Authentication required",             |
-|               |                                                    |     "details": "Additional error context would appear here"          |
-|               |                                                    |   }                                                                  |
-|               |                                                    | }                                                                    |
-|               |                                                    | ```                                                                  |
-|           403 | Forbidden - Insufficient permissions               | ```json                                                              |
-|               |                                                    | {                                                                    |
-|               |                                                    |   "error": {                                                         |
-|               |                                                    |     "code": "403",                                                   |
-|               |                                                    |     "message": "Forbidden - Insufficient permissions",               |
-|               |                                                    |     "details": "Additional error context would appear here"          |
-|               |                                                    |   }                                                                  |
-|               |                                                    | }                                                                    |
-|               |                                                    | ```                                                                  |
-|           404 | Not Found - Resource not found                     | ```json                                                              |
-|               |                                                    | {                                                                    |
-|               |                                                    |   "error": {                                                         |
-|               |                                                    |     "code": "404",                                                   |
-|               |                                                    |     "message": "Not Found - Resource not found",                     |
-|               |                                                    |     "details": "Additional error context would appear here"          |
-|               |                                                    |   }                                                                  |
-|               |                                                    | }                                                                    |
-|               |                                                    | ```                                                                  |
-|           422 | Unprocessable Entity - Validation error            | ```json                                                              |
-|               |                                                    | {                                                                    |
-|               |                                                    |   "error": {                                                         |
-|               |                                                    |     "code": "422",                                                   |
-|               |                                                    |     "message": "Unprocessable Entity - Validation error",            |
-|               |                                                    |     "details": "Additional error context would appear here"          |
-|               |                                                    |   }                                                                  |
-|               |                                                    | }                                                                    |
-|               |                                                    | ```                                                                  |
-|           500 | Internal Server Error - Server-side error occurred | ```json                                                              |
-|               |                                                    | {                                                                    |
-|               |                                                    |   "error": {                                                         |
-|               |                                                    |     "code": "500",                                                   |
-|               |                                                    |     "message": "Internal Server Error - Server-side error occurred", |
-|               |                                                    |     "details": "Additional error context would appear here"          |
-|               |                                                    |   }                                                                  |
-|               |                                                    | }                                                                    |
-|               |                                                    | ```                                                                  |
+**Status 400**: Bad Request - Invalid input parameters
+Example:
+```json
+{
+  "error": {
+    "code": "400",
+    "message": "Bad Request - Invalid input parameters",
+    "details": "Additional error context would appear here"
+  }
+}
+```
+
+**Status 401**: Unauthorized - Authentication required
+Example:
+```json
+{
+  "error": {
+    "code": "401",
+    "message": "Unauthorized - Authentication required",
+    "details": "Additional error context would appear here"
+  }
+}
+```
+
+**Status 403**: Forbidden - Insufficient permissions
+Example:
+```json
+{
+  "error": {
+    "code": "403",
+    "message": "Forbidden - Insufficient permissions",
+    "details": "Additional error context would appear here"
+  }
+}
+```
+
+**Status 404**: Not Found - Resource not found
+Example:
+```json
+{
+  "error": {
+    "code": "404",
+    "message": "Not Found - Resource not found",
+    "details": "Additional error context would appear here"
+  }
+}
+```
+
+**Status 422**: Unprocessable Entity - Validation error
+Example:
+```json
+{
+  "error": {
+    "code": "422",
+    "message": "Unprocessable Entity - Validation error",
+    "details": "Additional error context would appear here"
+  }
+}
+```
+
+**Status 500**: Internal Server Error - Server-side error occurred
+Example:
+```json
+{
+  "error": {
+    "code": "500",
+    "message": "Internal Server Error - Server-side error occurred",
+    "details": "Additional error context would appear here"
+  }
+}
+```
+
 ### improveCode
 
 **Endpoint:** `POST /v1/code_agent/python/improve_code`
@@ -303,11 +371,19 @@ Input model for code improvement endpoint.
 
 **Properties:**
 
-| Field                  | Type           | Required   | Description   | Default   | Constraints   |
-|:-----------------------|:---------------|:-----------|:--------------|:----------|:--------------|
-| `changesList`          | `array of any` | ✓          |               | -         | -             |
-| `applyBlackFormatting` | `boolean`      |            |               | `true`    | -             |
-| `runLinter`            | `boolean`      |            |               | `true`    | -             |
+- `changesList`: 
+  * Type: `array of any`
+  * Required: Yes
+
+- `applyBlackFormatting`: 
+  * Type: `boolean`
+  * Default: `true`
+
+- `runLinter`: 
+  * Type: `boolean`
+  * Default: `true`
+
+
 
 #### Output Schema
 
@@ -315,11 +391,19 @@ Output model for code improvement endpoint.
 
 **Properties:**
 
-| Field                | Type           | Required   | Description   | Default   | Constraints   |
-|:---------------------|:---------------|:-----------|:--------------|:----------|:--------------|
-| `codeChanges`        | `array of any` | ✓          |               | -         | -             |
-| `changesDescription` | `string`       | ✓          |               | -         | -             |
-| `qualityMetrics`     | `any`          | ✓          |               | -         | -             |
+- `codeChanges`: 
+  * Type: `array of any`
+  * Required: Yes
+
+- `changesDescription`: 
+  * Type: `string`
+  * Required: Yes
+
+- `qualityMetrics`: 
+  * Type: `any`
+  * Required: Yes
+
+
 
 
 #### Examples
@@ -345,62 +429,78 @@ Example 1:
 
 #### Error Responses
 
-|   Status Code | Description                                        | Example Response                                                     |
-|--------------:|:---------------------------------------------------|:---------------------------------------------------------------------|
-|           400 | Bad Request - Invalid input parameters             | ```json                                                              |
-|               |                                                    | {                                                                    |
-|               |                                                    |   "error": {                                                         |
-|               |                                                    |     "code": "400",                                                   |
-|               |                                                    |     "message": "Bad Request - Invalid input parameters",             |
-|               |                                                    |     "details": "Additional error context would appear here"          |
-|               |                                                    |   }                                                                  |
-|               |                                                    | }                                                                    |
-|               |                                                    | ```                                                                  |
-|           401 | Unauthorized - Authentication required             | ```json                                                              |
-|               |                                                    | {                                                                    |
-|               |                                                    |   "error": {                                                         |
-|               |                                                    |     "code": "401",                                                   |
-|               |                                                    |     "message": "Unauthorized - Authentication required",             |
-|               |                                                    |     "details": "Additional error context would appear here"          |
-|               |                                                    |   }                                                                  |
-|               |                                                    | }                                                                    |
-|               |                                                    | ```                                                                  |
-|           403 | Forbidden - Insufficient permissions               | ```json                                                              |
-|               |                                                    | {                                                                    |
-|               |                                                    |   "error": {                                                         |
-|               |                                                    |     "code": "403",                                                   |
-|               |                                                    |     "message": "Forbidden - Insufficient permissions",               |
-|               |                                                    |     "details": "Additional error context would appear here"          |
-|               |                                                    |   }                                                                  |
-|               |                                                    | }                                                                    |
-|               |                                                    | ```                                                                  |
-|           404 | Not Found - Resource not found                     | ```json                                                              |
-|               |                                                    | {                                                                    |
-|               |                                                    |   "error": {                                                         |
-|               |                                                    |     "code": "404",                                                   |
-|               |                                                    |     "message": "Not Found - Resource not found",                     |
-|               |                                                    |     "details": "Additional error context would appear here"          |
-|               |                                                    |   }                                                                  |
-|               |                                                    | }                                                                    |
-|               |                                                    | ```                                                                  |
-|           422 | Unprocessable Entity - Validation error            | ```json                                                              |
-|               |                                                    | {                                                                    |
-|               |                                                    |   "error": {                                                         |
-|               |                                                    |     "code": "422",                                                   |
-|               |                                                    |     "message": "Unprocessable Entity - Validation error",            |
-|               |                                                    |     "details": "Additional error context would appear here"          |
-|               |                                                    |   }                                                                  |
-|               |                                                    | }                                                                    |
-|               |                                                    | ```                                                                  |
-|           500 | Internal Server Error - Server-side error occurred | ```json                                                              |
-|               |                                                    | {                                                                    |
-|               |                                                    |   "error": {                                                         |
-|               |                                                    |     "code": "500",                                                   |
-|               |                                                    |     "message": "Internal Server Error - Server-side error occurred", |
-|               |                                                    |     "details": "Additional error context would appear here"          |
-|               |                                                    |   }                                                                  |
-|               |                                                    | }                                                                    |
-|               |                                                    | ```                                                                  |
+**Status 400**: Bad Request - Invalid input parameters
+Example:
+```json
+{
+  "error": {
+    "code": "400",
+    "message": "Bad Request - Invalid input parameters",
+    "details": "Additional error context would appear here"
+  }
+}
+```
+
+**Status 401**: Unauthorized - Authentication required
+Example:
+```json
+{
+  "error": {
+    "code": "401",
+    "message": "Unauthorized - Authentication required",
+    "details": "Additional error context would appear here"
+  }
+}
+```
+
+**Status 403**: Forbidden - Insufficient permissions
+Example:
+```json
+{
+  "error": {
+    "code": "403",
+    "message": "Forbidden - Insufficient permissions",
+    "details": "Additional error context would appear here"
+  }
+}
+```
+
+**Status 404**: Not Found - Resource not found
+Example:
+```json
+{
+  "error": {
+    "code": "404",
+    "message": "Not Found - Resource not found",
+    "details": "Additional error context would appear here"
+  }
+}
+```
+
+**Status 422**: Unprocessable Entity - Validation error
+Example:
+```json
+{
+  "error": {
+    "code": "422",
+    "message": "Unprocessable Entity - Validation error",
+    "details": "Additional error context would appear here"
+  }
+}
+```
+
+**Status 500**: Internal Server Error - Server-side error occurred
+Example:
+```json
+{
+  "error": {
+    "code": "500",
+    "message": "Internal Server Error - Server-side error occurred",
+    "details": "Additional error context would appear here"
+  }
+}
+```
+
 ### testCode
 
 **Endpoint:** `POST /v1/code_agent/python/test_code`
@@ -411,13 +511,28 @@ Input model for code testing endpoint.
 
 **Properties:**
 
-| Field              | Type           | Required   | Description   | Default   | Constraints                  |
-|:-------------------|:---------------|:-----------|:--------------|:----------|:-----------------------------|
-| `testType`         | `any`          | ✓          |               | -         | -                            |
-| `requirePassing`   | `boolean`      | ✓          |               | -         | -                            |
-| `testInstructions` | `array of any` | ✓          |               | -         | -                            |
-| `codeToTest`       | `string`       | ✓          |               | -         | -                            |
-| `minimumCoverage`  | `number`       |            |               | `80.0`    | minimum: 0.0, maximum: 100.0 |
+- `testType`: 
+  * Type: `any`
+  * Required: Yes
+
+- `requirePassing`: 
+  * Type: `boolean`
+  * Required: Yes
+
+- `testInstructions`: 
+  * Type: `array of any`
+  * Required: Yes
+
+- `codeToTest`: 
+  * Type: `string`
+  * Required: Yes
+
+- `minimumCoverage`: 
+  * Type: `number`
+  * Default: `80.0`
+  * Constraints: minimum: 0.0, maximum: 100.0
+
+
 
 #### Output Schema
 
@@ -425,11 +540,19 @@ Output model for code testing endpoint.
 
 **Properties:**
 
-| Field              | Type     | Required   | Description   | Default   | Constraints   |
-|:-------------------|:---------|:-----------|:--------------|:----------|:--------------|
-| `codeTests`        | `string` | ✓          |               | -         | -             |
-| `testsDescription` | `string` | ✓          |               | -         | -             |
-| `coverageStatus`   | `any`    | ✓          |               | -         | -             |
+- `codeTests`: 
+  * Type: `string`
+  * Required: Yes
+
+- `testsDescription`: 
+  * Type: `string`
+  * Required: Yes
+
+- `coverageStatus`: 
+  * Type: `any`
+  * Required: Yes
+
+
 
 
 #### Examples
@@ -459,59 +582,74 @@ Example 1:
 
 #### Error Responses
 
-|   Status Code | Description                                        | Example Response                                                     |
-|--------------:|:---------------------------------------------------|:---------------------------------------------------------------------|
-|           400 | Bad Request - Invalid input parameters             | ```json                                                              |
-|               |                                                    | {                                                                    |
-|               |                                                    |   "error": {                                                         |
-|               |                                                    |     "code": "400",                                                   |
-|               |                                                    |     "message": "Bad Request - Invalid input parameters",             |
-|               |                                                    |     "details": "Additional error context would appear here"          |
-|               |                                                    |   }                                                                  |
-|               |                                                    | }                                                                    |
-|               |                                                    | ```                                                                  |
-|           401 | Unauthorized - Authentication required             | ```json                                                              |
-|               |                                                    | {                                                                    |
-|               |                                                    |   "error": {                                                         |
-|               |                                                    |     "code": "401",                                                   |
-|               |                                                    |     "message": "Unauthorized - Authentication required",             |
-|               |                                                    |     "details": "Additional error context would appear here"          |
-|               |                                                    |   }                                                                  |
-|               |                                                    | }                                                                    |
-|               |                                                    | ```                                                                  |
-|           403 | Forbidden - Insufficient permissions               | ```json                                                              |
-|               |                                                    | {                                                                    |
-|               |                                                    |   "error": {                                                         |
-|               |                                                    |     "code": "403",                                                   |
-|               |                                                    |     "message": "Forbidden - Insufficient permissions",               |
-|               |                                                    |     "details": "Additional error context would appear here"          |
-|               |                                                    |   }                                                                  |
-|               |                                                    | }                                                                    |
-|               |                                                    | ```                                                                  |
-|           404 | Not Found - Resource not found                     | ```json                                                              |
-|               |                                                    | {                                                                    |
-|               |                                                    |   "error": {                                                         |
-|               |                                                    |     "code": "404",                                                   |
-|               |                                                    |     "message": "Not Found - Resource not found",                     |
-|               |                                                    |     "details": "Additional error context would appear here"          |
-|               |                                                    |   }                                                                  |
-|               |                                                    | }                                                                    |
-|               |                                                    | ```                                                                  |
-|           422 | Unprocessable Entity - Validation error            | ```json                                                              |
-|               |                                                    | {                                                                    |
-|               |                                                    |   "error": {                                                         |
-|               |                                                    |     "code": "422",                                                   |
-|               |                                                    |     "message": "Unprocessable Entity - Validation error",            |
-|               |                                                    |     "details": "Additional error context would appear here"          |
-|               |                                                    |   }                                                                  |
-|               |                                                    | }                                                                    |
-|               |                                                    | ```                                                                  |
-|           500 | Internal Server Error - Server-side error occurred | ```json                                                              |
-|               |                                                    | {                                                                    |
-|               |                                                    |   "error": {                                                         |
-|               |                                                    |     "code": "500",                                                   |
-|               |                                                    |     "message": "Internal Server Error - Server-side error occurred", |
-|               |                                                    |     "details": "Additional error context would appear here"          |
-|               |                                                    |   }                                                                  |
-|               |                                                    | }                                                                    |
-|               |                                                    | ```                                                                  |
+**Status 400**: Bad Request - Invalid input parameters
+Example:
+```json
+{
+  "error": {
+    "code": "400",
+    "message": "Bad Request - Invalid input parameters",
+    "details": "Additional error context would appear here"
+  }
+}
+```
+
+**Status 401**: Unauthorized - Authentication required
+Example:
+```json
+{
+  "error": {
+    "code": "401",
+    "message": "Unauthorized - Authentication required",
+    "details": "Additional error context would appear here"
+  }
+}
+```
+
+**Status 403**: Forbidden - Insufficient permissions
+Example:
+```json
+{
+  "error": {
+    "code": "403",
+    "message": "Forbidden - Insufficient permissions",
+    "details": "Additional error context would appear here"
+  }
+}
+```
+
+**Status 404**: Not Found - Resource not found
+Example:
+```json
+{
+  "error": {
+    "code": "404",
+    "message": "Not Found - Resource not found",
+    "details": "Additional error context would appear here"
+  }
+}
+```
+
+**Status 422**: Unprocessable Entity - Validation error
+Example:
+```json
+{
+  "error": {
+    "code": "422",
+    "message": "Unprocessable Entity - Validation error",
+    "details": "Additional error context would appear here"
+  }
+}
+```
+
+**Status 500**: Internal Server Error - Server-side error occurred
+Example:
+```json
+{
+  "error": {
+    "code": "500",
+    "message": "Internal Server Error - Server-side error occurred",
+    "details": "Additional error context would appear here"
+  }
+}
+```
