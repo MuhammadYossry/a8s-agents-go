@@ -8,6 +8,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/Relax-N-Tax/AgentNexus/hub"
 	"github.com/Relax-N-Tax/AgentNexus/orchestrator"
 	"github.com/Relax-N-Tax/AgentNexus/types"
 )
@@ -15,6 +16,16 @@ import (
 func main() {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
+
+	// Initialize hub server
+	hubConfig := hub.DefaultConfig()
+	hubServer := hub.NewServer(hubConfig, nil) // nil for default in-memory registry
+
+	// Start hub server
+	if err := hubServer.Start(ctx); err != nil {
+		log.Fatalf("Failed to start hub server: %v", err)
+	}
+	time.Sleep(1000)
 
 	config := orchestrator.Config{
 		AgentsConfigPath:   "examples/agents_generated.json",
@@ -156,7 +167,11 @@ func main() {
 	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer shutdownCancel()
 
+	// Shutdown both hub server and orchestrator
+	if err := hubServer.Shutdown(shutdownCtx); err != nil {
+		log.Printf("Error shutting down hub server: %v", err)
+	}
 	if err := orchestrator.Shutdown(shutdownCtx); err != nil {
-		log.Printf("Error during shutdown: %v", err)
+		log.Printf("Error shutting down orchestrator: %v", err)
 	}
 }
