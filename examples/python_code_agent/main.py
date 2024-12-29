@@ -13,6 +13,7 @@ from manifest_generator import (
 )
 
 from manifest_generator_md import extend_app_with_markdown
+from asdl_generator import extend_app_with_asdl
 
 
 
@@ -441,6 +442,7 @@ app.mount("/v1", agent_app)
 print(app.routes)
 setup_agent_routes(app)
 extend_app_with_markdown(app)
+extend_app_with_asdl(app)
 
 if __name__ == "__main__":
     import uvicorn
