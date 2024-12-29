@@ -33,8 +33,9 @@ type Orchestrator struct {
 // Config holds orchestrator initialization options
 type Config struct {
 	// I want to replace AgentConfigPath with
-	AgentsConfigPath string
-	InternalConfig   types.InternalAgentConfig
+	AgentsConfigPath   string
+	AgentsConfigMDPath string
+	InternalConfig     types.InternalAgentConfig
 }
 
 // New creates a new Orchestrator instance
@@ -67,12 +68,8 @@ func (o *Orchestrator) Start(ctx context.Context) error {
 	loader := core.NewAgentLoader(o.broker, o.metrics, o.registry)
 
 	ctx, agents, err := loader.LoadAgents(ctx, o.config.AgentsConfigPath, o.config.InternalConfig)
-	// fmt.Printf("agentsDefination: %v", agents)
-	// for _, agent := range agents {
-	// 	fmt.Printf("agent-defination: %v", agent)
-	// }
 	if err != nil {
-		return fmt.Errorf("failed to load agents: %w", err)
+		return fmt.Errorf("failed to load agents.json: %w", err)
 	}
 
 	o.mu.Lock()
@@ -104,7 +101,23 @@ func (o *Orchestrator) ProcessQuery(ctx context.Context, query string) (context.
 	}
 	ctx = context.WithValue(ctx, types.RawAgentsDataKey, agentsData)
 
+	// Add markdown agents data to context  // <- New section
+	markdownData, err := o.loadMarkdownAgentsData() // <- New
+	if err != nil {
+		return ctx, fmt.Errorf("failed to load markdown agents data: %w", err)
+	}
+	ctx = context.WithValue(ctx, types.AgentsMarkDownKey, markdownData) // <- New
+
 	return ctx, nil
+}
+
+func (o *Orchestrator) loadMarkdownAgentsData() (string, error) {
+	// Load and return agents config data as string
+	data, err := os.ReadFile(o.config.AgentsConfigMDPath)
+	if err != nil {
+		return "", err
+	}
+	return string(data), nil
 }
 
 func (o *Orchestrator) loadRawAgentsData() (string, error) {

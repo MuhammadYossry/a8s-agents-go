@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"time"
 
 	"github.com/Relax-N-Tax/AgentNexus/capability"
 	"github.com/Relax-N-Tax/AgentNexus/internal/agents"
@@ -32,64 +33,52 @@ func NewTaskRouter(registry *capability.CapabilityRegistry, broker Broker, metri
 
 // RouteTask attempts to find and assign a task to a capable agent
 func (tr *TaskRouter) RouteTask(ctx context.Context, task *types.Task) error {
-	// Use capability matcher to find matching agents/workflows
-	taskExtractionResult := ctx.Value(types.TaskExtractionResultKey).(string)
-	log.Printf("router: received Task: %s\n", taskExtractionResult)
-	rawAgentsData := ctx.Value(types.RawAgentsDataKey)
-	if rawAgentsData == nil {
-		return fmt.Errorf("missing raw agents data in context")
+	// Find matching agent/action using the routing agent
+	actionPlan, err := tr.routingAgent.FindMatchingAgent(ctx, task)
+	if err != nil {
+		log.Printf("router: finding matching agent failed: %v", err)
+		tr.metrics.RecordRoutingFailure(task.Requirements, "agent_matching_failed")
+		return fmt.Errorf("finding matching agent: %w", err)
 	}
-	agentsDataStr, ok := rawAgentsData.(string)
-	if !ok {
-		return fmt.Errorf("invalid raw agents data type")
+
+	// Check if we found a suitable match
+	if actionPlan.Confidence == 0 || actionPlan.SelectedAction == "" {
+		tr.metrics.RecordRoutingFailure(task.Requirements, "no_matching_agents")
+		return fmt.Errorf("no capable agents found for task requirements")
 	}
-	log.Printf("router: received rawAgentsData: %s\n", agentsDataStr)
-	// TO THE LLM READ THAT
-	// OUTPUT Router: Extracted Task: {
-	// 	"id": "task001",
-	// 	"title": "Build a REST API with Django Rest Framework",
-	// 	"description": "Develop a RESTful API using Python and the Django Rest Framework to handle HTTP requests and responses efficiently.",
-	// 	"requirements": {
-	// 		"skillPath": ["Web Development", "Back-end Development", "Python", "Django Rest Framework"],
-	// 		"action": "Build",
-	// 		"parameters": {
-	// 			"language": "Python",
-	// 			"framework": "Django Rest Framework",
-	// 			"apiType": "REST"
-	// 		}
-	// 	}
-	// }
 
-	// actionPlan, err := tr.routingAgent.PlanAction(ctx, task, e.AgentDef.Actions)
-	// if err != nil {
-	// 	log.Printf("router: planning agent/action failed: %w", err)
-	// }
-	// matches := tr.matcher.FindMatchingAgents(task)
-	// if len(matches) == 0 {
-	// 	err := fmt.Errorf("no capable agents found for task requirements: path=%v, action=%s",
-	// 		task.Requirements.SkillPath, task.Requirements.Action)
-	// 	tr.metrics.RecordRoutingFailure(task.Requirements, "no_matching_agents")
-	// 	return err
-	// }
-	return fmt.Errorf("router: planning agent is still WIP")
+	// Update task status
+	task.Status = types.TaskStatusPending
+	task.UpdatedAt = time.Now()
 
-	// // Select the highest scoring match
-	// selectedMatch := matches[0]
-	// task.Status = types.TaskStatusPending
-	// task.UpdatedAt = time.Now()
+	// Get agent ID from the action plan reasoning
+	agentID := extractAgentIDFromReasoning(actionPlan.Reasoning)
+	if agentID == "" {
+		return fmt.Errorf("invalid action plan: missing agent ID")
+	}
 
-	// topic := string(selectedMatch.AgentID)
-	// if err := tr.broker.Publish(ctx, topic, task); err != nil {
-	// 	tr.metrics.RecordRoutingFailure(task.Requirements, "publish_failed")
-	// 	return fmt.Errorf("failed to publish task to agent %s: %w", selectedMatch.AgentID, err)
-	// }
+	// Publish task to the selected agent's topic
+	if err := tr.broker.Publish(ctx, agentID, task); err != nil {
+		tr.metrics.RecordRoutingFailure(task.Requirements, "publish_failed")
+		return fmt.Errorf("failed to publish task to agent %s: %w", agentID, err)
+	}
 
-	// tr.metrics.RecordRoutingSuccess(task.Requirements, string(selectedMatch.AgentID))
-	// return nil
+	tr.metrics.RecordRoutingSuccess(task.Requirements, agentID)
+	return nil
+}
+
+// extractAgentIDFromReasoning extracts the agent ID from the action plan reasoning
+func extractAgentIDFromReasoning(reasoning types.ActionPlanReasoning) string {
+	for _, point := range reasoning.AlignmentPoints {
+		// Look for the alignment point that contains the agent ID
+		if len(point) > 6 && point[:6] == "Agent " {
+			return point[6 : len(point)-9] // Remove "Agent " prefix and " selected" suffix
+		}
+	}
+	return ""
 }
 
 // GetAgentLoad returns the number of pending tasks for an agent
-// This could be used for load balancing in future implementations
 func (tr *TaskRouter) GetAgentLoad(agentID types.AgentID) (int, error) {
 	// TODO: Implement agent load tracking
 	return 0, nil

@@ -52,68 +52,69 @@ func NewTaskExecutor(config TaskExecutorConfig) *TaskExecutor {
 	}
 }
 
-func (e *TaskExecutor) findActionForTask(ctx context.Context, task *types.Task) (*types.Action, error) {
-	return nil, fmt.Errorf("task executor is still WIP")
-	// matcher := capability.NewCapabilityMatcher(nil, capability.DefaultMatcherConfig())
-	// matches := matcher.calculateAgentMatch(task.Requirements, types.AgentCapability{
-	// 	Capabilities: e.AgentDef.Capabilities,
-	// 	Actions:      e.AgentDef.Actions,
-	// })
+func validateMatchResult(result *agents.MatchResult) error {
+	if result == nil {
+		return fmt.Errorf("match result is nil")
+	}
 
-	// if matches.Score < capability.DefaultMatcherConfig().MinimumScore {
-	// 	return nil, fmt.Errorf("no suitable action found for task requirements")
-	// }
+	if result.Matched && result.Match == nil {
+		return fmt.Errorf("matched is true but match details are missing")
+	}
 
-	// actionCopy := matches.Action
-	// return &actionCopy, nil
+	if result.Matched {
+		if result.Match.AgentID == "" {
+			return fmt.Errorf("agent ID is required for matched result")
+		}
+		if result.Match.Action == "" {
+			return fmt.Errorf("action is required for matched result")
+		}
+		if result.Match.Confidence < 0 || result.Match.Confidence > 100 {
+			return fmt.Errorf("confidence must be between 0 and 100")
+		}
+	}
 
-	// Use ActionPlannerAgent to determine the most suitable action
-	// actionPlan, err := e.actionPlannerAgent.PlanAction(ctx, task, e.AgentDef.Actions)
-	// if err != nil {
-	// 	return nil, fmt.Errorf("planning action: %w", err)
-	// }
-
-	// Validate action plan confidence
-	// if actionPlan.Confidence < 0.5 { // You might want to make this threshold configurable
-	// 	return nil, fmt.Errorf("low confidence (%f) in action selection", actionPlan.Confidence)
-	// }
-
-	// Find the selected action in the agent's available actions
-	// var selectedAction *types.Action
-	// for _, action := range e.AgentDef.Actions {
-	// 	if action.Name == actionPlan.SelectedAction {
-	// 		selectedAction = &action
-	// 		break
-	// 	}
-	// }
-
-	// if selectedAction == nil {
-	// 	return nil, fmt.Errorf("selected action '%s' not found in available actions", actionPlan.SelectedAction)
-	// }
-
-	// Validate framework compatibility if specified in task requirements
-	// if framework, ok := task.Requirements.Parameters["framework"].(string); ok {
-	// 	if !actionPlan.Validation.FrameworkCompatible {
-	// 		return nil, fmt.Errorf("selected action '%s' is not compatible with framework '%s'",
-	// 			actionPlan.SelectedAction, framework)
-	// 	}
-	// }
-
-	// // Validate skill path support
-	// if !actionPlan.Validation.SkillPathSupported {
-	// 	return nil, fmt.Errorf("selected action '%s' does not support required skill path %v",
-	// 		actionPlan.SelectedAction, task.Requirements.SkillPath)
-	// }
-
-	// // Check for missing requirements
-	// if len(actionPlan.Validation.MissingRequirements) > 0 {
-	// 	return nil, fmt.Errorf("missing requirements for action '%s': %v",
-	// 		actionPlan.SelectedAction, actionPlan.Validation.MissingRequirements)
-	// }
-
-	// return selectedAction, nil
+	return nil
 }
 
+func convertMatchResultToActionPlan(result *agents.MatchResult) *types.ActionPlan {
+	if !result.Matched || result.Match == nil {
+		return &types.ActionPlan{
+			SelectedAction: "",
+			Confidence:     0,
+			Reasoning: types.ActionPlanReasoning{
+				PrimaryReason: result.Error,
+			},
+			Validation: types.ActionValidation{
+				FrameworkCompatible: false,
+				SkillPathSupported:  false,
+				MissingRequirements: []string{"No matching agent found"},
+			},
+		}
+	}
+
+	return &types.ActionPlan{
+		SelectedAction: result.Match.Action,
+		Confidence:     result.Match.Confidence / 100.0, // Convert 0-100 to 0-1 scale
+		Reasoning: types.ActionPlanReasoning{
+			PrimaryReason: result.Match.Reasoning,
+			AlignmentPoints: []string{
+				fmt.Sprintf("Agent %s selected", result.Match.AgentID),
+				fmt.Sprintf("Path match score: %.2f", result.Match.MatchDetails.PathMatchScore),
+				fmt.Sprintf("Framework score: %.2f", result.Match.MatchDetails.FrameworkScore),
+				fmt.Sprintf("Action score: %.2f", result.Match.MatchDetails.ActionScore),
+				fmt.Sprintf("Version score: %.2f", result.Match.MatchDetails.VersionScore),
+			},
+		},
+		Implementation: types.ActionImplementation{
+			RequiredParameters: make(map[string]interface{}),
+		},
+		Validation: types.ActionValidation{
+			FrameworkCompatible: result.Match.MatchDetails.FrameworkScore >= 10,
+			SkillPathSupported:  result.Match.MatchDetails.PathMatchScore >= 20,
+			MissingRequirements: []string{},
+		},
+	}
+}
 func (e *TaskExecutor) Execute(ctx context.Context, task *types.Task) (*types.TaskResult, error) {
 	// Handle internal agents differently
 	// if e.AgentDef.Type != "external" {
@@ -127,12 +128,12 @@ func (e *TaskExecutor) Execute(ctx context.Context, task *types.Task) (*types.Ta
 	// }
 
 	// Find appropriate action
-	_, err := e.findActionForTask(ctx, task)
+	// _, err := e.findActionForTask(ctx, task)
 	// if err != nil {
 	return &types.TaskResult{
 		TaskID:     task.ID,
 		Success:    false,
-		Error:      fmt.Sprintf("action selection failed: %v", err),
+		Error:      fmt.Sprintf("action execution wip failed W"),
 		FinishedAt: time.Now(),
 	}, nil
 	// }

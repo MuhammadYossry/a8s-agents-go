@@ -1,4 +1,4 @@
-// task_routing_agent.go
+// task_routing_prompt.go
 package agents
 
 import (
@@ -12,105 +12,224 @@ import (
 	"github.com/Relax-N-Tax/AgentNexus/types"
 )
 
-// TaskRoutingAgent determines the most suitable action for a given task
+// TaskRoutingAgent determines the most suitable agent and action for a given task
 type TaskRoutingAgent struct {
 	llmClient *LLMClient
 	promptMgr *PromptManager
 }
 
-type RoutingAgentConfig struct {
-	LLMConfig LLMConfig
+// MatchResult represents the output of the routing decision
+type MatchResult struct {
+	Matched      bool          `json:"matched"`
+	Match        *AgentMatch   `json:"match,omitempty"`
+	Alternatives []Alternative `json:"alternatives,omitempty"`
+	Error        string        `json:"error,omitempty"`
+}
+
+// AgentMatch represents the selected agent and action details
+type AgentMatch struct {
+	AgentID      string       `json:"agentId"`
+	Action       string       `json:"action"`
+	Confidence   float64      `json:"confidence"`
+	MatchDetails MatchDetails `json:"matchDetails"`
+	Reasoning    string       `json:"reasoning"`
+}
+
+// MatchDetails contains the detailed scoring of the match
+type MatchDetails struct {
+	PathMatchScore float64 `json:"pathMatchScore"`
+	FrameworkScore float64 `json:"frameworkScore"`
+	ActionScore    float64 `json:"actionScore"`
+	VersionScore   float64 `json:"versionScore"`
+}
+
+// Alternative represents other potential agent matches
+type Alternative struct {
+	AgentID    string  `json:"agentId"`
+	Confidence float64 `json:"confidence"`
+	Reason     string  `json:"reason"`
+}
+
+const taskRoutingPromptTemplate = `You are an advanced Task Orchestration System responsible for intelligent task routing and agent coordination. Your primary function is to analyze incoming tasks and match them with the most suitable agent and action based on their capabilities.
+
+SYSTEM CONTEXT:
+{{- if .AgentsData }}
+{{ .AgentsData }}
+{{- else }}
+Available Agents and Their Capabilities:
+{
+    "python-code-agent": {
+        "type": "service",
+        "capabilities": [
+            {
+                "skillPath": ["Development"],
+                "level": "domain",
+                "specialization": 0.7
+            },
+            {
+                "skillPath": ["Development", "Backend", "Python"],
+                "level": "specialty",
+                "specialization": 0.9,
+                "metadata": {
+                    "frameworks": ["Django", "FastAPI"],
+                    "versions": {
+                        "python": ">=3.7"
+                    }
+                }
+            }
+        ],
+        "actions": {
+            "generateCode": {
+                "parameters": ["specification", "framework"],
+                "availability": 1.0
+            },
+            "improveCode": {
+                "parameters": ["code", "requirements"],
+                "availability": 1.0
+            },
+            "testCode": {
+                "parameters": ["code", "testRequirements"],
+                "availability": 1.0
+            }
+        }
+    }
+}
+{{- end }}
+
+MATCHING ALGORITHM:
+
+1. Capability Matching (40% of total score)
+- Direct skill path matching
+- Framework and technology alignment
+- Version compatibility
+- Specialization level consideration
+
+2. Action Suitability (30% of total score)
+- Action availability
+- Parameter compatibility
+- Historical performance
+- Required vs available features
+
+3. Agent Performance (20% of total score)
+- Historical success rate
+- Average response time
+- Error rate
+- Specialization score
+
+4. Context Alignment (10% of total score)
+- Domain-specific requirements
+- Special constraints
+- Environmental factors
+
+TASK TO ANALYZE:
+{{- if .TaskJsonData }}
+{{ .TaskJsonData }}
+{{- else }}
+{
+    "id": "fallback_task",
+    "title": "{{ .Task.Title }}",
+    "description": "{{ .Task.Description }}",
+    "requirements": {
+        "skillPath": {{ .Task.Requirements.SkillPath }},
+        "action": "{{ .Task.Requirements.Action }}",
+        "parameters": {{ .Task.Requirements.Parameters }}
+    }
+}
+{{- end }}
+
+RESPONSE SCHEMA:
+{
+    "matched": boolean,
+    "match": {
+        "agentId": string,          // ID of the selected agent
+        "action": string,           // Selected action from agent's available actions
+        "confidence": number,       // 0-100 score
+        "matchDetails": {
+            "pathMatchScore": number,   // 0-40
+            "frameworkScore": number,   // 0-20
+            "actionScore": number,      // 0-20
+            "versionScore": number      // 0-20
+        },
+        "reasoning": string
+    } | null,
+    "alternatives": [
+        {
+            "agentId": string,
+            "confidence": number,
+            "reason": string
+        }
+    ],
+    "error": string | null
+}
+
+EVALUATION CRITERIA:
+
+1. Required Match Conditions:
+- Complete skill path match OR hierarchical parent match
+- Action availability and parameter compatibility
+- Minimum confidence score of 60
+
+2. Scoring Components:
+- Skill Path Match (0-40 points)
+   * Exact path match: 40
+   * Parent path match: 30
+   * Partial path match: 20
+   * Domain-only match: 10
+
+- Framework/Tech Support (0-20 points)
+   * Full support: 20
+   * Partial support: 10
+   * Basic compatibility: 5
+
+- Action Compatibility (0-20 points)
+   * Full parameter match: 20
+   * Partial parameter match: 10
+   * Basic action match: 5
+
+- Version Compatibility (0-20 points)
+   * Exact version match: 20
+   * Compatible version: 15
+   * Upgradable version: 10
+
+3. Rejection Criteria:
+- No skill path match
+- Missing required action
+- Confidence score < 60
+- Critical parameter mismatch
+
+Please analyze the provided task and determine the optimal agent and action match based on these criteria. Return your analysis in the specified JSON format.`
+
+// Types for the prompt template
+type TaskRoutingPromptData struct {
+	AgentsData   string      // Agents capabilities and definitions
+	TaskJsonData string      // Task data in JSON format
+	Task         *types.Task // Fallback task data if TaskJsonData is empty
 }
 
 var (
-	routingAgentInstance *TaskRoutingAgent
-	routingAgentOnce     sync.Once
+	taskRoutingAgent *TaskRoutingAgent
+	routingAgentOnce sync.Once
 )
 
-const taskRoutingPromptTemplate = `System Message:
-You are a technical assistant that analyzes software development requirements and determines the most suitable action to execute.
-
-Task Information:
-Title: {{.task.Title}}
-Description: {{.task.Description}}
-Required Skill Path: {{.task.Requirements.SkillPath}}
-Required Action: {{.task.Requirements.Action}}
-{{- range $key, $value := .task.Requirements.Parameters}}
-Parameter - {{$key}}: {{$value}}
-{{- end}}
-
-Available Actions:
-{{- range .actions}}
-{{.Name}}:
-  - Path: {{.Path}}
-  - Method: {{.Method}}
-  {{- if .InputSchema}}
-  - Input Schema:
-    {{- range $key, $value := .InputSchema.Properties}}
-    * {{$key}}
-    {{- end}}
-  {{- end}}
-{{- end}}
-
-Please analyze and provide your response in the following JSON structure:
-
-{
-  "selectedAction": string,            // Name of the chosen action
-  "confidence": number,               // 0-1 score of how well the action matches
-  "reasoning": {
-    "primary_reason": string,         // Main reason for selecting this action
-    "alignment_points": [             // List of specific matching points
-      string,
-      ...
-    ],
-    "potential_concerns": [           // Optional: Any potential issues to consider
-      string,
-      ...
-    ]
-  },
-  "implementation": {
-    "required_parameters": {          // Optional: Parameters that must be provided
-      parameter_name: parameter_value,
-      ...
-    },
-    "recommended_optional_parameters": {  // Optional parameters that would be beneficial
-      parameter_name: parameter_value,
-      ...
-    }
-  },
-  "validation": {
-    "framework_compatible": boolean,   // Confirms framework compatibility
-    "skill_path_supported": boolean,  // Confirms skill path is supported
-    "missing_requirements": [         // Any required information not provided in task
-      string,
-      ...
-    ]
-  }
-}
-CONSTRAINTS:
-- Output must be valid JSON only
-- No explanatory text before or after JSON
-- All fields essential fields like selectedAction, confidence and reasoning must be present`
-
-// GetTaskRoutingAgent returns the singleton instance of TaskRoutingAgent
 func GetTaskRoutingAgent(ctx context.Context, config types.InternalAgentConfig) (*TaskRoutingAgent, error) {
 	routingAgentOnce.Do(func() {
-		routingAgentInstance = initializeTaskRoutingAgent(config)
+		taskRoutingAgent = initializeTaskRoutingAgent(config)
 	})
-	return routingAgentInstance, nil
+	return taskRoutingAgent, nil
 }
 
 func initializeTaskRoutingAgent(config types.InternalAgentConfig) *TaskRoutingAgent {
 	llmClient := NewLLMClient(&LLMConfig{
-		Provider: Qwen,
-		BaseURL:  config.LLMConfig.BaseURL,
-		APIKey:   config.LLMConfig.APIKey,
-		Model:    config.LLMConfig.Model,
-		Timeout:  90 * time.Second, // Increased timeout
-		Debug:    true,             // Enable debug logging
+		Provider:      Qwen,
+		BaseURL:       config.LLMConfig.BaseURL,
+		APIKey:        config.LLMConfig.APIKey,
+		Model:         config.LLMConfig.Model,
+		Timeout:       90 * time.Second,
+		Debug:         true,
+		SystemMessage: "You are an advanced Task Orchestration System responsible for intelligent task routing and agent coordination.", // Added system message
 		Options: map[string]interface{}{
-			"temperature":   0.7,
-			"top_p":         0.8,
+			"temperature":   0.3, // Lower temperature for more deterministic matching
+			"top_p":         0.9,
 			"result_format": "message",
 			"stream":        false,
 		},
@@ -118,7 +237,6 @@ func initializeTaskRoutingAgent(config types.InternalAgentConfig) *TaskRoutingAg
 
 	promptMgr := NewPromptManager()
 	if err := promptMgr.RegisterTemplate("taskRoutingPrompt", taskRoutingPromptTemplate); err != nil {
-		log.Printf("Warning: Failed to register task routing prompt template: %v", err)
 		panic(fmt.Sprintf("Failed to register task routing prompt template: %v", err))
 	}
 
@@ -128,60 +246,185 @@ func initializeTaskRoutingAgent(config types.InternalAgentConfig) *TaskRoutingAg
 	}
 }
 
-// PlanAction determines the most suitable action for the given task
-func (a *TaskRoutingAgent) PlanAction(ctx context.Context, task *types.Task, availableActions []types.Action) (*types.ActionPlan, error) {
-	// Prepare prompt data
-	promptData := map[string]interface{}{
-		"task":    task,
-		"actions": availableActions,
+// Function to prepare the prompt data
+func PrepareRoutingPromptData(ctx context.Context, task *types.Task) TaskRoutingPromptData {
+	return TaskRoutingPromptData{
+		AgentsData:   getAgentsDataFromContext(ctx),
+		TaskJsonData: getTaskDataFromContext(ctx, task),
+		Task:         task, // Fallback task data
 	}
+}
+
+// Helper function to get agents data from context with defined structure
+func getAgentsDataFromContext(ctx context.Context) string {
+	// Try markdown format first
+	if mdData := ctx.Value(types.AgentsMarkDownKey); mdData != nil {
+		if str, ok := mdData.(string); ok {
+			return str
+		}
+	}
+
+	// Try raw agents data
+	if rawData := ctx.Value(types.RawAgentsDataKey); rawData != nil {
+		if str, ok := rawData.(string); ok {
+			return str
+		}
+	}
+
+	// Return empty string to use template default
+	return ""
+}
+
+// Helper function to get task data from context
+func getTaskDataFromContext(ctx context.Context, _ *types.Task) string {
+	// Try to get from context first
+	if taskData := ctx.Value(types.TaskExtractionResultKey); taskData != nil {
+		if str, ok := taskData.(string); ok && str != "" {
+			return str
+		}
+	}
+
+	// Return empty string to use template fallback
+	return ""
+}
+
+func (a *TaskRoutingAgent) FindMatchingAgent(ctx context.Context, task *types.Task) (*types.ActionPlan, error) {
+	// Add timeout to context
+	ctx, cancel := context.WithTimeout(ctx, 60*time.Second)
+	defer cancel()
+
+	// Prepare the prompt data
+	promptData := PrepareRoutingPromptData(ctx, task)
 
 	// Generate prompt
 	prompt, err := a.promptMgr.GeneratePrompt("taskRoutingPrompt", promptData)
-	log.Println("Task Routing Prompt:")
-	log.Println(prompt)
 	if err != nil {
 		return nil, fmt.Errorf("generating prompt: %w", err)
 	}
 
-	// For demonstration, using a sample response
-	completion := `{
-        "selectedAction": "generateCode",
-        "confidence": 0.95,
-        "reasoning": {
-            "primary_reason": "Task explicitly requires new code generation for a REST API endpoint",
-            "alignment_points": [
-                "Supports FastAPI framework requirement",
-                "Matches Python/Backend/CodeGeneration skill path",
-                "Provides full testing and documentation capabilities"
-            ],
-            "potential_concerns": [
-                "May need additional specification of required functions"
-            ]
-        },
-        "implementation": {
-            "required_parameters": {
-                "language": "Python",
-                "framework": "FastAPI",
-                "description": "Create a REST API endpoint"
-            },
-            "recommended_optional_parameters": {
-                "documentationLevel": "detailed",
-                "includeTests": true
-            }
-        },
-        "validation": {
-            "framework_compatible": true,
-            "skill_path_supported": true,
-            "missing_requirements": []
-        }
-    }`
+	log.Printf("Generated routing prompt for task %s", task.ID)
 
-	// Parse the response into ActionPlan
-	var actionPlan types.ActionPlan
-	if err := json.Unmarshal([]byte(completion), &actionPlan); err != nil {
-		return nil, fmt.Errorf("parsing action plan: %w", err)
+	// Get LLM completion with retries
+	var completion string
+	maxRetries := 3
+	var lastErr error
+
+	for attempt := 0; attempt < maxRetries; attempt++ {
+		if attempt > 0 {
+			log.Printf("Retry attempt %d/%d for task routing", attempt+1, maxRetries)
+			time.Sleep(time.Duration(attempt) * 2 * time.Second) // Exponential backoff
+		}
+
+		select {
+		case <-ctx.Done():
+			return nil, fmt.Errorf("context cancelled while getting completion: %w", ctx.Err())
+		default:
+			// Use CreateChatCompletion instead of GetCompletion
+			completion, err = a.llmClient.CreateChatCompletion(ctx, prompt)
+			if err == nil {
+				break
+			}
+			lastErr = err
+			log.Printf("Routing attempt %d failed: %v", attempt+1, err)
+		}
 	}
 
-	return &actionPlan, nil
+	if lastErr != nil {
+		return nil, fmt.Errorf("getting completion after %d attempts: %w", maxRetries, lastErr)
+	}
+
+	// Validate completion
+	if completion == "" {
+		return nil, fmt.Errorf("received empty completion from LLM")
+	}
+
+	// Parse the match result
+	var matchResult MatchResult
+	if err := json.Unmarshal([]byte(completion), &matchResult); err != nil {
+		// Log the completion for debugging
+		log.Printf("Failed to parse completion: %s", completion)
+		return nil, fmt.Errorf("parsing match result: %w", err)
+	}
+
+	// Validate match result
+	if err := validateMatchResult(&matchResult); err != nil {
+		return nil, fmt.Errorf("invalid match result: %w", err)
+	}
+
+	// Convert to ActionPlan
+	actionPlan := convertMatchResultToActionPlan(&matchResult)
+
+	// Log the result
+	if matchResult.Matched && matchResult.Match != nil {
+		log.Printf("Found matching agent for task %s: agent=%s, action=%s, confidence=%.2f",
+			task.ID, matchResult.Match.AgentID, matchResult.Match.Action, matchResult.Match.Confidence)
+	} else {
+		log.Printf("No matching agent found for task %s: %s", task.ID, matchResult.Error)
+	}
+
+	return actionPlan, nil
+}
+
+func validateMatchResult(result *MatchResult) error {
+	if result == nil {
+		return fmt.Errorf("match result is nil")
+	}
+
+	if result.Matched && result.Match == nil {
+		return fmt.Errorf("matched is true but match details are missing")
+	}
+
+	if result.Matched {
+		if result.Match.AgentID == "" {
+			return fmt.Errorf("agent ID is required for matched result")
+		}
+		if result.Match.Action == "" {
+			return fmt.Errorf("action is required for matched result")
+		}
+		if result.Match.Confidence < 0 || result.Match.Confidence > 100 {
+			return fmt.Errorf("confidence must be between 0 and 100")
+		}
+	}
+
+	return nil
+}
+
+func convertMatchResultToActionPlan(result *MatchResult) *types.ActionPlan {
+	if !result.Matched || result.Match == nil {
+		return &types.ActionPlan{
+			SelectedAction: "",
+			Confidence:     0,
+			Reasoning: types.ActionPlanReasoning{
+				PrimaryReason: result.Error,
+			},
+			Validation: types.ActionValidation{
+				FrameworkCompatible: false,
+				SkillPathSupported:  false,
+				MissingRequirements: []string{"No matching agent found"},
+			},
+		}
+	}
+
+	return &types.ActionPlan{
+		SelectedAction: result.Match.Action,
+		Confidence:     result.Match.Confidence / 100.0, // Convert 0-100 to 0-1 scale
+		Reasoning: types.ActionPlanReasoning{
+			PrimaryReason: result.Match.Reasoning,
+			AlignmentPoints: []string{
+				fmt.Sprintf("Agent %s selected", result.Match.AgentID),
+				fmt.Sprintf("Path match score: %.2f", result.Match.MatchDetails.PathMatchScore),
+				fmt.Sprintf("Framework score: %.2f", result.Match.MatchDetails.FrameworkScore),
+				fmt.Sprintf("Action score: %.2f", result.Match.MatchDetails.ActionScore),
+				fmt.Sprintf("Version score: %.2f", result.Match.MatchDetails.VersionScore),
+			},
+		},
+		Implementation: types.ActionImplementation{
+			RequiredParameters: make(map[string]interface{}),
+		},
+		Validation: types.ActionValidation{
+			FrameworkCompatible: result.Match.MatchDetails.FrameworkScore >= 10,
+			SkillPathSupported:  result.Match.MatchDetails.PathMatchScore >= 20,
+			MissingRequirements: []string{},
+		},
+	}
 }

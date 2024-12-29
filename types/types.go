@@ -150,5 +150,5 @@ type contextKey string
 const (
 	RawAgentsDataKey        contextKey = "agents_definations"
 	TaskExtractionResultKey contextKey = "task_extraction_result"
-	ProcessStatus           contextKey = "processStatus"
+	AgentsMarkDownKey       contextKey = "agents_definations_markdown"
 )

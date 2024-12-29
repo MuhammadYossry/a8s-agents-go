@@ -17,7 +17,8 @@ func main() {
 	defer cancel()
 
 	config := orchestrator.Config{
-		AgentsConfigPath: "examples/agents_generated.json",
+		AgentsConfigPath:   "examples/agents_generated.json",
+		AgentsConfigMDPath: "examples/readable_agents.md",
 		InternalConfig: types.InternalAgentConfig{
 			LLMConfig: struct {
 				BaseURL string
