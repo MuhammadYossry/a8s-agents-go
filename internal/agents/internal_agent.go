@@ -21,7 +21,7 @@ type InternalAgent struct {
 	memory       *Memory
 	// llmClient    *LLMClient
 	// promptMgr    *PromptManager
-	metrics *metrics.Metrics
+	metrics types.MetricsCollector
 	mu      sync.RWMutex
 }
 
@@ -32,7 +32,7 @@ func NewInternalAgent(id string, agentType types.AgentType, description string) 
 		description:  description,
 		capabilities: make(map[string]*InternalCapability),
 		memory:       NewMemory(1000),
-		metrics:      metrics.NewMetrics(),
+		metrics:      metrics.NewMetrics().(*metrics.Metrics),
 	}
 }
 

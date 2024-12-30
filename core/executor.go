@@ -13,7 +13,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/Relax-N-Tax/AgentNexus/internal/agents"
 	"github.com/Relax-N-Tax/AgentNexus/types"
 )
 
@@ -22,18 +21,12 @@ type Executor interface {
 }
 
 type TaskExecutor struct {
-	AgentDef     *AgentDefinition
-	payloadAgent *agents.PayloadAgent
+	AgentDef     *types.AgentDefinition
+	payloadAgent types.PayloadAgent
 	client       *http.Client
 }
 
-type TaskExecutorConfig struct {
-	AgentDefinition *AgentDefinition
-	PayloadAgent    *agents.PayloadAgent
-	HTTPTimeout     time.Duration
-}
-
-func NewTaskExecutor(config TaskExecutorConfig) *TaskExecutor {
+func NewTaskExecutor(config types.TaskExecutorConfig) *TaskExecutor {
 	if config.HTTPTimeout == 0 {
 		config.HTTPTimeout = 30 * time.Second
 	}
@@ -52,7 +45,7 @@ func NewTaskExecutor(config TaskExecutorConfig) *TaskExecutor {
 	}
 }
 
-func validateMatchResult(result *agents.MatchResult) error {
+func validateMatchResult(result *types.MatchResult) error {
 	if result == nil {
 		return fmt.Errorf("match result is nil")
 	}
@@ -76,7 +69,7 @@ func validateMatchResult(result *agents.MatchResult) error {
 	return nil
 }
 
-func convertMatchResultToActionPlan(result *agents.MatchResult) *types.ActionPlan {
+func convertMatchResultToActionPlan(result *types.MatchResult) *types.ActionPlan {
 	if !result.Matched || result.Match == nil {
 		return &types.ActionPlan{
 			SelectedAction: "",
@@ -268,6 +261,7 @@ func (e *TaskExecutor) prepareRequest(ctx context.Context, task *types.Task, act
 		}
 
 		// Use GeneratePayloadWithRetry instead of GeneratePayload
+		// *Error* payloadAgent.GeneratePayloadWithRetry undefined (type *types.PayloadAgent is pointer to interface, not interface)compilerMissingFieldOrMethod
 		payload, err = e.payloadAgent.GeneratePayloadWithRetry(ctx, task, action)
 		if err != nil {
 			return nil, fmt.Errorf("generating payload: %w", err)

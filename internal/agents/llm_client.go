@@ -14,7 +14,7 @@ import (
 )
 
 // Debug mode flag
-var Debug = true
+var Debug = false
 
 type LLMProvider string
 

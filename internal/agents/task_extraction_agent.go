@@ -79,7 +79,7 @@ type ExtractionResult struct {
 }
 
 // GetTaskExtractionAgent returns a singleton instance of TaskExtractionAgent
-func GetTaskExtractionAgent(ctx context.Context, config types.InternalAgentConfig) (*TaskExtractionAgent, error) {
+func GetTaskExtractionAgent(config types.InternalAgentConfig) (*TaskExtractionAgent, error) {
 	extractionOnce.Do(func() {
 		extractionInstance = initializeTaskExtractionAgent(config)
 	})
@@ -114,8 +114,6 @@ func initializeTaskExtractionAgent(config types.InternalAgentConfig) *TaskExtrac
 
 // ExtractTask analyzes a user query and returns a structured task definition
 func (a *TaskExtractionAgent) ExtractTask(ctx context.Context, query string) (string, error) {
-	// Generate a new UUID for the task
-
 	// Get available domains from the capability registry
 	domains := capability.GetCapabilityRegistry().GetTopLevelCapabilities()
 

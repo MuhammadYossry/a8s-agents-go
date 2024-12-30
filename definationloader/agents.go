@@ -1,74 +1,71 @@
-package core
+package definationloader
 
 import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"log"
 	"os"
 	"time"
 
 	"github.com/Relax-N-Tax/AgentNexus/capability"
-	internal_agents "github.com/Relax-N-Tax/AgentNexus/internal/agents"
-	"github.com/Relax-N-Tax/AgentNexus/metrics"
+	"github.com/Relax-N-Tax/AgentNexus/core"
+
 	"github.com/Relax-N-Tax/AgentNexus/types"
 )
 
 type AgentLoader struct {
-	broker   Broker
-	metrics  *metrics.Metrics
-	registry *capability.CapabilityRegistry
+	broker       types.Broker
+	metrics      types.MetricsCollector
+	registry     *capability.CapabilityRegistry
+	agentFactory types.AgentFactory
 }
 
-func NewAgentLoader(broker Broker, metrics *metrics.Metrics, registry *capability.CapabilityRegistry) *AgentLoader {
+func NewAgentLoader(broker types.Broker, metrics types.MetricsCollector, registry *capability.CapabilityRegistry, agentFactory types.AgentFactory) *AgentLoader {
 	return &AgentLoader{
-		broker:   broker,
-		metrics:  metrics,
-		registry: registry,
+		broker:       broker,
+		metrics:      metrics,
+		registry:     registry,
+		agentFactory: agentFactory,
 	}
 }
 
-func (l *AgentLoader) LoadAgents(ctx context.Context, filepath string, internalAgentConfig types.InternalAgentConfig) (context.Context, []*Agent, error) {
+func (l *AgentLoader) LoadAgents(ctx context.Context, filepath string, internalAgentConfig types.InternalAgentConfig) (context.Context, []types.Agenter, error) {
 	data, err := os.ReadFile(filepath)
 	if err != nil {
 		return ctx, nil, fmt.Errorf("reading config file: %w", err)
 	}
-	updatedContext := context.WithValue(ctx, types.RawAgentsDataKey, data)
 
-	var config AgentConfig
+	var config types.AgentConfig
 	if err := json.Unmarshal(data, &config); err != nil {
 		return ctx, nil, fmt.Errorf("parsing config: %w", err)
 	}
 
-	agents := make([]*Agent, 0, len(config.Agents))
-	// Initialize PayloadAgent first
-	payloadAgent, err := internal_agents.GetPayloadAgent(ctx, internalAgentConfig)
+	updatedContext := context.WithValue(ctx, types.RawAgentsDataKey, string(data))
+	agents := make([]types.Agenter, 0, len(config.Agents))
+
+	payloadAgent, err := l.agentFactory.GetPayloadAgent(ctx, internalAgentConfig)
 	if err != nil {
-		log.Fatal(err)
+		return ctx, nil, fmt.Errorf("getting payload agent: %w", err)
 	}
-	// result, err := json.Marshal(config.Agents)
-	// if err != nil {
-	// 	return ctx, nil, fmt.Errorf("failed to Marshak agent definition: %w", err)
-	// }
 
 	for _, def := range config.Agents {
 		if err := l.validateAgentDefinition(&def); err != nil {
 			return ctx, nil, fmt.Errorf("invalid agent definition %s: %w", def.ID, err)
 		}
 
-		taskExecutor := NewTaskExecutor(TaskExecutorConfig{
+		taskExecutor := core.NewTaskExecutor(types.TaskExecutorConfig{
 			AgentDefinition: &def,
 			PayloadAgent:    payloadAgent,
 			HTTPTimeout:     30 * time.Second,
 		})
-		agent := NewAgent(&def, l.broker, taskExecutor, l.metrics, l.registry)
+		agent := core.NewAgent(&def, l.broker, taskExecutor, l.metrics, l.registry)
 		agents = append(agents, agent)
 	}
 
 	return updatedContext, agents, nil
 }
 
-func (l *AgentLoader) validateAgentDefinition(def *AgentDefinition) error {
+func (l *AgentLoader) validateAgentDefinition(def *types.AgentDefinition) error {
 	if def.ID == "" {
 		return fmt.Errorf("missing agent ID")
 	}

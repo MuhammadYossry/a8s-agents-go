@@ -1,4 +1,4 @@
-// metrics.go
+// metrics/metrics.go
 package metrics
 
 import (
@@ -9,58 +9,39 @@ import (
 	"github.com/Relax-N-Tax/AgentNexus/types"
 )
 
-type MetricsData struct {
-	TasksCompleted        int
-	TasksFailed           int
-	RoutingFailures       int
-	RoutingSuccesses      int
-	LastError             error
-	LastErrorTime         time.Time
-	TotalProcessingTime   time.Duration
-	AverageProcessingTime time.Duration
-	ProcessingTimes       []time.Duration
-}
-
-type MetricsKey struct {
-	SkillPath string // Dot-separated path
-	Action    string
-}
-
 type Metrics struct {
 	mu             sync.RWMutex
-	data           map[MetricsKey]*MetricsData
+	data           map[types.MetricsKey]*types.MetricsData
 	taskStartTimes map[string]time.Time
 }
 
-func NewMetrics() *Metrics {
+func NewMetrics() types.MetricsCollector {
 	return &Metrics{
-		data:           make(map[MetricsKey]*MetricsData),
+		data:           make(map[types.MetricsKey]*types.MetricsData),
 		taskStartTimes: make(map[string]time.Time),
 	}
 }
 
-func createMetricsKey(req types.TaskRequirement) MetricsKey {
-	return MetricsKey{
+func createMetricsKey(req types.TaskRequirement) types.MetricsKey {
+	return types.MetricsKey{
 		SkillPath: strings.Join(req.SkillPath, "."),
 		Action:    req.Action,
 	}
 }
 
-// RecordTaskStart records the start time of a task
 func (m *Metrics) RecordTaskStart(taskID string) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.taskStartTimes[taskID] = time.Now()
 }
 
-// RecordTaskComplete updates metrics for a completed task
 func (m *Metrics) RecordTaskComplete(requirements types.TaskRequirement, taskID string) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
 	key := createMetricsKey(requirements)
 	if _, exists := m.data[key]; !exists {
-		m.data[key] = &MetricsData{
+		m.data[key] = &types.MetricsData{
 			ProcessingTimes: make([]time.Duration, 0),
 		}
 	}
@@ -79,17 +60,15 @@ func (m *Metrics) RecordTaskComplete(requirements types.TaskRequirement, taskID 
 	}
 }
 
-// initMetricsIfNeeded initializes metrics for a task type if not exists
-func (m *Metrics) initMetricsIfNeeded(key MetricsKey) *MetricsData {
+func (m *Metrics) initMetricsIfNeeded(key types.MetricsKey) *types.MetricsData {
 	if _, exists := m.data[key]; !exists {
-		m.data[key] = &MetricsData{
+		m.data[key] = &types.MetricsData{
 			ProcessingTimes: make([]time.Duration, 0),
 		}
 	}
 	return m.data[key]
 }
 
-// RecordTaskError updates metrics for a failed task
 func (m *Metrics) RecordTaskError(requirements types.TaskRequirement, err error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -101,7 +80,6 @@ func (m *Metrics) RecordTaskError(requirements types.TaskRequirement, err error)
 	metrics.LastErrorTime = time.Now()
 }
 
-// RecordRoutingSuccess updates metrics for successful task routing
 func (m *Metrics) RecordRoutingSuccess(requirements types.TaskRequirement, agentID string) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -111,14 +89,12 @@ func (m *Metrics) RecordRoutingSuccess(requirements types.TaskRequirement, agent
 	metrics.RoutingSuccesses++
 }
 
-// GetMetrics returns the current metrics for a task type
-func (m *Metrics) GetMetrics(requirements types.TaskRequirement) *MetricsData {
+func (m *Metrics) GetMetrics(requirements types.TaskRequirement) *types.MetricsData {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 
 	key := createMetricsKey(requirements)
 	if metrics, exists := m.data[key]; exists {
-		// Return a deep copy to prevent external modifications
 		metricsCopy := *metrics
 		if metrics.ProcessingTimes != nil {
 			metricsCopy.ProcessingTimes = make([]time.Duration, len(metrics.ProcessingTimes))
@@ -129,7 +105,6 @@ func (m *Metrics) GetMetrics(requirements types.TaskRequirement) *MetricsData {
 	return nil
 }
 
-// RecordRoutingFailure updates metrics for failed task routing
 func (m *Metrics) RecordRoutingFailure(requirements types.TaskRequirement, reason string) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -139,13 +114,11 @@ func (m *Metrics) RecordRoutingFailure(requirements types.TaskRequirement, reaso
 	metrics.RoutingFailures++
 }
 
-// GetAllMetrics returns metrics for all task types
-func (m *Metrics) GetAllMetrics() map[MetricsKey]*MetricsData {
+func (m *Metrics) GetAllMetrics() map[types.MetricsKey]*types.MetricsData {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 
-	// Create a deep copy to avoid external modifications
-	result := make(map[MetricsKey]*MetricsData, len(m.data))
+	result := make(map[types.MetricsKey]*types.MetricsData, len(m.data))
 	for key, metrics := range m.data {
 		metricsCopy := *metrics
 		if metrics.ProcessingTimes != nil {
@@ -157,11 +130,10 @@ func (m *Metrics) GetAllMetrics() map[MetricsKey]*MetricsData {
 	return result
 }
 
-// ResetMetrics clears all metrics data
 func (m *Metrics) ResetMetrics() {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
-	m.data = make(map[MetricsKey]*MetricsData)
+	m.data = make(map[types.MetricsKey]*types.MetricsData)
 	m.taskStartTimes = make(map[string]time.Time)
 }

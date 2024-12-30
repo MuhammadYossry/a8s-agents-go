@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/Relax-N-Tax/AgentNexus/capability"
-	"github.com/Relax-N-Tax/AgentNexus/metrics"
 	"github.com/Relax-N-Tax/AgentNexus/types"
 )
 
@@ -23,21 +22,21 @@ type Agent struct {
 	Type            types.AgentType
 	Description     string
 	BaseURL         string
-	agentDefinition *AgentDefinition
-	broker          Broker
+	agentDefinition *types.AgentDefinition
+	broker          types.Broker
 	executor        Executor
-	metrics         *metrics.Metrics
+	metrics         types.MetricsCollector
 	registry        *capability.CapabilityRegistry
 	cancelFunc      context.CancelFunc
 }
 
 func NewAgent(
-	def *AgentDefinition,
-	broker Broker,
+	def *types.AgentDefinition,
+	broker types.Broker,
 	executor Executor,
-	metrics *metrics.Metrics,
+	metrics types.MetricsCollector,
 	registry *capability.CapabilityRegistry,
-) *Agent {
+) types.Agenter {
 	return &Agent{
 		ID:              types.AgentID(def.ID),
 		Type:            types.AgentType(def.Type),
@@ -85,7 +84,7 @@ func (a *Agent) Start(ctx context.Context) error {
 		}
 	}()
 
-	log.Printf("Agent %s started with %d capabilities and %d actions",
+	log.Printf("Agents: %s started with %d capabilities and %d actions",
 		a.ID, len(a.agentDefinition.Capabilities), len(a.agentDefinition.Actions))
 	return nil
 }

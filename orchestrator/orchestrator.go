@@ -3,6 +3,7 @@ package orchestrator
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"log"
 	"os"
@@ -11,6 +12,7 @@ import (
 
 	"github.com/Relax-N-Tax/AgentNexus/capability"
 	"github.com/Relax-N-Tax/AgentNexus/core"
+	"github.com/Relax-N-Tax/AgentNexus/definationloader"
 	"github.com/Relax-N-Tax/AgentNexus/internal/agents"
 	"github.com/Relax-N-Tax/AgentNexus/metrics"
 	"github.com/Relax-N-Tax/AgentNexus/types"
@@ -19,58 +21,88 @@ import (
 // Orchestrator manages the lifecycle and coordination of all agents
 type Orchestrator struct {
 	config   Config
-	broker   core.Broker
-	metrics  *metrics.Metrics
+	broker   types.Broker
+	metrics  types.MetricsCollector
 	registry *capability.CapabilityRegistry
-	router   *core.TaskRouter
+	router   types.TaskRouter
 
-	agents    []*core.Agent
-	extractor *agents.TaskExtractionAgent
+	agents        []types.Agenter
+	taskExtractor types.TaskExtractionAgent
+	agentFactory  types.AgentFactory
 
 	mu sync.RWMutex
 }
 
 // Config holds orchestrator initialization options
 type Config struct {
-	// I want to replace AgentConfigPath with
-	AgentsConfigPath   string
-	AgentsConfigMDPath string
-	InternalConfig     types.InternalAgentConfig
+	AgentsConfigPath string
+	InternalConfig   types.InternalAgentConfig
 }
 
-// New creates a new Orchestrator instance
 func New(cfg Config) (*Orchestrator, error) {
 	broker := core.NewPubSub()
 	metrics := metrics.NewMetrics()
 	registry := capability.GetCapabilityRegistry()
-	taskRoutingAgent, err := agents.GetTaskRoutingAgent(context.Background(), cfg.InternalConfig)
+	factory := agents.NewAgentFactory() // Implement this in core package?
+	// *errors* undefined: core.NewAgentFactorycompilerUndeclaredImportedName
+
+	taskRoutingAgent, err := factory.GetTaskRoutingAgent(cfg.InternalConfig)
 	if err != nil {
-		log.Fatal(err)
+		return nil, fmt.Errorf("failed to initialize task routing agent: %w", err)
 	}
+
 	router := core.NewTaskRouter(registry, broker, metrics, taskRoutingAgent)
-	extractor, err := agents.GetTaskExtractionAgent(context.Background(), cfg.InternalConfig)
+
+	taskExtractor, err := factory.GetTaskExtractionAgent(cfg.InternalConfig)
 	if err != nil {
 		return nil, fmt.Errorf("failed to initialize task extractor: %w", err)
 	}
 
 	return &Orchestrator{
-		config:    cfg,
-		broker:    broker,
-		metrics:   metrics,
-		registry:  registry,
-		router:    router,
-		extractor: extractor,
+		config:        cfg,
+		broker:        broker,
+		metrics:       metrics,
+		registry:      registry,
+		router:        router,
+		taskExtractor: taskExtractor,
+		agentFactory:  factory,
 	}, nil
 }
 
 // Start initializes and starts all components
-func (o *Orchestrator) Start(ctx context.Context) error {
-	loader := core.NewAgentLoader(o.broker, o.metrics, o.registry)
-
-	ctx, agents, err := loader.LoadAgents(ctx, o.config.AgentsConfigPath, o.config.InternalConfig)
+func (o *Orchestrator) Start(ctx context.Context) (context.Context, error) {
+	agentsLoader := definationloader.NewAgentLoader(o.broker, o.metrics, o.registry, o.agentFactory)
+	ctx, agents, err := agentsLoader.LoadAgents(ctx, o.config.AgentsConfigPath, o.config.InternalConfig)
 	if err != nil {
-		return fmt.Errorf("failed to load agents.json: %w", err)
+		return nil, fmt.Errorf("failed to load agents.json: %w", err)
 	}
+
+	// Load and parse config for markdown generation
+	var config types.AgentConfig
+	agentsData, err := os.ReadFile(o.config.AgentsConfigPath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read agents config file: %w", err)
+	}
+
+	if err := json.Unmarshal(agentsData, &config); err != nil {
+		return nil, fmt.Errorf("failed to parse agents config: %w", err)
+	}
+
+	// Generate markdown documentation
+	mdFormatter := definationloader.NewMarkdownFormatter()
+	markdown, err := mdFormatter.MarkDownFromConfig(&config)
+	if err != nil {
+		return nil, fmt.Errorf("generating markdown: %w", err)
+	}
+
+	// Parse sections after generating markdown
+	mdFormatter.ParseSections(markdown)
+
+	// Store markdown content in context
+	ctx = context.WithValue(ctx, types.AgentsMarkDownKey, markdown)
+	ctx = context.WithValue(ctx, types.AgentsMDFormatterKey, mdFormatter)
+
+	ctx = context.WithValue(ctx, types.RawAgentsDataKey, string(agentsData))
 
 	o.mu.Lock()
 	o.agents = agents
@@ -79,17 +111,17 @@ func (o *Orchestrator) Start(ctx context.Context) error {
 	// Start all agents
 	for _, agent := range agents {
 		if err := agent.Start(ctx); err != nil {
-			return fmt.Errorf("failed to start agent %s: %w", agent.ID, err)
+			return nil, fmt.Errorf("failed to start agent with caps %w: %v", err, agent.GetCapabilities())
 		}
 	}
 
-	return nil
+	return ctx, nil
 }
 
 // ProcessQuery handles a user query through the task extraction pipeline
 func (o *Orchestrator) ProcessQuery(ctx context.Context, query string) (context.Context, error) {
 	// First extract the task
-	ctx, err := o.extractor.ExtractTaskWithRetry(ctx, query)
+	ctx, err := o.taskExtractor.ExtractTaskWithRetry(ctx, query)
 	if err != nil {
 		return ctx, fmt.Errorf("task extraction failed: %w", err)
 	}
@@ -101,23 +133,9 @@ func (o *Orchestrator) ProcessQuery(ctx context.Context, query string) (context.
 	}
 	ctx = context.WithValue(ctx, types.RawAgentsDataKey, agentsData)
 
-	// Add markdown agents data to context  // <- New section
-	markdownData, err := o.loadMarkdownAgentsData() // <- New
-	if err != nil {
-		return ctx, fmt.Errorf("failed to load markdown agents data: %w", err)
-	}
-	ctx = context.WithValue(ctx, types.AgentsMarkDownKey, markdownData) // <- New
+	// log markdown agents data in the context
 
 	return ctx, nil
-}
-
-func (o *Orchestrator) loadMarkdownAgentsData() (string, error) {
-	// Load and return agents config data as string
-	data, err := os.ReadFile(o.config.AgentsConfigMDPath)
-	if err != nil {
-		return "", err
-	}
-	return string(data), nil
 }
 
 func (o *Orchestrator) loadRawAgentsData() (string, error) {
@@ -156,7 +174,8 @@ func (o *Orchestrator) Shutdown(ctx context.Context) error {
 	// Shutdown agents
 	for _, agent := range agents {
 		if err := agent.Stop(ctx); err != nil {
-			log.Printf("Error stopping agent %s: %v", agent.ID, err)
+			log.Printf("failed to start agent with caps %w: %v", err, agent.GetCapabilities())
+
 		}
 	}
 

@@ -6,9 +6,13 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"strings"
 	"sync"
 	"time"
 
+	// *Error*
+
+	"github.com/Relax-N-Tax/AgentNexus/definationloader"
 	"github.com/Relax-N-Tax/AgentNexus/types"
 )
 
@@ -16,38 +20,6 @@ import (
 type TaskRoutingAgent struct {
 	llmClient *LLMClient
 	promptMgr *PromptManager
-}
-
-// MatchResult represents the output of the routing decision
-type MatchResult struct {
-	Matched      bool          `json:"matched"`
-	Match        *AgentMatch   `json:"match,omitempty"`
-	Alternatives []Alternative `json:"alternatives,omitempty"`
-	Error        string        `json:"error,omitempty"`
-}
-
-// AgentMatch represents the selected agent and action details
-type AgentMatch struct {
-	AgentID      string       `json:"agentId"`
-	Action       string       `json:"action"`
-	Confidence   float64      `json:"confidence"`
-	MatchDetails MatchDetails `json:"matchDetails"`
-	Reasoning    string       `json:"reasoning"`
-}
-
-// MatchDetails contains the detailed scoring of the match
-type MatchDetails struct {
-	PathMatchScore float64 `json:"pathMatchScore"`
-	FrameworkScore float64 `json:"frameworkScore"`
-	ActionScore    float64 `json:"actionScore"`
-	VersionScore   float64 `json:"versionScore"`
-}
-
-// Alternative represents other potential agent matches
-type Alternative struct {
-	AgentID    string  `json:"agentId"`
-	Confidence float64 `json:"confidence"`
-	Reason     string  `json:"reason"`
 }
 
 const taskRoutingPromptTemplate = `You are an advanced Task Orchestration System responsible for intelligent task routing and agent coordination. Your primary function is to analyze incoming tasks and match them with the most suitable agent and action based on their capabilities.
@@ -211,7 +183,7 @@ var (
 	routingAgentOnce sync.Once
 )
 
-func GetTaskRoutingAgent(ctx context.Context, config types.InternalAgentConfig) (*TaskRoutingAgent, error) {
+func GetTaskRoutingAgent(config types.InternalAgentConfig) (*TaskRoutingAgent, error) {
 	routingAgentOnce.Do(func() {
 		taskRoutingAgent = initializeTaskRoutingAgent(config)
 	})
@@ -246,33 +218,84 @@ func initializeTaskRoutingAgent(config types.InternalAgentConfig) *TaskRoutingAg
 	}
 }
 
-// Function to prepare the prompt data
 func PrepareRoutingPromptData(ctx context.Context, task *types.Task) TaskRoutingPromptData {
+	var agentData string
+
+	// Try to get the markdown content from context first
+	if mdContent, ok := ctx.Value(types.AgentsMarkDownKey).(string); ok && mdContent != "" {
+		log.Println("task-routing-agent: Found markdown content")
+
+		// Create formatter from the markdown content
+		mdFormatter := definationloader.NewMarkdownFormatter()
+		parsedRoot := mdFormatter.ParseSections(mdContent)
+
+		// Print full section tree for debugging
+		printMarkdownSections("task-routing-agent: ", parsedRoot, 0)
+
+		var formattedContent strings.Builder
+
+		// Try to get each main section
+		for title, section := range parsedRoot.Sections {
+			log.Printf("task-routing-agent: Processing section: %s", title)
+			switch title {
+			case "Agent", "Capabilities", "Available Endpoints":
+				log.Printf("task-routing-agent: Found %s section", title)
+				formattedContent.WriteString(fmt.Sprintf("### %s\n", title))
+				formattedContent.WriteString(section.Content + "\n\n")
+			}
+		}
+
+		if formattedContent.Len() > 0 {
+			agentData = formattedContent.String()
+		} else {
+			// If no sections were found, use the complete markdown
+			agentData = mdContent
+		}
+	}
+
+	// Fallback to raw data if no markdown content available
+	if agentData == "" {
+		log.Println("task-routing-agent: Falling back to raw agents data")
+		if rawData := ctx.Value(types.RawAgentsDataKey); rawData != nil {
+			if str, ok := rawData.(string); ok {
+				agentData = str
+			}
+		}
+	}
+
+	log.Printf("task-routing-agent: Final agent data length: %d", len(agentData))
+	if len(agentData) > 200 {
+		log.Printf("task-routing-agent: Content preview: %s...", agentData[:200])
+	}
+
 	return TaskRoutingPromptData{
-		AgentsData:   getAgentsDataFromContext(ctx),
+		AgentsData:   agentData,
 		TaskJsonData: getTaskDataFromContext(ctx, task),
-		Task:         task, // Fallback task data
+		Task:         task,
 	}
 }
 
-// Helper function to get agents data from context with defined structure
-func getAgentsDataFromContext(ctx context.Context) string {
-	// Try markdown format first
-	if mdData := ctx.Value(types.AgentsMarkDownKey); mdData != nil {
-		if str, ok := mdData.(string); ok {
-			return str
-		}
+// Helper function to print all markdown sections recursively
+func printMarkdownSections(prefix string, section *types.DocSection, depth int) {
+	if section == nil {
+		return
 	}
 
-	// Try raw agents data
-	if rawData := ctx.Value(types.RawAgentsDataKey); rawData != nil {
-		if str, ok := rawData.(string); ok {
-			return str
+	indent := strings.Repeat("  ", depth)
+	log.Printf("%s%s%s: %d bytes content", prefix, indent, section.Title, len(section.Content))
+
+	if len(section.Content) > 0 {
+		preview := section.Content
+		if len(preview) > 100 {
+			preview = preview[:100] + "..."
 		}
+		log.Printf("%s%s  Content Preview: %s", prefix, indent, preview)
 	}
 
-	// Return empty string to use template default
-	return ""
+	for title, subsection := range section.Sections {
+		log.Printf("%s%s  └─ Subsection: %s", prefix, indent, title)
+		printMarkdownSections(prefix, subsection, depth+1)
+	}
 }
 
 // Helper function to get task data from context
@@ -339,7 +362,7 @@ func (a *TaskRoutingAgent) FindMatchingAgent(ctx context.Context, task *types.Ta
 	}
 
 	// Parse the match result
-	var matchResult MatchResult
+	var matchResult types.MatchResult
 	if err := json.Unmarshal([]byte(completion), &matchResult); err != nil {
 		// Log the completion for debugging
 		log.Printf("Failed to parse completion: %s", completion)
@@ -365,7 +388,7 @@ func (a *TaskRoutingAgent) FindMatchingAgent(ctx context.Context, task *types.Ta
 	return actionPlan, nil
 }
 
-func validateMatchResult(result *MatchResult) error {
+func validateMatchResult(result *types.MatchResult) error {
 	if result == nil {
 		return fmt.Errorf("match result is nil")
 	}
@@ -389,7 +412,7 @@ func validateMatchResult(result *MatchResult) error {
 	return nil
 }
 
-func convertMatchResultToActionPlan(result *MatchResult) *types.ActionPlan {
+func convertMatchResultToActionPlan(result *types.MatchResult) *types.ActionPlan {
 	if !result.Matched || result.Match == nil {
 		return &types.ActionPlan{
 			SelectedAction: "",

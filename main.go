@@ -28,8 +28,7 @@ func main() {
 	time.Sleep(1000)
 
 	config := orchestrator.Config{
-		AgentsConfigPath:   "examples/agents_generated.json",
-		AgentsConfigMDPath: "examples/readable_agents.md",
+		AgentsConfigPath: "examples/agents_generated.json",
 		InternalConfig: types.InternalAgentConfig{
 			LLMConfig: struct {
 				BaseURL string
@@ -51,7 +50,7 @@ func main() {
 	}
 
 	// Start orchestrator
-	if err := orchestrator.Start(ctx); err != nil {
+	if ctx, err = orchestrator.Start(ctx); err != nil {
 		log.Fatalf("Failed to start orchestrator: %v", err)
 	}
 

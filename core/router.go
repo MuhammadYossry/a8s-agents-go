@@ -5,65 +5,51 @@ import (
 	"context"
 	"fmt"
 	"log"
-	"time"
 
 	"github.com/Relax-N-Tax/AgentNexus/capability"
-	"github.com/Relax-N-Tax/AgentNexus/internal/agents"
-	"github.com/Relax-N-Tax/AgentNexus/metrics"
+
 	"github.com/Relax-N-Tax/AgentNexus/types"
 )
 
 type TaskRouter struct {
 	registry     *capability.CapabilityRegistry
-	broker       Broker
-	metrics      *metrics.Metrics
-	matcher      *capability.CapabilityMatcher
-	routingAgent *agents.TaskRoutingAgent
+	broker       types.Broker
+	metrics      types.MetricsCollector
+	routingAgent types.TaskRoutingAgent
 }
 
-func NewTaskRouter(registry *capability.CapabilityRegistry, broker Broker, metrics *metrics.Metrics, taskRoutingAgent *agents.TaskRoutingAgent) *TaskRouter {
+func NewTaskRouter(
+	registry *capability.CapabilityRegistry,
+	broker types.Broker,
+	metrics types.MetricsCollector,
+	routingAgent types.TaskRoutingAgent,
+) types.TaskRouter {
 	return &TaskRouter{
 		registry:     registry,
 		broker:       broker,
 		metrics:      metrics,
-		matcher:      capability.NewCapabilityMatcher(registry, capability.DefaultMatcherConfig()),
-		routingAgent: taskRoutingAgent,
+		routingAgent: routingAgent,
 	}
 }
 
 // RouteTask attempts to find and assign a task to a capable agent
 func (tr *TaskRouter) RouteTask(ctx context.Context, task *types.Task) error {
-	// Find matching agent/action using the routing agent
+	if task == nil {
+		return fmt.Errorf("task cannot be nil")
+	}
+
 	actionPlan, err := tr.routingAgent.FindMatchingAgent(ctx, task)
 	if err != nil {
-		log.Printf("router: finding matching agent failed: %v", err)
-		tr.metrics.RecordRoutingFailure(task.Requirements, "agent_matching_failed")
 		return fmt.Errorf("finding matching agent: %w", err)
 	}
 
-	// Check if we found a suitable match
-	if actionPlan.Confidence == 0 || actionPlan.SelectedAction == "" {
-		tr.metrics.RecordRoutingFailure(task.Requirements, "no_matching_agents")
-		return fmt.Errorf("no capable agents found for task requirements")
+	log.Printf("Routing task %s with confidence %.2f", task.ID, actionPlan.Confidence)
+
+	// Update to include context in Publish call
+	if err := tr.broker.Publish(ctx, string(task.ID), task); err != nil {
+		return fmt.Errorf("publishing task: %w", err)
 	}
 
-	// Update task status
-	task.Status = types.TaskStatusPending
-	task.UpdatedAt = time.Now()
-
-	// Get agent ID from the action plan reasoning
-	agentID := extractAgentIDFromReasoning(actionPlan.Reasoning)
-	if agentID == "" {
-		return fmt.Errorf("invalid action plan: missing agent ID")
-	}
-
-	// Publish task to the selected agent's topic
-	if err := tr.broker.Publish(ctx, agentID, task); err != nil {
-		tr.metrics.RecordRoutingFailure(task.Requirements, "publish_failed")
-		return fmt.Errorf("failed to publish task to agent %s: %w", agentID, err)
-	}
-
-	tr.metrics.RecordRoutingSuccess(task.Requirements, agentID)
 	return nil
 }
 
