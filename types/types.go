@@ -22,7 +22,6 @@ const (
 	RawAgentsDataKey        contextKey = "agents_definations"
 	TaskExtractionResultKey contextKey = "task_extraction_result"
 	AgentsMarkDownKey       contextKey = "agents_definations_markdown"
-	AgentsMDFormatterKey    contextKey = "agents_definations_mdformatter"
 )
 
 type Task struct {

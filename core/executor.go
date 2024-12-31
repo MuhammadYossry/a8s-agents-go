@@ -16,10 +16,6 @@ import (
 	"github.com/Relax-N-Tax/AgentNexus/types"
 )
 
-type Executor interface {
-	Execute(ctx context.Context, task *types.Task) (*types.TaskResult, error)
-}
-
 type TaskExecutor struct {
 	AgentDef     *types.AgentDefinition
 	payloadAgent types.PayloadAgent
@@ -260,8 +256,6 @@ func (e *TaskExecutor) prepareRequest(ctx context.Context, task *types.Task, act
 			return nil, fmt.Errorf("no payload provided and no payload agent available")
 		}
 
-		// Use GeneratePayloadWithRetry instead of GeneratePayload
-		// *Error* payloadAgent.GeneratePayloadWithRetry undefined (type *types.PayloadAgent is pointer to interface, not interface)compilerMissingFieldOrMethod
 		payload, err = e.payloadAgent.GeneratePayloadWithRetry(ctx, task, action)
 		if err != nil {
 			return nil, fmt.Errorf("generating payload: %w", err)

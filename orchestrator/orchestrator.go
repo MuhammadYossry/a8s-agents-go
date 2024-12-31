@@ -26,9 +26,8 @@ type Orchestrator struct {
 	registry *capability.CapabilityRegistry
 	router   types.TaskRouter
 
-	agents        []types.Agenter
-	taskExtractor types.TaskExtractionAgent
-	agentFactory  types.AgentFactory
+	agents       []types.Agenter
+	agentFactory types.AgentFactory
 
 	mu sync.RWMutex
 }
@@ -43,8 +42,7 @@ func New(cfg Config) (*Orchestrator, error) {
 	broker := core.NewPubSub()
 	metrics := metrics.NewMetrics()
 	registry := capability.GetCapabilityRegistry()
-	factory := agents.NewAgentFactory() // Implement this in core package?
-	// *errors* undefined: core.NewAgentFactorycompilerUndeclaredImportedName
+	factory := agents.NewAgentFactory()
 
 	taskRoutingAgent, err := factory.GetTaskRoutingAgent(cfg.InternalConfig)
 	if err != nil {
@@ -53,19 +51,13 @@ func New(cfg Config) (*Orchestrator, error) {
 
 	router := core.NewTaskRouter(registry, broker, metrics, taskRoutingAgent)
 
-	taskExtractor, err := factory.GetTaskExtractionAgent(cfg.InternalConfig)
-	if err != nil {
-		return nil, fmt.Errorf("failed to initialize task extractor: %w", err)
-	}
-
 	return &Orchestrator{
-		config:        cfg,
-		broker:        broker,
-		metrics:       metrics,
-		registry:      registry,
-		router:        router,
-		taskExtractor: taskExtractor,
-		agentFactory:  factory,
+		config:       cfg,
+		broker:       broker,
+		metrics:      metrics,
+		registry:     registry,
+		router:       router,
+		agentFactory: factory,
 	}, nil
 }
 
@@ -81,7 +73,7 @@ func (o *Orchestrator) Start(ctx context.Context) (context.Context, error) {
 	var config types.AgentConfig
 	agentsData, err := os.ReadFile(o.config.AgentsConfigPath)
 	if err != nil {
-		return nil, fmt.Errorf("failed to read agents config file: %w", err)
+		return nil, fmt.Errorf("failed to read agents config(.json) file: %w", err)
 	}
 
 	if err := json.Unmarshal(agentsData, &config); err != nil {
@@ -95,13 +87,8 @@ func (o *Orchestrator) Start(ctx context.Context) (context.Context, error) {
 		return nil, fmt.Errorf("generating markdown: %w", err)
 	}
 
-	// Parse sections after generating markdown
-	mdFormatter.ParseSections(markdown)
-
-	// Store markdown content in context
+	// Store content in context for later use by internal agents
 	ctx = context.WithValue(ctx, types.AgentsMarkDownKey, markdown)
-	ctx = context.WithValue(ctx, types.AgentsMDFormatterKey, mdFormatter)
-
 	ctx = context.WithValue(ctx, types.RawAgentsDataKey, string(agentsData))
 
 	o.mu.Lock()
@@ -121,30 +108,16 @@ func (o *Orchestrator) Start(ctx context.Context) (context.Context, error) {
 // ProcessQuery handles a user query through the task extraction pipeline
 func (o *Orchestrator) ProcessQuery(ctx context.Context, query string) (context.Context, error) {
 	// First extract the task
-	ctx, err := o.taskExtractor.ExtractTaskWithRetry(ctx, query)
+	taskExtractor, err := o.agentFactory.GetTaskExtractionAgent(o.config.InternalConfig)
 	if err != nil {
-		return ctx, fmt.Errorf("task extraction failed: %w", err)
+		return nil, fmt.Errorf("orch: failed to initialize task extractor agent: %w", err)
 	}
-
-	// Add raw agents data to context
-	agentsData, err := o.loadRawAgentsData()
+	ctx, err = taskExtractor.ExtractTaskWithRetry(ctx, query)
 	if err != nil {
-		return ctx, fmt.Errorf("failed to load agents data: %w", err)
+		return ctx, fmt.Errorf("orch: task extraction failed: %w", err)
 	}
-	ctx = context.WithValue(ctx, types.RawAgentsDataKey, agentsData)
-
-	// log markdown agents data in the context
 
 	return ctx, nil
-}
-
-func (o *Orchestrator) loadRawAgentsData() (string, error) {
-	// Load and return agents config data as string
-	data, err := os.ReadFile(o.config.AgentsConfigPath)
-	if err != nil {
-		return "", err
-	}
-	return string(data), nil
 }
 
 // ExecuteTasks executes the provided tasks through the agent pipeline
@@ -159,7 +132,7 @@ func (o *Orchestrator) ExecuteTasks(ctx context.Context, tasks []*types.Task) er
 		}
 
 		// Add delay between tasks for readable logs
-		time.Sleep(50 * time.Second)
+		time.Sleep(2 * time.Second)
 	}
 
 	return nil
@@ -174,7 +147,7 @@ func (o *Orchestrator) Shutdown(ctx context.Context) error {
 	// Shutdown agents
 	for _, agent := range agents {
 		if err := agent.Stop(ctx); err != nil {
-			log.Printf("failed to start agent with caps %w: %v", err, agent.GetCapabilities())
+			log.Printf("failed to start agent with caps %v: %v", err, agent.GetCapabilities())
 
 		}
 	}

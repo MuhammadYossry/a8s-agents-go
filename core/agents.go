@@ -24,7 +24,7 @@ type Agent struct {
 	BaseURL         string
 	agentDefinition *types.AgentDefinition
 	broker          types.Broker
-	executor        Executor
+	executor        types.Executor
 	metrics         types.MetricsCollector
 	registry        *capability.CapabilityRegistry
 	cancelFunc      context.CancelFunc
@@ -33,7 +33,7 @@ type Agent struct {
 func NewAgent(
 	def *types.AgentDefinition,
 	broker types.Broker,
-	executor Executor,
+	executor types.Executor,
 	metrics types.MetricsCollector,
 	registry *capability.CapabilityRegistry,
 ) types.Agenter {
