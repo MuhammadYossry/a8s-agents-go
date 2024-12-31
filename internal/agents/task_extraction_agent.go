@@ -143,7 +143,8 @@ func (a *TaskExtractionAgent) ExtractTask(ctx context.Context, query string) (st
 // ExtractTaskWithRetry attempts to extract a task with retry logic
 func (a *TaskExtractionAgent) ExtractTaskWithRetry(ctx context.Context, query string) (context.Context, error) {
 	var lastErr error
-	maxRetries := 3
+	// Stopping for dev
+	maxRetries := 1
 
 	for attempt := 0; attempt < maxRetries; attempt++ {
 		if attempt > 0 {

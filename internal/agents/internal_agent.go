@@ -11,7 +11,7 @@ import (
 	"github.com/Relax-N-Tax/AgentNexus/types"
 )
 
-// InternalAgent implements the core.Agent interface
+// InternalAgent implements the types.Agenter interface
 type InternalAgent struct {
 	id           types.AgentID
 	agentType    types.AgentType
