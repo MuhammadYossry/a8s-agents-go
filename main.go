@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bufio"
 	"context"
 	"errors"
 	"fmt"
@@ -190,6 +191,7 @@ func (app *Application) gracefulShutdown(ctx context.Context) {
 }
 
 func main() {
+	displayBanner()
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
@@ -216,18 +218,68 @@ func main() {
 		log.Fatalf("Failed to start application: %v", err)
 	}
 
-	userTaskMsg := "I want to build a REST API using Python Fastapi Django Rest"
+	if err := app.processUserInput(ctx); err != nil {
+		log.Printf("Error processing user input: %v", err)
+	}
+
+	<-ctx.Done()
+}
+
+const (
+	reset    = "\033[0m"
+	teal     = "\033[36m"
+	boldTeal = "\033[1;36m"
+)
+
+func displayBanner() {
+	banner := `
+    █████╗  ██████╗ ███████╗███╗   ██╗████████╗███╗   ██╗███████╗██╗  ██╗██╗   ██╗███████╗
+   ██╔══██╗██╔════╝ ██╔════╝████╗  ██║╚══██╔══╝████╗  ██║██╔════╝╚██╗██╔╝██║   ██║██╔════╝
+   ███████║██║  ███╗█████╗  ██╔██╗ ██║   ██║   ██╔██╗ ██║█████╗   ╚███╔╝ ██║   ██║███████╗
+   ██╔══██║██║   ██║██╔══╝  ██║╚██╗██║   ██║   ██║╚██╗██║██╔══╝   ██╔██╗ ██║   ██║╚════██║
+   ██║  ██║╚██████╔╝███████╗██║ ╚████║   ██║   ██║ ╚████║███████╗██╔╝ ██╗╚██████╔╝███████║
+   ╚═╝  ╚═╝ ╚═════╝ ╚══════╝╚═╝  ╚═══╝   ╚═╝   ╚═╝  ╚═══╝╚══════╝╚═╝  ╚═╝ ╚═════╝ ╚══════╝
+                                         
+                                         ███╗   ██╗ █████╗ ███████╗
+                                         ████╗  ██║██╔══██╗██╔════╝
+                                         ██╔██╗ ██║╚█████╔╝███████╗
+                                         ██║╚██╗██║██╔══██╗╚════██║
+                                         ██║ ╚████║╚█████╔╝███████║
+                                         ╚═╝  ╚═══╝ ╚════╝ ╚══════╝`
+
+	fmt.Print(teal)
+	fmt.Println(banner)
+	fmt.Printf("%sLet your agents Connect%s\n", boldTeal, reset)
+	fmt.Printf("%sTalk to your agents, the suitable agent will take the mission%s\n\n", boldTeal, reset)
+}
+
+func (app *Application) processUserInput(ctx context.Context) error {
+	reader := bufio.NewReader(os.Stdin)
+
+	fmt.Printf("%sEnter your task (press Enter to submit): %s", boldTeal, reset)
+	userTaskMsg, err := reader.ReadString('\n')
+	if err != nil {
+		return fmt.Errorf("failed to read user input: %w", err)
+	}
+
+	userTaskMsg = strings.TrimSpace(userTaskMsg)
+	if userTaskMsg == "" {
+		return fmt.Errorf("task message cannot be empty")
+	}
+
 	ctx, err = app.orchestrator.ProcessQuery(ctx, userTaskMsg)
 	if err != nil {
-		log.Printf("Failed to process query: %v", err)
+		return fmt.Errorf("failed to process query: %w", err)
 	}
 
 	if result, ok := ctx.Value(types.TaskExtractionResultKey).(string); ok {
-		log.Printf("Extracted Task:\n%s\n", result)
+		log.Printf("%sExtracted Task:%s\n%s\n", teal, reset, result)
 	}
 
 	tasks := []*types.Task{createInitialTask()}
 	if err := app.orchestrator.ExecuteTasks(ctx, tasks); err != nil {
-		log.Printf("Error executing tasks: %v", err)
+		return fmt.Errorf("error executing tasks: %w", err)
 	}
+
+	return nil
 }
