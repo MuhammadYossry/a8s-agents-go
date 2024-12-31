@@ -1,11 +1,11 @@
 # AgentsHub - Agent Registry and Distribution System
 
-AgentsHub is a lightweight registry system for managing and distributing AI agent configurations(Agentfile), similar to how container registries works for container images(Dockerfile). It provides a simple way to store, version, and retrieve agent configurations through both an HTTP API and CLI tool.
+AgentsHub is a lightweight registry system for managing and distributing AI agent definition(Agentfile), similar to how container registries works for container images(think of the popular Dockerfile). It provides a simple way to store, version, and retrieve agent definition through both an HTTP API and CLI tool.
 
 ## Features
 
 - Push and pull agent configuration files
-- Version control for agent configurations
+- Version control for agents definitions
 - Simple HTTP API for integration
 - Command-line interface (CLI) for easy management
 - In-memory storage (with extensible storage backend)
@@ -30,18 +30,26 @@ The `a8shub` CLI tool provides commands for interacting with the registry.
 #### Basic Commands
 
 ```bash
-# For dev
- go run cmd/a8shub/main.go push myagent:1.0 examples/readable_agents.md
-# Push an agent configuration
-a8shub push <name:version> <file>
+# Push an agent definition
+a8shub push       # Example: a8shub push myagent:1.0 agent.json
 # Output: Successfully pushed myagent:1.0
-# Pull an agent configuration
-a8shub pull <name:version>
 
-# Example:
-a8shub push myagent:1.0 examples/readable_agents.md
-a8shub pull myagent:1.0
+# Pull an agent definition
+a8shub pull             # Example: a8shub pull myagent:1.0
+# Output: Successfully pulled myagent:1.0 to myagent-1.0.json
+
+# Show agent documentation
+a8shub show           # Example: a8shub show myagent:1.0
+                                      # or: a8shub show myagent (shows latest version)
 ```
+
+#### Version Format
+The system uses semantic versioning (SemVer):
+- Accepts versions like: "1.0", "v1.0", "1.0.0", "v1.0.0"
+- When version is omitted in 'show' command, automatically uses latest version
+- Latest version is determined by highest numerical value
+
+[Rest of the sections remain the same until API Endpoints]
 
 #### CLI Options
 
@@ -56,23 +64,31 @@ a8shub push --help
 
 ## API Endpoints
 
-### Push Agent Configuration
+### Push Agent Definition
 
 ```http
 POST /v1/push
 Content-Type: multipart/form-data
 
 Form fields:
-- agentfile: The agent configuration file
+- agentfile: The agent definition file
 - name: Agent name
 - version: Agent version
 ```
 
-### Pull Agent Configuration
+### Pull Agent Definition
 
 ```http
 GET /v1/pull?name=<name>&version=<version>
 ```
+
+
+### Show Agent Documentation
+
+```http
+GET /v1/show?name=&version=
+```
+Response: Markdown formatted documentation of the agent definition
 
 ## Development
 

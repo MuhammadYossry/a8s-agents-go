@@ -39,6 +39,22 @@ func (g *MarkdownFormatter) MarkDownFromConfig(config *types.AgentConfig) (strin
 	return g.buffer.String(), nil
 }
 
+// MarkDownFromJSON generates markdown format of a single agent definition
+func (g *MarkdownFormatter) MarkDownFromJSON(agentDef types.AgentDefinition) (string, error) {
+	g.buffer = strings.Builder{} // Reset buffer
+
+	// Write agent-specific header
+	g.writeLine(fmt.Sprintf("# Agent: %s\n", agentDef.ID))
+
+	// Write agent details
+	g.writeAgent(&agentDef)
+
+	// Add error responses if needed
+	// g.writeErrorResponses()
+
+	return g.buffer.String(), nil
+}
+
 // ParseSections parses the markdown into structured sections
 func (g *MarkdownFormatter) ParseSections(markdown string) *types.DocSection {
 	lines := strings.Split(markdown, "\n")

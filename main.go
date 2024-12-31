@@ -217,6 +217,10 @@ func main() {
 	if err != nil {
 		log.Fatalf("Failed to start application: %v", err)
 	}
+	err = app.hub.Start(ctx)
+	if err != nil {
+		log.Fatalf("Failed to start a8s hub: %v", err)
+	}
 
 	if err := app.processUserInput(ctx); err != nil {
 		log.Printf("Error processing user input: %v", err)
@@ -240,12 +244,12 @@ func displayBanner() {
    ██║  ██║╚██████╔╝███████╗██║ ╚████║   ██║   ██║ ╚████║███████╗██╔╝ ██╗╚██████╔╝███████║
    ╚═╝  ╚═╝ ╚═════╝ ╚══════╝╚═╝  ╚═══╝   ╚═╝   ╚═╝  ╚═══╝╚══════╝╚═╝  ╚═╝ ╚═════╝ ╚══════╝
                                          
-                                         ███╗   ██╗ █████╗ ███████╗
-                                         ████╗  ██║██╔══██╗██╔════╝
-                                         ██╔██╗ ██║╚█████╔╝███████╗
-                                         ██║╚██╗██║██╔══██╗╚════██║
-                                         ██║ ╚████║╚█████╔╝███████║
-                                         ╚═╝  ╚═══╝ ╚════╝ ╚══════╝`
+                                          █████╗  ████╗  ███████╗
+                                         ██╔══██╗ █  █ ╗ ██╔════╝
+                                         ███████║  ██  ║ ███████╗
+                                         ██╔══██║ █  █╔╝ ╚════██║
+                                         ██║  ██║ ████  ╗███████║
+                                         ╚═╝  ╚═╝ ╚══════╝╚══════╝`
 
 	fmt.Print(teal)
 	fmt.Println(banner)

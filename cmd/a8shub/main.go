@@ -3,6 +3,7 @@ package main
 
 import (
 	"bytes"
+	"encoding/json"
 	"fmt"
 	"io"
 	"log"
@@ -12,6 +13,8 @@ import (
 	"path/filepath"
 	"strings"
 
+	definationloader "github.com/Relax-N-Tax/AgentNexus/definationloader" // Import the markdown formatter package
+	"github.com/Relax-N-Tax/AgentNexus/types"
 	"github.com/spf13/cobra"
 )
 
@@ -27,6 +30,7 @@ func init() {
 
 	rootCmd.AddCommand(pushCmd)
 	rootCmd.AddCommand(pullCmd)
+	rootCmd.AddCommand(showCmd)
 }
 
 var pushCmd = &cobra.Command{
@@ -44,6 +48,15 @@ var pullCmd = &cobra.Command{
 	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		return handlePull(serverURL, args[0])
+	},
+}
+
+var showCmd = &cobra.Command{
+	Use:   "show [name[:version]]",
+	Short: "Show agent documentation in markdown format",
+	Args:  cobra.ExactArgs(1),
+	RunE: func(cmd *cobra.Command, args []string) error {
+		return handleShow(serverURL, args[0])
 	},
 }
 
@@ -106,11 +119,10 @@ func handlePush(serverURL, ref, filePath string) error {
 
 func handlePull(serverURL, ref string) error {
 	// Parse name and version
-	parts := strings.Split(ref, ":")
-	if len(parts) != 2 {
-		return fmt.Errorf("invalid reference format. Use name:version")
+	name, version, err := parseReference(ref)
+	if err != nil {
+		return err
 	}
-	name, version := parts[0], parts[1]
 
 	// Create request
 	url := fmt.Sprintf("%s/v1/pull?name=%s&version=%s", serverURL, name, version)
@@ -126,7 +138,7 @@ func handlePull(serverURL, ref string) error {
 	}
 
 	// Create output file
-	outputPath := fmt.Sprintf("%s-%s.md", name, version)
+	outputPath := fmt.Sprintf("%s-%s.json", name, version)
 	out, err := os.Create(outputPath)
 	if err != nil {
 		return fmt.Errorf("failed to create output file: %v", err)
@@ -140,6 +152,78 @@ func handlePull(serverURL, ref string) error {
 
 	fmt.Printf("Successfully pulled %s:%s to %s\n", name, version, outputPath)
 	return nil
+}
+
+func handleShow(serverURL, ref string) error {
+	// Parse name and version (version is optional)
+	name, version, err := parseReference(ref)
+	if err != nil {
+		return err
+	}
+
+	// If version is not specified, we'll need to get the latest version
+	if version == "" {
+		version, err = getLatestVersion(serverURL, name)
+		if err != nil {
+			return fmt.Errorf("failed to get latest version: %v", err)
+		}
+	}
+
+	// Pull the agent definition
+	url := fmt.Sprintf("%s/v1/pull?name=%s&version=%s", serverURL, name, version)
+	resp, err := http.Get(url)
+	if err != nil {
+		return fmt.Errorf("failed to send request: %v", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode == http.StatusNotFound {
+		fmt.Printf("Agent %s", name)
+		if version != "" {
+			fmt.Printf(" version %s", version)
+		}
+		fmt.Println(" not found in registry")
+		return nil
+	} else if resp.StatusCode != http.StatusOK {
+		bodyBytes, _ := io.ReadAll(resp.Body)
+		return fmt.Errorf("show failed: %s", string(bodyBytes))
+	}
+
+	// Read and parse the JSON
+	var agentDef types.AgentDefinition
+	if err := json.NewDecoder(resp.Body).Decode(&agentDef); err != nil {
+		return fmt.Errorf("failed to decode agent definition: %v", err)
+	}
+
+	// Create markdown formatter and generate documentation
+	formatter := definationloader.NewMarkdownFormatter()
+	markdown, err := formatter.MarkDownFromJSON(agentDef)
+	if err != nil {
+		return fmt.Errorf("failed to generate markdown: %v", err)
+	}
+
+	// Print the markdown to stdout
+	fmt.Println(markdown)
+	return nil
+}
+
+func parseReference(ref string) (name string, version string, err error) {
+	parts := strings.Split(ref, ":")
+	if len(parts) > 2 {
+		return "", "", fmt.Errorf("invalid reference format. Use name[:version]")
+	}
+
+	name = parts[0]
+	if len(parts) == 2 {
+		version = parts[1]
+	}
+	return name, version, nil
+}
+
+func getLatestVersion(serverURL, name string) (string, error) {
+	// TODO: Implement getting latest version from server
+	// This would require a new endpoint on the server side
+	return "latest", fmt.Errorf("getting latest version is not yet implemented")
 }
 
 func main() {

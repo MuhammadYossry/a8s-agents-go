@@ -1,0 +1,453 @@
+{
+    "id": "python-code-agent",
+    "type": "external",
+    "description": "Advanced Python code generation, testing, and deployment agent",
+    "baseURL": "http://localhost:9200/v1",
+    "capabilities": [
+        {
+        "skillPath": ["Development"],
+        "level": "domain",
+        "metadata": {
+            "expertise": "advanced"
+        }
+        },
+        {
+        "skillPath": ["Development", "Backend", "Python"],
+        "level": "specialty",
+        "metadata": {
+            "versions": ["3.8", "3.9", "3.10"],
+            "frameworks": ["Django", "FastAPI"],
+            "expertise": "advanced"
+        }
+        },
+        {
+        "skillPath": ["Development", "Backend", "Python", "CodeGeneration"],
+        "level": "skill",
+        "metadata": {
+            "versions": ["3.8", "3.9", "3.10"],
+            "frameworks": ["Django", "FastAPI"],
+            "tools": ["black", "pylint"]
+        }
+        },
+        {
+        "skillPath": ["Development", "Testing", "Python"],
+        "level": "specialty",
+        "metadata": {
+            "frameworks": ["pytest", "unittest"],
+            "expertise": "advanced"
+        }
+        },
+        {
+        "skillPath": ["Development", "Deployment", "Python"],
+        "level": "specialty",
+        "metadata": {
+            "platforms": ["AWS", "GCP", "Azure"],
+            "expertise": "basic"
+        }
+        }
+    ],
+    "actions": [
+        {
+        "name": "generateCode",
+        "path": "/code_agent/python/generate_code",
+        "method": "POST",
+        "inputSchema": {
+            "type": "object",
+            "required": ["codeRequirements"],
+            "properties": {
+            "codeRequirements": {
+                "type": "object",
+                "required": [
+                "language",
+                "framework",
+                "description",
+                "requirements",
+                "requiredFunctions",
+                "testingRequirements"
+                ],
+                "properties": {
+                "language": {
+                    "type": "string",
+                    "enum": ["Python"]
+                },
+                "framework": {
+                    "type": "string",
+                    "enum": ["FastAPI", "Django"]
+                },
+                "description": {
+                    "type": "string"
+                },
+                "requirements": {
+                    "type": "array",
+                    "items": {
+                    "type": "string"
+                    }
+                },
+                "requiredFunctions": {
+                    "type": "array",
+                    "items": {
+                    "type": "string"
+                    },
+                    "description": "List of function names that should be implemented"
+                },
+                "testingRequirements": {
+                    "type": "array",
+                    "items": {
+                    "type": "string"
+                    },
+                    "description": "List of test case names"
+                },
+                "codingStyle": {
+                    "type": "object",
+                    "properties": {
+                    "patterns": {
+                        "type": "array",
+                        "items": {
+                        "type": "string"
+                        }
+                    },
+                    "conventions": {
+                        "type": "array",
+                        "items": {
+                        "type": "string"
+                        }
+                    }
+                    }
+                }
+                }
+            },
+            "styleGuide": {
+                "type": "object",
+                "properties": {
+                "formatting": {
+                    "type": "string",
+                    "enum": ["black", "autopep8"]
+                },
+                "maxLineLength": {
+                    "type": "integer",
+                    "default": 88
+                }
+                }
+            },
+            "includeTests": {
+                "type": "boolean",
+                "default": true
+            },
+            "documentationLevel": {
+                "type": "string",
+                "enum": ["minimal", "standard", "detailed"],
+                "default": "standard"
+            }
+            }
+        },
+        "outputSchema": {
+            "type": "object",
+            "required": ["generatedCode", "description", "testCases"],
+            "properties": {
+            "generatedCode": {
+                "type": "string"
+            },
+            "description": {
+                "type": "string"
+            },
+            "testCases": {
+                "type": "array",
+                "items": {
+                "type": "string"
+                }
+            },
+            "documentation": {
+                "type": "string"
+            }
+            }
+        },
+        "examples": {
+            "validRequests": [
+            {
+                "codeRequirements": {
+                "language": "Python",
+                "framework": "FastAPI",
+                "description": "Create a REST API endpoint",
+                "requirements": [
+                    "FastAPI",
+                    "RESTful API design",
+                    "HTTP methods"
+                ],
+                "requiredFunctions": [
+                    "create_endpoint",
+                    "handle_request",
+                    "validate_input"
+                ],
+                "testingRequirements": [
+                    "test_endpoint_creation",
+                    "test_request_handling",
+                    "test_input_validation"
+                ],
+                "codingStyle": {
+                    "patterns": ["REST API", "Clean Architecture"],
+                    "conventions": ["PEP 8", "FastAPI best practices"]
+                }
+                },
+                "styleGuide": {
+                "formatting": "black",
+                "maxLineLength": 88
+                },
+                "includeTests": true,
+                "documentationLevel": "detailed"
+            }
+            ]
+        }
+        },
+        {
+        "name": "improveCode",
+        "path": "/code_agent/python/improve_code",
+        "method": "POST",
+        "inputSchema": {
+            "type": "object",
+            "required": ["changesList"],
+            "properties": {
+            "changesList": {
+                "type": "array",
+                "items": {
+                "type": "object",
+                "required": ["type", "description"],
+                "properties": {
+                    "type": {
+                    "type": "string",
+                    "enum": ["refactor", "optimize", "fix", "style"]
+                    },
+                    "description": {
+                    "type": "string"
+                    },
+                    "target": {
+                    "type": "string"
+                    }
+                }
+                }
+            },
+            "applyBlackFormatting": {
+                "type": "boolean",
+                "default": true
+            },
+            "runLinter": {
+                "type": "boolean",
+                "default": true
+            }
+            }
+        },
+        "outputSchema": {
+            "type": "object",
+            "required": ["codeChanges", "changesDescription"],
+            "properties": {
+            "codeChanges": {
+                "type": "array",
+                "items": {
+                "type": "object",
+                "properties": {
+                    "type": {
+                    "type": "string"
+                    },
+                    "description": {
+                    "type": "string"
+                    },
+                    "before": {
+                    "type": "string"
+                    },
+                    "after": {
+                    "type": "string"
+                    }
+                }
+                }
+            },
+            "changesDescription": {
+                "type": "string"
+            },
+            "qualityMetrics": {
+                "type": "object",
+                "properties": {
+                "complexity": {
+                    "type": "number"
+                },
+                "maintainability": {
+                    "type": "number"
+                },
+                "testCoverage": {
+                    "type": "number"
+                }
+                }
+            }
+            }
+        },
+        "examples": {
+            "validRequests": [
+            {
+                "changesList": [
+                {
+                    "type": "refactor",
+                    "description": "Extract validation logic into separate function",
+                    "target": "validate_input"
+                }
+                ],
+                "applyBlackFormatting": true,
+                "runLinter": true
+            }
+            ]
+        }
+        },
+        {
+        "name": "testCode",
+        "path": "/code_agent/python/test_code",
+        "method": "POST",
+        "inputSchema": {
+            "type": "object",
+            "required": ["testType", "requirePassing", "testInstructions", "codeToTest"],
+            "properties": {
+            "testType": {
+                "type": "string",
+                "enum": ["unit", "integration", "e2e"]
+            },
+            "requirePassing": {
+                "type": "boolean"
+            },
+            "testInstructions": {
+                "type": "array",
+                "items": {
+                "type": "object",
+                "required": ["description", "assertions"],
+                "properties": {
+                    "description": {
+                    "type": "string"
+                    },
+                    "assertions": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                    }
+                }
+                }
+            },
+            "codeToTest": {
+                "type": "string"
+            },
+            "minimumCoverage": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 100,
+                "default": 80
+            }
+            }
+        },
+        "outputSchema": {
+            "type": "object",
+            "required": ["codeTests", "testsDescription", "coverageStatus"],
+            "properties": {
+            "codeTests": {
+                "type": "string"
+            },
+            "testsDescription": {
+                "type": "string"
+            },
+            "coverageStatus": {
+                "type": "object",
+                "properties": {
+                "percentage": {
+                    "type": "number"
+                },
+                "uncoveredLines": {
+                    "type": "array",
+                    "items": {
+                    "type": "number"
+                    }
+                }
+                }
+            }
+            }
+        },
+        "examples": {
+            "validRequests": [
+            {
+                "testType": "unit",
+                "requirePassing": true,
+                "testInstructions": [
+                {
+                    "description": "Test input validation",
+                    "assertions": [
+                    "validates required fields",
+                    "checks field types",
+                    "handles invalid input"
+                    ]
+                }
+                ],
+                "codeToTest": "def validate_input(data): ...",
+                "minimumCoverage": 90
+            }
+            ]
+        }
+        },
+        {
+        "name": "deployPreview",
+        "path": "/deploy_agent/python/preview",
+        "method": "POST",
+        "inputSchema": {
+            "type": "object",
+            "required": ["branchID", "isPrivate"],
+            "properties": {
+            "branchID": {
+                "type": "string",
+                "pattern": "^[a-zA-Z0-9-_]+$"
+            },
+            "isPrivate": {
+                "type": "boolean"
+            },
+            "environmentVars": {
+                "type": "object",
+                "additionalProperties": {
+                "type": "string"
+                }
+            }
+            }
+        },
+        "outputSchema": {
+            "type": "object",
+            "required": ["previewURL", "isPrivate", "deploymentTime"],
+            "properties": {
+            "previewURL": {
+                "type": "string",
+                "format": "uri"
+            },
+            "isPrivate": {
+                "type": "boolean"
+            },
+            "HTTPAuth": {
+                "type": "object",
+                "properties": {
+                "username": {
+                    "type": "string"
+                },
+                "password": {
+                    "type": "string"
+                }
+                }
+            },
+            "deploymentTime": {
+                "type": "string",
+                "format": "date-time"
+            }
+            }
+        },
+        "examples": {
+            "validRequests": [
+            {
+                "branchID": "feature-api-endpoint",
+                "isPrivate": true,
+                "environmentVars": {
+                "DEBUG": "true",
+                "API_VERSION": "v1"
+                }
+            }
+            ]
+        }
+        }
+    ]
+}
