@@ -1,9 +1,16 @@
 from functools import wraps
-from typing import List, Dict, Any, Optional, Type, Callable, Literal, Set
+from typing import List, Dict, Any, Optional, Type, Callable, Literal, Set, Union
 from pydantic import BaseModel, Field
 from fastapi import FastAPI
 import inspect
+from enum import Enum
 from datetime import datetime
+import warnings
+
+class ActionType(str, Enum):
+    """Types of actions an agent can perform."""
+    TALK = "talk"  # For conversation/dialogue actions
+    GENERATE = "generate"  # For content generation actions
 
 class BaseSchemaModel(BaseModel):
     """Base model for all schema definitions with common configuration."""
@@ -24,24 +31,26 @@ class Capability(BaseModel):
     level: Literal["domain", "specialty", "skill"]
     metadata: CapabilityMetadata
 
-class AgentMetadata(BaseModel):
-    """Metadata for agent endpoints."""
-    task_type: str
-    skill_name: str
+class ActionMetadata(BaseModel):
+    """Metadata for agent actions."""
+    action_type: ActionType
+    name: str
     description: str
+    task_type: Optional[str] = None  # For backward compatibility
 
-class EndpointInfo(BaseModel):
-    """Information about an endpoint including its schema definitions."""
-    metadata: AgentMetadata
+class ActionEndpointInfo(BaseModel):
+    """Information about an action endpoint including its schema definitions."""
+    metadata: ActionMetadata
     input_model: Type[BaseModel]
     output_model: Type[BaseModel]
     schema_definitions: Optional[Dict[str, Type[BaseModel]]] = None
     examples: Optional[Dict[str, List[Dict[str, Any]]]] = None
+    route_path: str
 
-class AgentEndpointRegistry:
-    """Registry for agent endpoints with dynamic schema handling."""
+class AgentRegistry:
+    """Registry for agent actions and their endpoints."""
     def __init__(self):
-        self._endpoints: Dict[str, EndpointInfo] = {}
+        self._action_endpoints: Dict[str, ActionEndpointInfo] = {}
         self._base_url: Optional[str] = None
         self._agent_id: Optional[str] = None
         self._description: Optional[str] = None
@@ -73,16 +82,16 @@ class AgentEndpointRegistry:
             path = path.replace('//', '/')
         return path
 
-    def register_endpoint(
+    def register_action_endpoint(
         self,
         path: str,
-        endpoint_info: EndpointInfo,
+        endpoint_info: ActionEndpointInfo,
     ) -> None:
-        """Register an endpoint with its schema definitions."""
+        """Register an action endpoint with its schema definitions."""
         normalized_path = self._normalize_path(path)
-        self._endpoints[normalized_path] = endpoint_info
+        endpoint_info.route_path = normalized_path
+        self._action_endpoints[normalized_path] = endpoint_info
         
-        # Register any schema definitions associated with this endpoint
         if endpoint_info.schema_definitions:
             self._schema_definitions.update(endpoint_info.schema_definitions)
 
@@ -91,7 +100,6 @@ class AgentEndpointRegistry:
         schema = model.model_json_schema()
         refs = self._find_schema_refs(schema)
         
-        # Add any referenced schemas to definitions
         for ref_name in refs:
             if ref_name in self._schema_definitions:
                 ref_model = self._schema_definitions[ref_name]
@@ -119,15 +127,17 @@ class AgentEndpointRegistry:
         find_refs(schema)
         return refs
 
-    def _format_endpoint(self, path: str, info: EndpointInfo) -> Dict[str, Any]:
-        """Format endpoint information for output."""
+    def _format_action_endpoint(self, info: ActionEndpointInfo) -> Dict[str, Any]:
+        """Format action endpoint information for output."""
         return {
-            "name": info.metadata.skill_name,
-            "path": path,
+            "name": info.metadata.name,
+            "actionType": info.metadata.action_type,
+            "path": info.route_path,
             "method": "POST",
             "inputSchema": self._extract_schema(info.input_model),
             "outputSchema": self._extract_schema(info.output_model),
-            "examples": info.examples or {"validRequests": []}
+            "examples": info.examples or {"validRequests": []},
+            "description": info.metadata.description
         }
 
     def generate_config(self) -> Dict[str, Any]:
@@ -143,13 +153,13 @@ class AgentEndpointRegistry:
                 "baseURL": self._base_url,
                 "capabilities": [cap.model_dump(exclude_none=True) for cap in self._capabilities],
                 "actions": sorted(
-                    [self._format_endpoint(path, info) for path, info in self._endpoints.items()],
+                    [self._format_action_endpoint(info) 
+                     for info in self._action_endpoints.values()],
                     key=lambda x: x["path"]
                 )
             }]
         }
 
-        # Add complete schema definitions
         if self._schema_definitions:
             config["$defs"] = {
                 name: model.model_json_schema()
@@ -158,8 +168,8 @@ class AgentEndpointRegistry:
 
         return config
 
-# Registry instance for global use
-registry = AgentEndpointRegistry()
+# Global registry instance
+registry = AgentRegistry()
 
 def configure_agent(
     base_url: str,
@@ -180,18 +190,17 @@ def configure_agent(
         return app
     return decorator
 
-def agent_endpoint(
-    task_type: str,
-    skill_name: str,
+def agent_action(
+    action_type: ActionType,
+    name: str,
     description: str,
     schema_definitions: Optional[Dict[str, Type[BaseModel]]] = None,
     examples: Optional[Dict[str, List[Dict[str, Any]]]] = None
 ) -> Callable:
-    """Register an endpoint as an agent action with its schema definitions."""
+    """Register an endpoint as an agent action."""
     def decorator(func: Callable) -> Callable:
         sig = inspect.signature(func)
         
-        # Find input/output models
         input_model = next(
             (param.annotation for param in sig.parameters.values() 
              if hasattr(param.annotation, 'model_json_schema')),
@@ -210,19 +219,19 @@ def agent_endpoint(
                 f"Both input and output models must be Pydantic models for {func.__name__}"
             )
 
-        endpoint_info = EndpointInfo(
-            metadata=AgentMetadata(
-                task_type=task_type,
-                skill_name=skill_name,
+        endpoint_info = ActionEndpointInfo(
+            metadata=ActionMetadata(
+                action_type=action_type,
+                name=name,
                 description=description
             ),
             input_model=input_model,
             output_model=output_model,
             schema_definitions=schema_definitions,
-            examples=examples
+            examples=examples,
+            route_path=""  # Will be set during registration
         )
 
-        # Store metadata for registration
         func._endpoint_info = endpoint_info
 
         @wraps(func)
@@ -231,6 +240,42 @@ def agent_endpoint(
 
         return wrapper
     return decorator
+
+# Backward compatibility layer
+def agent_endpoint(
+    task_type: str,
+    skill_name: str,
+    description: str,
+    schema_definitions: Optional[Dict[str, Type[BaseModel]]] = None,
+    examples: Optional[Dict[str, List[Dict[str, Any]]]] = None
+) -> Callable:
+    """
+    Legacy decorator for backward compatibility.
+    Warns about deprecation and maps to new agent_action decorator.
+    """
+    warnings.warn(
+        "agent_endpoint is deprecated. Use agent_action instead.",
+        DeprecationWarning,
+        stacklevel=2
+    )
+    
+    # Map task_type to ActionType (basic mapping, expand as needed)
+    action_type_map = {
+        "pythonCodeTask": ActionType.GENERATE,
+        "pythonTestingTask": ActionType.GENERATE,
+        "pythonDeploymentTask": ActionType.GENERATE,
+        # Add more mappings as needed
+    }
+    
+    action_type = action_type_map.get(task_type, ActionType.GENERATE)
+    
+    return agent_action(
+        action_type=action_type,
+        name=skill_name,
+        description=description,
+        schema_definitions=schema_definitions,
+        examples=examples
+    )
 
 def setup_agent_routes(app: FastAPI) -> None:
     """Set up the agents.json endpoint and register all routes."""
@@ -242,10 +287,11 @@ def setup_agent_routes(app: FastAPI) -> None:
             elif hasattr(route, "endpoint") and hasattr(route.endpoint, "_endpoint_info"):
                 func = route.endpoint
                 route_path = prefix + str(route.path)
-                registry.register_endpoint(
+                registry.register_action_endpoint(
                     path=route_path,
                     endpoint_info=func._endpoint_info
                 )
+    
     register_routes(app.routes)
 
     @app.get("/agents.json")
