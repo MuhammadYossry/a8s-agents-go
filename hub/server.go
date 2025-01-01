@@ -13,18 +13,13 @@ import (
 
 // Server handles HTTP requests for the AgentsHub
 type Server struct {
-	registry definationRegistry
+	registry DefinationRegistry
 	server   *http.Server
 	config   Config
 	logger   *log.Logger
 }
 
-// NewServer creates a new AgentsHub server
-func NewServer(config Config, registry definationRegistry) *Server {
-	if registry == nil {
-		registry = NewInMemoryRegistry()
-	}
-
+func NewServer(config Config, registry DefinationRegistry) *Server {
 	return &Server{
 		registry: registry,
 		config:   config,

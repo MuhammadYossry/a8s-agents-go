@@ -3,16 +3,15 @@ package orchestrator
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"log"
-	"os"
 	"sync"
 	"time"
 
 	"github.com/Relax-N-Tax/AgentNexus/capability"
 	"github.com/Relax-N-Tax/AgentNexus/core"
 	"github.com/Relax-N-Tax/AgentNexus/definationloader"
+	"github.com/Relax-N-Tax/AgentNexus/hub"
 	"github.com/Relax-N-Tax/AgentNexus/internal/agents"
 	"github.com/Relax-N-Tax/AgentNexus/metrics"
 	"github.com/Relax-N-Tax/AgentNexus/types"
@@ -20,11 +19,12 @@ import (
 
 // Orchestrator manages the lifecycle and coordination of all agents
 type Orchestrator struct {
-	config   Config
-	broker   types.Broker
-	metrics  types.MetricsCollector
-	registry *capability.CapabilityRegistry
-	router   types.TaskRouter
+	config      Config
+	broker      types.Broker
+	metrics     types.MetricsCollector
+	registry    *capability.CapabilityRegistry
+	router      types.TaskRouter
+	hubRegistry hub.DefinationRegistry
 
 	agents       []types.Agenter
 	agentFactory types.AgentFactory
@@ -32,10 +32,9 @@ type Orchestrator struct {
 	mu sync.RWMutex
 }
 
-// Config holds orchestrator initialization options
 type Config struct {
-	AgentsConfigPath string
-	InternalConfig   types.InternalAgentConfig
+	Agents         []string // List of agent references (e.g., "myagent:1.0")
+	InternalConfig types.InternalAgentConfig
 }
 
 func New(cfg Config) (*Orchestrator, error) {
@@ -43,6 +42,12 @@ func New(cfg Config) (*Orchestrator, error) {
 	metrics := metrics.NewMetrics()
 	registry := capability.GetCapabilityRegistry()
 	factory := agents.NewAgentFactory()
+
+	// Create SQLite registry instead of in-memory
+	hubRegistry, err := hub.NewSQLiteRegistry()
+	if err != nil {
+		return nil, fmt.Errorf("failed to create SQLite registry: %v, falling back to in-memory", err)
+	}
 
 	taskRoutingAgent, err := factory.GetTaskRoutingAgent(cfg.InternalConfig)
 	if err != nil {
@@ -58,29 +63,21 @@ func New(cfg Config) (*Orchestrator, error) {
 		registry:     registry,
 		router:       router,
 		agentFactory: factory,
+		hubRegistry:  hubRegistry,
 	}, nil
 }
 
 // Start initializes and starts all components
 func (o *Orchestrator) Start(ctx context.Context) (context.Context, error) {
-	agentsLoader := definationloader.NewAgentLoader(o.broker, o.metrics, o.registry, o.agentFactory)
-	ctx, agents, err := agentsLoader.LoadAgents(ctx, o.config.AgentsConfigPath, o.config.InternalConfig)
+	agentsLoader := definationloader.NewAgentLoader(o.broker, o.metrics, o.registry, o.agentFactory, o.hubRegistry)
+	// Load agents from config references agents list
+	ctx, agents, err := agentsLoader.LoadAgentsFromConfig(ctx, o.config.Agents, o.config.InternalConfig)
 	if err != nil {
-		return nil, fmt.Errorf("failed to load agents.json: %w", err)
+		return nil, fmt.Errorf("failed to load agents: %w", err)
 	}
 
-	// Load and parse config for markdown generation
+	// markdown generation
 	var config types.AgentConfig
-	agentsData, err := os.ReadFile(o.config.AgentsConfigPath)
-	if err != nil {
-		return nil, fmt.Errorf("failed to read agents config(.json) file: %w", err)
-	}
-
-	if err := json.Unmarshal(agentsData, &config); err != nil {
-		return nil, fmt.Errorf("failed to parse agents config: %w", err)
-	}
-
-	// Generate markdown documentation
 	mdFormatter := definationloader.NewMarkdownFormatter()
 	markdown, err := mdFormatter.MarkDownFromConfig(&config)
 	if err != nil {
@@ -89,7 +86,7 @@ func (o *Orchestrator) Start(ctx context.Context) (context.Context, error) {
 
 	// Store content in context for later use by internal agents
 	ctx = context.WithValue(ctx, types.AgentsMarkDownKey, markdown)
-	ctx = context.WithValue(ctx, types.RawAgentsDataKey, string(agentsData))
+	// ctx = context.WithValue(ctx, types.RawAgentsDataKey, string(agentsData))
 
 	o.mu.Lock()
 	o.agents = agents

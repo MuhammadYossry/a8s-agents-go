@@ -1,4 +1,5 @@
 a8s.conf
+.a8s/
 # Binaries for programs and plugins
 *.exe
 *.dll

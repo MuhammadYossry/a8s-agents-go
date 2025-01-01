@@ -29,8 +29,8 @@ type AgentFile struct {
 	CreateTime int64             `json:"create_time"`
 }
 
-// definationRegistry defines the interface for agent defination registry
-type definationRegistry interface {
+// DefinationRegistry defines the interface for agent defination registry
+type DefinationRegistry interface {
 	Store(name, version string, agent *AgentFile) error
 	Get(name, version string) (*AgentFile, error)
 	GetJSON(name, version string) ([]byte, error)

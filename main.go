@@ -33,8 +33,8 @@ type LLMConfig struct {
 }
 
 type Config struct {
-	AgentsConfigPath string    `yaml:"agents_config_path"`
-	LLM              LLMConfig `yaml:"llm"`
+	LLM    LLMConfig `yaml:"llm"`
+	Agents []string  `yaml:"agents"`
 }
 
 func loadConfigFile(filename string) ([]byte, error) {
@@ -57,7 +57,6 @@ func loadConfigFile(filename string) ([]byte, error) {
 func NewConfig() (*Config, error) {
 	// Default configuration
 	config := &Config{
-		AgentsConfigPath: "examples/agents_generated.json",
 		LLM: LLMConfig{
 			Model:   "Qwen-2.5-72B-Chat",
 			Timeout: 50 * time.Second,
@@ -67,15 +66,15 @@ func NewConfig() (*Config, error) {
 	// Try to read from a8s.conf first
 	data, err := loadConfigFile("a8s.conf")
 	if err == nil {
-		log.Printf("Loading configuration from a8s.conf")
+		log.Printf("==> loading configuration from a8s.conf...")
 		if err := yaml.Unmarshal(data, config); err != nil {
 			return nil, fmt.Errorf("failed to parse a8s.conf: %w", err)
 		}
 
 		// Debug: Print loaded configuration
-		log.Printf("Loaded config - BaseURL: %s, Model: %s", config.LLM.BaseURL, config.LLM.Model)
+		log.Printf("==> Config loaded with:\n BaseURL: %s\n Model: %s", config.LLM.BaseURL, config.LLM.Model)
 	} else {
-		log.Printf("No a8s.conf found, using environment variables")
+		log.Printf("WARNING: No a8s.conf is missing..\n Using environment variables")
 		// Only use environment variables if config file is not found
 		config.LLM.BaseURL = os.Getenv("RNT_OPENAI_URL")
 		config.LLM.APIKey = os.Getenv("RNT_OPENAI_API_KEY")
@@ -93,7 +92,12 @@ func NewConfig() (*Config, error) {
 }
 
 func NewApplication(config *Config) (*Application, error) {
-	hubServer := hub.NewServer(hub.DefaultConfig(), nil)
+	// Create hub server with registry
+	hubRegistry, err := hub.NewSQLiteRegistry()
+	if err != nil {
+		return nil, err
+	}
+	hubServer := hub.NewServer(hub.DefaultConfig(), hubRegistry)
 
 	internalConfig := types.InternalAgentConfig{
 		LLMConfig: struct {
@@ -109,9 +113,10 @@ func NewApplication(config *Config) (*Application, error) {
 		},
 	}
 
+	// Create orchestrator with New instead of NewWithRegistry
 	orch, err := orchestrator.New(orchestrator.Config{
-		AgentsConfigPath: config.AgentsConfigPath,
-		InternalConfig:   internalConfig,
+		Agents:         config.Agents,
+		InternalConfig: internalConfig,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to create orchestrator: %w", err)
@@ -245,9 +250,9 @@ func displayBanner() {
    ╚═╝  ╚═╝ ╚═════╝ ╚══════╝╚═╝  ╚═══╝   ╚═╝   ╚═╝  ╚═══╝╚══════╝╚═╝  ╚═╝ ╚═════╝ ╚══════╝
                                          
                                           █████╗  ████╗  ███████╗
-                                         ██╔══██╗ █  █ ╗ ██╔════╝
-                                         ███████║  ██  ║ ███████╗
-                                         ██╔══██║ █  █╔╝ ╚════██║
+                                         ██╔══██╗ █  █  ╗██╔════╝
+                                         ███████║  ██ ║  ███████╗
+                                         ██╔══██║ █  █╔ ╚════██║
                                          ██║  ██║ ████  ╗███████║
                                          ╚═╝  ╚═╝ ╚══════╝╚══════╝`
 
