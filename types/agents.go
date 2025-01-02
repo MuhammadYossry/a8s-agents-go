@@ -45,8 +45,9 @@ type Capability struct {
 }
 
 type Action struct {
-	Name         string `json:"name"`
-	BaseURL      string
+	Name         string       `json:"name"`
+	BaseURL      string       `json:"baseURL"`
+	ActionType   string       `json:"type"`
 	Path         string       `json:"path"`
 	Method       string       `json:"method"`
 	InputSchema  SchemaConfig `json:"inputSchema"`
@@ -182,4 +183,9 @@ type TaskRoutingAgent interface {
 // TaskExtractionAgent interface defines the contract for extracting tasks
 type TaskExtractionAgent interface {
 	ExtractTaskWithRetry(ctx context.Context, query string) (context.Context, error)
+}
+
+type AgentDefConfig struct {
+	Name    string `yaml:"name"`
+	Version string `yaml:"version"`
 }

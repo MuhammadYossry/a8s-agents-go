@@ -87,7 +87,7 @@ func GetTaskExtractionAgent(config types.InternalAgentConfig) (*TaskExtractionAg
 }
 
 func initializeTaskExtractionAgent(config types.InternalAgentConfig) *TaskExtractionAgent {
-	llmClient := NewLLMClient(&LLMConfig{
+	llmClient, _ := NewLLMClient(&LLMConfig{
 		Provider:      Qwen,
 		BaseURL:       config.LLMConfig.BaseURL,
 		APIKey:        config.LLMConfig.APIKey,

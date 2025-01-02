@@ -13,7 +13,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	definationloader "github.com/Relax-N-Tax/AgentNexus/definationloader" // Import the markdown formatter package
+	// Import the markdown formatter package
 	"github.com/Relax-N-Tax/AgentNexus/types"
 	"github.com/spf13/cobra"
 )
@@ -196,14 +196,13 @@ func handleShow(serverURL, ref string) error {
 	}
 
 	// Create markdown formatter and generate documentation
-	formatter := definationloader.NewMarkdownFormatter()
-	markdown, err := formatter.MarkDownFromJSON(agentDef)
+	agentJSON, err := json.Marshal(resp.Body)
 	if err != nil {
-		return fmt.Errorf("failed to generate markdown: %v", err)
+		return fmt.Errorf("failed to marshal agent JSON: %v", err)
 	}
 
 	// Print the markdown to stdout
-	fmt.Println(markdown)
+	fmt.Println(agentJSON)
 	return nil
 }
 

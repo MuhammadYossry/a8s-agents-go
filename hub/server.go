@@ -19,12 +19,16 @@ type Server struct {
 	logger   *log.Logger
 }
 
-func NewServer(config Config, registry DefinationRegistry) *Server {
+func NewServer(config Config) (*Server, error) {
+	hubRegistry, err := NewSQLiteRegistry()
+	if err != nil {
+		return nil, fmt.Errorf("failed to initialize hubSQLiteRegistry: %w", err)
+	}
 	return &Server{
-		registry: registry,
+		registry: hubRegistry,
 		config:   config,
 		logger:   log.New(log.Writer(), "[AgentsHub] ", log.LstdFlags|log.Lshortfile),
-	}
+	}, nil
 }
 
 func (s *Server) Start(ctx context.Context) error {

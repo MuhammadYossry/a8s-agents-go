@@ -10,6 +10,7 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/Relax-N-Tax/AgentNexus/types"
 	_ "github.com/mattn/go-sqlite3"
 )
 
@@ -109,7 +110,10 @@ func (r *SQLiteRegistry) Get(name, version string) (*AgentFile, error) {
 	}
 
 	// If version is empty or "latest", find the highest version
-	if version == "" || version == "latest" {
+	if version == "" {
+		version = "latest"
+	}
+	if version == "latest" {
 		return r.getLatestVersion(name)
 	}
 
@@ -263,6 +267,25 @@ func (r *SQLiteRegistry) ListAgents() error {
 	}
 
 	return nil
+}
+
+func (r *SQLiteRegistry) GetAgentDef(name, version string) (*types.AgentDefinition, error) {
+	agentFile, err := r.Get(name, version)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get agent file: %w", err)
+	}
+
+	var agentDef types.AgentDefinition
+	if err := json.Unmarshal([]byte(agentFile.Content), &agentDef); err != nil {
+		return nil, fmt.Errorf("failed to parse agent definition: %w", err)
+	}
+
+	// Validate required fields
+	if agentDef.ID == "" || agentDef.BaseURL == "" {
+		return nil, fmt.Errorf("invalid agent definition: missing required fields")
+	}
+
+	return &agentDef, nil
 }
 
 func (r *SQLiteRegistry) Close() error {

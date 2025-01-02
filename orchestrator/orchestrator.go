@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"strings"
 	"sync"
 	"time"
 
@@ -33,7 +34,7 @@ type Orchestrator struct {
 }
 
 type Config struct {
-	Agents         []string // List of agent references (e.g., "myagent:1.0")
+	Agents         []types.AgentDefConfig // List of agent references (e.g., "myagent:1.0")
 	InternalConfig types.InternalAgentConfig
 }
 
@@ -43,10 +44,9 @@ func New(cfg Config) (*Orchestrator, error) {
 	registry := capability.GetCapabilityRegistry()
 	factory := agents.NewAgentFactory()
 
-	// Create SQLite registry instead of in-memory
 	hubRegistry, err := hub.NewSQLiteRegistry()
 	if err != nil {
-		return nil, fmt.Errorf("failed to create SQLite registry: %v, falling back to in-memory", err)
+		return nil, fmt.Errorf("failed to create SQLite registry: %v", err)
 	}
 
 	taskRoutingAgent, err := factory.GetTaskRoutingAgent(cfg.InternalConfig)
@@ -70,32 +70,48 @@ func New(cfg Config) (*Orchestrator, error) {
 // Start initializes and starts all components
 func (o *Orchestrator) Start(ctx context.Context) (context.Context, error) {
 	agentsLoader := definationloader.NewAgentLoader(o.broker, o.metrics, o.registry, o.agentFactory, o.hubRegistry)
-	// Load agents from config references agents list
-	ctx, agents, err := agentsLoader.LoadAgentsFromConfig(ctx, o.config.Agents, o.config.InternalConfig)
+
+	var agentDefs []types.AgentDefinition
+	for _, agentConfig := range o.config.Agents {
+		if agentConfig.Version == "" {
+			agentConfig.Version = "latest"
+		}
+
+		agentDef, err := o.hubRegistry.GetAgentDef(agentConfig.Name, agentConfig.Version)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get agent %s:%s: %w",
+				agentConfig.Name, agentConfig.Version, err)
+		}
+		agentDefs = append(agentDefs, *agentDef)
+	}
+
+	// Generate markdown documentation
+	mdFormatter := definationloader.NewMarkdownFormatter()
+	var markdown strings.Builder
+	for _, def := range agentDefs {
+		md, err := mdFormatter.MarkDownFromAgent(def)
+		if err != nil {
+			return nil, fmt.Errorf("failed to generate markdown for agent %s: %w", def.ID, err)
+		}
+		markdown.WriteString(md)
+		markdown.WriteString("\n---\n")
+	}
+
+	ctx = context.WithValue(ctx, types.AgentsMarkDownKey, markdown.String())
+	ctx = context.WithValue(ctx, types.RawAgentsDataKey, agentDefs)
+
+	ctx, agents, err := agentsLoader.LoadAgents(ctx, agentDefs, o.config.InternalConfig)
 	if err != nil {
 		return nil, fmt.Errorf("failed to load agents: %w", err)
 	}
-
-	// markdown generation
-	var config types.AgentConfig
-	mdFormatter := definationloader.NewMarkdownFormatter()
-	markdown, err := mdFormatter.MarkDownFromConfig(&config)
-	if err != nil {
-		return nil, fmt.Errorf("generating markdown: %w", err)
-	}
-
-	// Store content in context for later use by internal agents
-	ctx = context.WithValue(ctx, types.AgentsMarkDownKey, markdown)
-	// ctx = context.WithValue(ctx, types.RawAgentsDataKey, string(agentsData))
 
 	o.mu.Lock()
 	o.agents = agents
 	o.mu.Unlock()
 
-	// Start all agents
 	for _, agent := range agents {
 		if err := agent.Start(ctx); err != nil {
-			return nil, fmt.Errorf("failed to start agent with caps %w: %v", err, agent.GetCapabilities())
+			return nil, fmt.Errorf("failed to start agent: %w", err)
 		}
 	}
 

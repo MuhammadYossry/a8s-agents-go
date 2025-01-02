@@ -1,0 +1,5 @@
+base_url: "OPENAI_URL"
+api_key: "OPENAI_URL"
+# Extra comment
+model: "Qwen-2.5-72B-Chat"
+timeout: 50s

@@ -1,453 +1,861 @@
 {
     "id": "python-code-agent",
     "type": "external",
-    "description": "Advanced Python code generation, testing, and deployment agent",
-    "baseURL": "http://localhost:9200/v1",
+    "description": "Advanced Python code generation and communication agent",
+    "baseURL": "http://localhost:9200",
     "capabilities": [
-        {
-        "skillPath": ["Development"],
+      {
+        "skillPath": [
+          "Development"
+        ],
         "level": "domain",
         "metadata": {
-            "expertise": "advanced"
+          "expertise": "advanced"
         }
-        },
-        {
-        "skillPath": ["Development", "Backend", "Python"],
+      },
+      {
+        "skillPath": [
+          "Development",
+          "Backend",
+          "Python"
+        ],
         "level": "specialty",
         "metadata": {
-            "versions": ["3.8", "3.9", "3.10"],
-            "frameworks": ["Django", "FastAPI"],
-            "expertise": "advanced"
+          "expertise": "advanced",
+          "versions": [
+            "3.8",
+            "3.9",
+            "3.10"
+          ],
+          "frameworks": [
+            "Django",
+            "FastAPI"
+          ]
         }
-        },
-        {
-        "skillPath": ["Development", "Backend", "Python", "CodeGeneration"],
+      },
+      {
+        "skillPath": [
+          "Development",
+          "Backend",
+          "Python",
+          "CodeGeneration"
+        ],
         "level": "skill",
         "metadata": {
-            "versions": ["3.8", "3.9", "3.10"],
-            "frameworks": ["Django", "FastAPI"],
-            "tools": ["black", "pylint"]
+          "versions": [
+            "3.8",
+            "3.9",
+            "3.10"
+          ],
+          "frameworks": [
+            "Django",
+            "FastAPI"
+          ],
+          "tools": [
+            "black",
+            "pylint"
+          ]
         }
-        },
-        {
-        "skillPath": ["Development", "Testing", "Python"],
+      },
+      {
+        "skillPath": [
+          "Development",
+          "Testing",
+          "Python"
+        ],
         "level": "specialty",
         "metadata": {
-            "frameworks": ["pytest", "unittest"],
-            "expertise": "advanced"
+          "expertise": "advanced",
+          "frameworks": [
+            "pytest",
+            "unittest"
+          ]
         }
-        },
-        {
-        "skillPath": ["Development", "Deployment", "Python"],
+      },
+      {
+        "skillPath": [
+          "Development",
+          "Deployment",
+          "Python"
+        ],
         "level": "specialty",
         "metadata": {
-            "platforms": ["AWS", "GCP", "Azure"],
-            "expertise": "basic"
+          "expertise": "basic",
+          "platforms": [
+            "AWS",
+            "GCP",
+            "Azure"
+          ]
         }
+      },
+      {
+        "skillPath": [
+          "Communication"
+        ],
+        "level": "domain",
+        "metadata": {
+          "expertise": "advanced"
         }
+      },
+      {
+        "skillPath": [
+          "Communication",
+          "Chat"
+        ],
+        "level": "specialty",
+        "metadata": {
+          "expertise": "advanced"
+        }
+      }
     ],
     "actions": [
-        {
-        "name": "generateCode",
-        "path": "/code_agent/python/generate_code",
+      {
+        "name": "chat_with_agent",
+        "actionType": "talk",
+        "path": "/v1/code_agent/python/chat",
         "method": "POST",
         "inputSchema": {
-            "type": "object",
-            "required": ["codeRequirements"],
-            "properties": {
+          "description": "Input model for chat endpoint.",
+          "properties": {
+            "message": {
+              "description": "User's message to the agent",
+              "title": "Message",
+              "type": "string"
+            },
+            "context": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "description": "Additional context for the conversation",
+              "title": "Context"
+            },
+            "history": {
+              "anyOf": [
+                {
+                  "items": {
+                    "description": "Model for chat messages.",
+                    "properties": {
+                      "content": {
+                        "description": "The content of the message",
+                        "title": "Content",
+                        "type": "string"
+                      },
+                      "role": {
+                        "default": "user",
+                        "description": "Role of the message sender (user/agent)",
+                        "title": "Role",
+                        "type": "string"
+                      },
+                      "timestamp": {
+                        "format": "date-time",
+                        "title": "Timestamp",
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "content"
+                    ],
+                    "title": "ChatMessage",
+                    "type": "object"
+                  },
+                  "type": "array"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Previous messages in the conversation",
+              "title": "History"
+            }
+          },
+          "required": [
+            "message"
+          ],
+          "title": "ChatInput",
+          "type": "object"
+        },
+        "outputSchema": {
+          "description": "Output model for chat endpoint.",
+          "properties": {
+            "response": {
+              "description": "Agent's response to the user",
+              "title": "Response",
+              "type": "string"
+            },
+            "confidence": {
+              "description": "Confidence score of the response",
+              "maximum": 1,
+              "minimum": 0,
+              "title": "Confidence",
+              "type": "number"
+            },
+            "suggestedActions": {
+              "anyOf": [
+                {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Suggested next actions",
+              "title": "Suggestedactions"
+            },
+            "timestamp": {
+              "format": "date-time",
+              "title": "Timestamp",
+              "type": "string"
+            }
+          },
+          "required": [
+            "response",
+            "confidence"
+          ],
+          "title": "ChatOutput",
+          "type": "object"
+        },
+        "examples": {
+          "validRequests": [
+            {
+              "message": "Can you help me optimize my Python code?",
+              "context": "Performance optimization",
+              "history": []
+            }
+          ]
+        },
+        "description": "Engage in a conversation with the Python code agent"
+      },
+      {
+        "name": "deploy_preview",
+        "actionType": "generate",
+        "path": "/v1/code_agent/python/deploy_preview",
+        "method": "POST",
+        "inputSchema": {
+          "description": "Input model for deployment preview endpoint.",
+          "properties": {
+            "branchId": {
+              "title": "Branchid",
+              "type": "string"
+            },
+            "isPrivate": {
+              "title": "Isprivate",
+              "type": "boolean"
+            },
+            "environmentVars": {
+              "anyOf": [
+                {
+                  "additionalProperties": {
+                    "type": "string"
+                  },
+                  "type": "object"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Environmentvars"
+            }
+          },
+          "required": [
+            "branchId",
+            "isPrivate"
+          ],
+          "title": "DeployPreviewInput",
+          "type": "object"
+        },
+        "outputSchema": {
+          "description": "Output model for deployment preview endpoint.",
+          "properties": {
+            "previewUrl": {
+              "title": "Previewurl",
+              "type": "string"
+            },
+            "isPrivate": {
+              "title": "Isprivate",
+              "type": "boolean"
+            },
+            "httpAuth": {
+              "anyOf": [
+                {
+                  "additionalProperties": {
+                    "type": "string"
+                  },
+                  "type": "object"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Httpauth"
+            },
+            "deploymentTime": {
+              "format": "date-time",
+              "title": "Deploymenttime",
+              "type": "string"
+            }
+          },
+          "required": [
+            "previewUrl",
+            "isPrivate",
+            "deploymentTime"
+          ],
+          "title": "DeployPreviewOutput",
+          "type": "object"
+        },
+        "examples": {
+          "validRequests": [
+            {
+              "branchId": "feature-123",
+              "isPrivate": true,
+              "environmentVars": {
+                "DEBUG": "true",
+                "API_KEY": "preview-key"
+              }
+            }
+          ]
+        },
+        "description": "Creates a preview deployment for code review"
+      },
+      {
+        "name": "generate_python_code",
+        "actionType": "generate",
+        "path": "/v1/code_agent/python/generate_code",
+        "method": "POST",
+        "inputSchema": {
+          "description": "Input model for code generation endpoint.",
+          "properties": {
             "codeRequirements": {
-                "type": "object",
-                "required": [
+              "description": "Model defining code generation requirements.",
+              "properties": {
+                "language": {
+                  "const": "Python",
+                  "title": "Language",
+                  "type": "string"
+                },
+                "framework": {
+                  "enum": [
+                    "FastAPI",
+                    "Django"
+                  ],
+                  "title": "Framework",
+                  "type": "string"
+                },
+                "description": {
+                  "title": "Description",
+                  "type": "string"
+                },
+                "requirements": {
+                  "items": {
+                    "type": "string"
+                  },
+                  "title": "Requirements",
+                  "type": "array"
+                },
+                "requiredFunctions": {
+                  "items": {
+                    "type": "string"
+                  },
+                  "title": "Requiredfunctions",
+                  "type": "array"
+                },
+                "testingRequirements": {
+                  "items": {
+                    "type": "string"
+                  },
+                  "title": "Testingrequirements",
+                  "type": "array"
+                },
+                "codingStyle": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/$defs/CodingStyle"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "default": null
+                }
+              },
+              "required": [
                 "language",
                 "framework",
                 "description",
                 "requirements",
                 "requiredFunctions",
                 "testingRequirements"
-                ],
-                "properties": {
-                "language": {
-                    "type": "string",
-                    "enum": ["Python"]
-                },
-                "framework": {
-                    "type": "string",
-                    "enum": ["FastAPI", "Django"]
-                },
-                "description": {
-                    "type": "string"
-                },
-                "requirements": {
-                    "type": "array",
-                    "items": {
-                    "type": "string"
-                    }
-                },
-                "requiredFunctions": {
-                    "type": "array",
-                    "items": {
-                    "type": "string"
-                    },
-                    "description": "List of function names that should be implemented"
-                },
-                "testingRequirements": {
-                    "type": "array",
-                    "items": {
-                    "type": "string"
-                    },
-                    "description": "List of test case names"
-                },
-                "codingStyle": {
-                    "type": "object",
-                    "properties": {
-                    "patterns": {
-                        "type": "array",
-                        "items": {
-                        "type": "string"
-                        }
-                    },
-                    "conventions": {
-                        "type": "array",
-                        "items": {
-                        "type": "string"
-                        }
-                    }
-                    }
-                }
-                }
+              ],
+              "title": "CodeRequirement",
+              "type": "object"
             },
             "styleGuide": {
-                "type": "object",
-                "properties": {
-                "formatting": {
-                    "type": "string",
-                    "enum": ["black", "autopep8"]
+              "anyOf": [
+                {
+                  "description": "Model defining style guide preferences.",
+                  "properties": {
+                    "formatting": {
+                      "anyOf": [
+                        {
+                          "enum": [
+                            "black",
+                            "autopep8"
+                          ],
+                          "type": "string"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ],
+                      "default": "black",
+                      "title": "Formatting"
+                    },
+                    "maxLineLength": {
+                      "anyOf": [
+                        {
+                          "maximum": 120,
+                          "minimum": 79,
+                          "type": "integer"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ],
+                      "default": 88,
+                      "title": "Maxlinelength"
+                    }
+                  },
+                  "title": "StyleGuide",
+                  "type": "object"
                 },
-                "maxLineLength": {
-                    "type": "integer",
-                    "default": 88
+                {
+                  "type": "null"
                 }
-                }
+              ],
+              "default": null
             },
             "includeTests": {
-                "type": "boolean",
-                "default": true
+              "default": true,
+              "title": "Includetests",
+              "type": "boolean"
             },
             "documentationLevel": {
-                "type": "string",
-                "enum": ["minimal", "standard", "detailed"],
-                "default": "standard"
+              "default": "standard",
+              "enum": [
+                "minimal",
+                "standard",
+                "detailed"
+              ],
+              "title": "Documentationlevel",
+              "type": "string"
             }
-            }
+          },
+          "required": [
+            "codeRequirements"
+          ],
+          "title": "GenerateCodeInput",
+          "type": "object"
         },
         "outputSchema": {
-            "type": "object",
-            "required": ["generatedCode", "description", "testCases"],
-            "properties": {
+          "description": "Output model for code generation endpoint.",
+          "properties": {
             "generatedCode": {
-                "type": "string"
+              "title": "Generatedcode",
+              "type": "string"
             },
             "description": {
-                "type": "string"
+              "title": "Description",
+              "type": "string"
             },
             "testCases": {
-                "type": "array",
-                "items": {
+              "items": {
                 "type": "string"
-                }
+              },
+              "title": "Testcases",
+              "type": "array"
             },
             "documentation": {
-                "type": "string"
+              "title": "Documentation",
+              "type": "string"
             }
-            }
+          },
+          "required": [
+            "generatedCode",
+            "description",
+            "testCases",
+            "documentation"
+          ],
+          "title": "GenerateCodeOutput",
+          "type": "object"
         },
         "examples": {
-            "validRequests": [
+          "validRequests": [
             {
-                "codeRequirements": {
+              "codeRequirements": {
                 "language": "Python",
                 "framework": "FastAPI",
                 "description": "Create a REST API endpoint",
                 "requirements": [
-                    "FastAPI",
-                    "RESTful API design",
-                    "HTTP methods"
+                  "FastAPI",
+                  "RESTful API design",
+                  "HTTP methods"
                 ],
                 "requiredFunctions": [
-                    "create_endpoint",
-                    "handle_request",
-                    "validate_input"
+                  "create_endpoint",
+                  "handle_request",
+                  "validate_input"
                 ],
                 "testingRequirements": [
-                    "test_endpoint_creation",
-                    "test_request_handling",
-                    "test_input_validation"
+                  "test_endpoint_creation",
+                  "test_request_handling",
+                  "test_input_validation"
                 ],
                 "codingStyle": {
-                    "patterns": ["REST API", "Clean Architecture"],
-                    "conventions": ["PEP 8", "FastAPI best practices"]
+                  "patterns": [
+                    "REST API",
+                    "Clean Architecture"
+                  ],
+                  "conventions": [
+                    "PEP 8",
+                    "FastAPI best practices"
+                  ]
                 }
-                },
-                "styleGuide": {
+              },
+              "styleGuide": {
                 "formatting": "black",
                 "maxLineLength": 88
-                },
-                "includeTests": true,
-                "documentationLevel": "detailed"
+              },
+              "includeTests": true,
+              "documentationLevel": "detailed"
             }
-            ]
-        }
+          ]
         },
-        {
-        "name": "improveCode",
-        "path": "/code_agent/python/improve_code",
+        "description": "Generates Python code based on requirements"
+      },
+      {
+        "name": "improve_python_code",
+        "actionType": "generate",
+        "path": "/v1/code_agent/python/improve_code",
         "method": "POST",
         "inputSchema": {
-            "type": "object",
-            "required": ["changesList"],
-            "properties": {
+          "description": "Input model for code improvement endpoint.",
+          "properties": {
             "changesList": {
-                "type": "array",
-                "items": {
-                "type": "object",
-                "required": ["type", "description"],
+              "items": {
+                "description": "Model defining a code change request.",
                 "properties": {
-                    "type": {
-                    "type": "string",
-                    "enum": ["refactor", "optimize", "fix", "style"]
-                    },
-                    "description": {
+                  "type": {
+                    "enum": [
+                      "refactor",
+                      "optimize",
+                      "fix",
+                      "style"
+                    ],
+                    "title": "Type",
                     "type": "string"
-                    },
-                    "target": {
+                  },
+                  "description": {
+                    "title": "Description",
                     "type": "string"
-                    }
-                }
-                }
+                  },
+                  "target": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "title": "Target"
+                  },
+                  "priority": {
+                    "default": "medium",
+                    "enum": [
+                      "low",
+                      "medium",
+                      "high"
+                    ],
+                    "title": "Priority",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "type",
+                  "description"
+                ],
+                "title": "CodeChange",
+                "type": "object"
+              },
+              "title": "Changeslist",
+              "type": "array"
             },
             "applyBlackFormatting": {
-                "type": "boolean",
-                "default": true
+              "default": true,
+              "title": "Applyblackformatting",
+              "type": "boolean"
             },
             "runLinter": {
-                "type": "boolean",
-                "default": true
+              "default": true,
+              "title": "Runlinter",
+              "type": "boolean"
             }
-            }
+          },
+          "required": [
+            "changesList"
+          ],
+          "title": "ImproveCodeInput",
+          "type": "object"
         },
         "outputSchema": {
-            "type": "object",
-            "required": ["codeChanges", "changesDescription"],
-            "properties": {
+          "description": "Output model for code improvement endpoint.",
+          "properties": {
             "codeChanges": {
-                "type": "array",
-                "items": {
-                "type": "object",
+              "items": {
+                "description": "Model defining the result of a code change.",
                 "properties": {
-                    "type": {
+                  "type": {
+                    "title": "Type",
                     "type": "string"
-                    },
-                    "description": {
+                  },
+                  "description": {
+                    "title": "Description",
                     "type": "string"
-                    },
-                    "before": {
+                  },
+                  "before": {
+                    "title": "Before",
                     "type": "string"
-                    },
-                    "after": {
+                  },
+                  "after": {
+                    "title": "After",
                     "type": "string"
-                    }
-                }
-                }
+                  },
+                  "impact": {
+                    "title": "Impact",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "type",
+                  "description",
+                  "before",
+                  "after",
+                  "impact"
+                ],
+                "title": "CodeChangeOutput",
+                "type": "object"
+              },
+              "title": "Codechanges",
+              "type": "array"
             },
             "changesDescription": {
-                "type": "string"
+              "title": "Changesdescription",
+              "type": "string"
             },
             "qualityMetrics": {
-                "type": "object",
-                "properties": {
+              "description": "Model defining code quality metrics.",
+              "properties": {
                 "complexity": {
-                    "type": "number"
+                  "maximum": 100,
+                  "minimum": 0,
+                  "title": "Complexity",
+                  "type": "number"
                 },
                 "maintainability": {
-                    "type": "number"
+                  "maximum": 100,
+                  "minimum": 0,
+                  "title": "Maintainability",
+                  "type": "number"
                 },
                 "testCoverage": {
-                    "type": "number"
+                  "maximum": 100,
+                  "minimum": 0,
+                  "title": "Testcoverage",
+                  "type": "number"
                 }
-                }
+              },
+              "required": [
+                "complexity",
+                "maintainability",
+                "testCoverage"
+              ],
+              "title": "QualityMetrics",
+              "type": "object"
             }
-            }
+          },
+          "required": [
+            "codeChanges",
+            "changesDescription",
+            "qualityMetrics"
+          ],
+          "title": "ImproveCodeOutput",
+          "type": "object"
         },
         "examples": {
-            "validRequests": [
+          "validRequests": [
             {
-                "changesList": [
+              "changesList": [
                 {
-                    "type": "refactor",
-                    "description": "Extract validation logic into separate function",
-                    "target": "validate_input"
+                  "type": "refactor",
+                  "description": "Improve function structure",
+                  "target": "main.py",
+                  "priority": "medium"
                 }
-                ],
-                "applyBlackFormatting": true,
-                "runLinter": true
+              ],
+              "applyBlackFormatting": true,
+              "runLinter": true
             }
-            ]
-        }
+          ]
         },
-        {
-        "name": "testCode",
-        "path": "/code_agent/python/test_code",
+        "description": "Improves and formats existing Python code"
+      },
+      {
+        "name": "test_python_code",
+        "actionType": "generate",
+        "path": "/v1/code_agent/python/test_code",
         "method": "POST",
         "inputSchema": {
-            "type": "object",
-            "required": ["testType", "requirePassing", "testInstructions", "codeToTest"],
-            "properties": {
+          "description": "Input model for code testing endpoint.",
+          "properties": {
             "testType": {
-                "type": "string",
-                "enum": ["unit", "integration", "e2e"]
+              "$ref": "#/$defs/TestType"
             },
             "requirePassing": {
-                "type": "boolean"
+              "title": "Requirepassing",
+              "type": "boolean"
             },
             "testInstructions": {
-                "type": "array",
-                "items": {
-                "type": "object",
-                "required": ["description", "assertions"],
+              "items": {
+                "description": "Model defining test instructions.",
                 "properties": {
-                    "description": {
+                  "description": {
+                    "title": "Description",
                     "type": "string"
-                    },
-                    "assertions": {
-                    "type": "array",
+                  },
+                  "assertions": {
                     "items": {
-                        "type": "string"
-                    }
-                    }
-                }
-                }
+                      "type": "string"
+                    },
+                    "title": "Assertions",
+                    "type": "array"
+                  },
+                  "testType": {
+                    "default": "unit",
+                    "enum": [
+                      "unit",
+                      "integration",
+                      "e2e"
+                    ],
+                    "title": "Testtype",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "description",
+                  "assertions"
+                ],
+                "title": "TestInstruction",
+                "type": "object"
+              },
+              "title": "Testinstructions",
+              "type": "array"
             },
             "codeToTest": {
-                "type": "string"
+              "title": "Codetotest",
+              "type": "string"
             },
             "minimumCoverage": {
-                "type": "number",
-                "minimum": 0,
-                "maximum": 100,
-                "default": 80
+              "default": 80,
+              "maximum": 100,
+              "minimum": 0,
+              "title": "Minimumcoverage",
+              "type": "number"
             }
-            }
+          },
+          "required": [
+            "testType",
+            "requirePassing",
+            "testInstructions",
+            "codeToTest"
+          ],
+          "title": "TestCodeInput",
+          "type": "object"
         },
         "outputSchema": {
-            "type": "object",
-            "required": ["codeTests", "testsDescription", "coverageStatus"],
-            "properties": {
+          "description": "Output model for code testing endpoint.",
+          "properties": {
             "codeTests": {
-                "type": "string"
+              "title": "Codetests",
+              "type": "string"
             },
             "testsDescription": {
-                "type": "string"
+              "title": "Testsdescription",
+              "type": "string"
             },
             "coverageStatus": {
-                "type": "object",
-                "properties": {
+              "description": "Model defining test coverage status.",
+              "properties": {
                 "percentage": {
-                    "type": "number"
+                  "maximum": 100,
+                  "minimum": 0,
+                  "title": "Percentage",
+                  "type": "number"
                 },
                 "uncoveredLines": {
-                    "type": "array",
-                    "items": {
-                    "type": "number"
-                    }
+                  "items": {
+                    "type": "integer"
+                  },
+                  "title": "Uncoveredlines",
+                  "type": "array"
                 }
-                }
+              },
+              "required": [
+                "percentage"
+              ],
+              "title": "CoverageStatus",
+              "type": "object"
             }
-            }
+          },
+          "required": [
+            "codeTests",
+            "testsDescription",
+            "coverageStatus"
+          ],
+          "title": "TestCodeOutput",
+          "type": "object"
         },
         "examples": {
-            "validRequests": [
+          "validRequests": [
             {
-                "testType": "unit",
-                "requirePassing": true,
-                "testInstructions": [
+              "testType": "unit",
+              "requirePassing": true,
+              "testInstructions": [
                 {
-                    "description": "Test input validation",
-                    "assertions": [
-                    "validates required fields",
-                    "checks field types",
-                    "handles invalid input"
-                    ]
+                  "description": "Test API endpoints",
+                  "assertions": [
+                    "test_status_code",
+                    "test_response_format"
+                  ],
+                  "testType": "unit"
                 }
-                ],
-                "codeToTest": "def validate_input(data): ...",
-                "minimumCoverage": 90
+              ],
+              "codeToTest": "def example(): return True",
+              "minimumCoverage": 80
             }
-            ]
-        }
+          ]
         },
-        {
-        "name": "deployPreview",
-        "path": "/deploy_agent/python/preview",
-        "method": "POST",
-        "inputSchema": {
-            "type": "object",
-            "required": ["branchID", "isPrivate"],
-            "properties": {
-            "branchID": {
-                "type": "string",
-                "pattern": "^[a-zA-Z0-9-_]+$"
-            },
-            "isPrivate": {
-                "type": "boolean"
-            },
-            "environmentVars": {
-                "type": "object",
-                "additionalProperties": {
-                "type": "string"
-                }
-            }
-            }
-        },
-        "outputSchema": {
-            "type": "object",
-            "required": ["previewURL", "isPrivate", "deploymentTime"],
-            "properties": {
-            "previewURL": {
-                "type": "string",
-                "format": "uri"
-            },
-            "isPrivate": {
-                "type": "boolean"
-            },
-            "HTTPAuth": {
-                "type": "object",
-                "properties": {
-                "username": {
-                    "type": "string"
-                },
-                "password": {
-                    "type": "string"
-                }
-                }
-            },
-            "deploymentTime": {
-                "type": "string",
-                "format": "date-time"
-            }
-            }
-        },
-        "examples": {
-            "validRequests": [
-            {
-                "branchID": "feature-api-endpoint",
-                "isPrivate": true,
-                "environmentVars": {
-                "DEBUG": "true",
-                "API_VERSION": "v1"
-                }
-            }
-            ]
-        }
-        }
+        "description": "Generates and runs tests for Python code"
+      }
     ]
-}
+  }

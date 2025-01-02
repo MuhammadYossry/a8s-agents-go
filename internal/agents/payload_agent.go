@@ -59,7 +59,7 @@ func GetPayloadAgent(ctx context.Context, config types.InternalAgentConfig) (*Pa
 }
 
 func initializePayloadAgent(config types.InternalAgentConfig) *PayloadAgent {
-	llmClient := NewLLMClient(&LLMConfig{
+	llmClient, _ := NewLLMClient(&LLMConfig{
 		Provider:      Qwen,
 		BaseURL:       config.LLMConfig.BaseURL,
 		APIKey:        config.LLMConfig.APIKey,

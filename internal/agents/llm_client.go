@@ -24,14 +24,14 @@ const (
 )
 
 type LLMConfig struct {
-	Provider      LLMProvider
-	BaseURL       string
-	APIKey        string
-	Model         string
-	Timeout       time.Duration
-	SystemMessage string
-	Options       map[string]interface{}
-	Debug         bool
+	Provider      LLMProvider            `yaml:"provider"`
+	BaseURL       string                 `yaml:"base_url"`
+	APIKey        string                 `yaml:"api_key"`
+	Model         string                 `yaml:"model"`
+	Timeout       time.Duration          `yaml:"timeout"`
+	Debug         bool                   `yaml:"debug"`
+	SystemMessage string                 `yaml:"system_message"`
+	Options       map[string]interface{} `yaml:"options"`
 }
 
 type LLMClient struct {
@@ -44,73 +44,62 @@ type Message struct {
 	Content string `json:"content"`
 }
 
-func NewLLMClient(config *LLMConfig) *LLMClient {
-	if config == nil {
-		panic("LLMConfig cannot be nil")
+func NewLLMClient(config *LLMConfig) (*LLMClient, error) {
+	if err := validateConfig(config); err != nil {
+		return nil, err
 	}
 
-	// Validate and sanitize BaseURL
-	if config.BaseURL == "" {
-		panic("BaseURL must be specified")
-	}
-	// Ensure BaseURL ends with "/"
-	if config.BaseURL[len(config.BaseURL)-1] != '/' {
-		config.BaseURL += "/"
-	}
-
-	if config.APIKey == "" {
-		panic("APIKey must be specified")
-	}
-	if config.Model == "" {
-		panic("Model must be specified")
-	}
-
-	// Set default timeout
 	if config.Timeout == 0 {
-		config.Timeout = 60 * time.Second // Increased timeout for large models
+		config.Timeout = 60 * time.Second
 	}
 
-	// Initialize default options
 	if config.Options == nil {
-		config.Options = make(map[string]interface{})
+		config.Options = defaultOptions()
 	}
-	setDefaultOptions(config)
 
 	client := &http.Client{
 		Timeout: config.Timeout,
 		Transport: &loggingRoundTripper{
-			next:    http.DefaultTransport,
-			debug:   config.Debug,
-			baseURL: config.BaseURL,
+			next:  http.DefaultTransport,
+			debug: config.Debug,
 		},
 	}
 
 	return &LLMClient{
 		config:     config,
 		httpClient: client,
-	}
+	}, nil
 }
 
-func setDefaultOptions(config *LLMConfig) {
-	defaults := map[string]interface{}{
+func validateConfig(config *LLMConfig) error {
+	if config == nil {
+		return fmt.Errorf("LLMConfig cannot be nil")
+	}
+	if config.BaseURL == "" {
+		return fmt.Errorf("BaseURL must be specified")
+	}
+	if config.APIKey == "" {
+		return fmt.Errorf("APIKey must be specified")
+	}
+	if config.Model == "" {
+		return fmt.Errorf("llm model must be specified")
+	}
+	return nil
+}
+
+func defaultOptions() map[string]interface{} {
+	return map[string]interface{}{
 		"temperature":   0.7,
 		"top_p":         0.8,
 		"result_format": "message",
 		"stream":        false,
 	}
-
-	for k, v := range defaults {
-		if _, exists := config.Options[k]; !exists {
-			config.Options[k] = v
-		}
-	}
 }
 
 // Custom transport for logging requests and responses
 type loggingRoundTripper struct {
-	next    http.RoundTripper
-	debug   bool
-	baseURL string
+	next  http.RoundTripper
+	debug bool
 }
 
 func (l *loggingRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {

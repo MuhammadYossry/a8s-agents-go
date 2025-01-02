@@ -95,37 +95,48 @@ class AgentRegistry:
         if endpoint_info.schema_definitions:
             self._schema_definitions.update(endpoint_info.schema_definitions)
 
-    def _extract_schema(self, model: Type[BaseModel]) -> Dict[str, Any]:
-        """Extract schema information with proper reference handling."""
+    def _extract_schema(self, model: Type[BaseModel], visited: Optional[Set[str]] = None) -> Dict[str, Any]:
+        """Extract schema information and inline all references."""
+        if visited is None:
+            visited = set()
+
         schema = model.model_json_schema()
-        refs = self._find_schema_refs(schema)
-        
-        for ref_name in refs:
-            if ref_name in self._schema_definitions:
-                ref_model = self._schema_definitions[ref_name]
-                if "$defs" not in schema:
-                    schema["$defs"] = {}
-                schema["$defs"][ref_name] = ref_model.model_json_schema()
-        
+        self._inline_references(schema, visited)
         return schema
 
-    def _find_schema_refs(self, schema: Dict[str, Any]) -> Set[str]:
-        """Find all schema references in a given schema."""
-        refs = set()
-        
-        def find_refs(obj: Any):
-            if isinstance(obj, dict):
-                if "$ref" in obj:
-                    ref = obj["$ref"].split("/")[-1]
-                    refs.add(ref)
-                for value in obj.values():
-                    find_refs(value)
-            elif isinstance(obj, list):
-                for item in obj:
-                    find_refs(item)
-                    
-        find_refs(schema)
-        return refs
+    def _inline_references(self, schema: Dict[str, Any], visited: Set[str]) -> None:
+        """Recursively inline all schema references."""
+        if not isinstance(schema, dict):
+            return
+
+        if "$ref" in schema:
+            ref_name = schema["$ref"].split("/")[-1]
+            if ref_name in visited:
+                # Avoid infinite recursion
+                return
+
+            visited.add(ref_name)
+            if ref_name in self._schema_definitions:
+                ref_model = self._schema_definitions[ref_name]
+                ref_schema = ref_model.model_json_schema()
+                self._inline_references(ref_schema, visited)
+                # Replace reference with actual schema
+                schema.clear()
+                schema.update(ref_schema)
+            return
+
+        # Process nested schemas
+        for key, value in schema.items():
+            if isinstance(value, dict):
+                self._inline_references(value, visited)
+            elif isinstance(value, list):
+                for item in value:
+                    if isinstance(item, dict):
+                        self._inline_references(item, visited)
+
+        # Remove $defs after inlining
+        if "$defs" in schema:
+            del schema["$defs"]
 
     def _format_action_endpoint(self, info: ActionEndpointInfo) -> Dict[str, Any]:
         """Format action endpoint information for output."""
@@ -141,30 +152,22 @@ class AgentRegistry:
         }
 
     def generate_config(self) -> Dict[str, Any]:
-        """Generate the complete agent configuration."""
+        """Generate the complete agent configuration as a single agent object."""
         if not all([self._base_url, self._agent_id, self._description]):
             raise ValueError("Registry not properly configured. Call configure() first.")
 
         config = {
-            "agents": [{
-                "id": self._agent_id,
-                "type": "external",
-                "description": self._description,
-                "baseURL": self._base_url,
-                "capabilities": [cap.model_dump(exclude_none=True) for cap in self._capabilities],
-                "actions": sorted(
-                    [self._format_action_endpoint(info) 
-                     for info in self._action_endpoints.values()],
-                    key=lambda x: x["path"]
-                )
-            }]
+            "id": self._agent_id,
+            "type": "external",
+            "description": self._description,
+            "baseURL": self._base_url,
+            "capabilities": [cap.model_dump(exclude_none=True) for cap in self._capabilities],
+            "actions": sorted(
+                [self._format_action_endpoint(info)
+                 for info in self._action_endpoints.values()],
+                key=lambda x: x["path"]
+            )
         }
-
-        if self._schema_definitions:
-            config["$defs"] = {
-                name: model.model_json_schema()
-                for name, model in self._schema_definitions.items()
-            }
 
         return config
 
@@ -241,44 +244,8 @@ def agent_action(
         return wrapper
     return decorator
 
-# Backward compatibility layer
-def agent_endpoint(
-    task_type: str,
-    skill_name: str,
-    description: str,
-    schema_definitions: Optional[Dict[str, Type[BaseModel]]] = None,
-    examples: Optional[Dict[str, List[Dict[str, Any]]]] = None
-) -> Callable:
-    """
-    Legacy decorator for backward compatibility.
-    Warns about deprecation and maps to new agent_action decorator.
-    """
-    warnings.warn(
-        "agent_endpoint is deprecated. Use agent_action instead.",
-        DeprecationWarning,
-        stacklevel=2
-    )
-    
-    # Map task_type to ActionType (basic mapping, expand as needed)
-    action_type_map = {
-        "pythonCodeTask": ActionType.GENERATE,
-        "pythonTestingTask": ActionType.GENERATE,
-        "pythonDeploymentTask": ActionType.GENERATE,
-        # Add more mappings as needed
-    }
-    
-    action_type = action_type_map.get(task_type, ActionType.GENERATE)
-    
-    return agent_action(
-        action_type=action_type,
-        name=skill_name,
-        description=description,
-        schema_definitions=schema_definitions,
-        examples=examples
-    )
-
 def setup_agent_routes(app: FastAPI) -> None:
-    """Set up the agents.json endpoint and register all routes."""
+    """Set up the agent.json endpoint and register all routes."""
     def register_routes(routes, prefix=""):
         for route in routes:
             if isinstance(getattr(route, "app", None), FastAPI):
@@ -291,9 +258,9 @@ def setup_agent_routes(app: FastAPI) -> None:
                     path=route_path,
                     endpoint_info=func._endpoint_info
                 )
-    
     register_routes(app.routes)
 
-    @app.get("/agents.json")
+    @app.get("/agent.json")
     async def get_agent_config():
+        """Return an agent defination"""
         return registry.generate_config()

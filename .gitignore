@@ -1,4 +1,6 @@
 a8s.conf
+a8s_llm.conf
+agents.a8s
 .a8s/
 # Binaries for programs and plugins
 *.exe

@@ -2,6 +2,8 @@ package hub
 
 import (
 	"time"
+
+	"github.com/Relax-N-Tax/AgentNexus/types"
 )
 
 // Config holds configuration for the AgentsHub
@@ -34,5 +36,6 @@ type DefinationRegistry interface {
 	Store(name, version string, agent *AgentFile) error
 	Get(name, version string) (*AgentFile, error)
 	GetJSON(name, version string) ([]byte, error)
+	GetAgentDef(name, version string) (*types.AgentDefinition, error)
 	Close() error
 }

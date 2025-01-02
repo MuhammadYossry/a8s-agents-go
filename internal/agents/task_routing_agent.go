@@ -191,7 +191,7 @@ func GetTaskRoutingAgent(config types.InternalAgentConfig) (*TaskRoutingAgent, e
 }
 
 func initializeTaskRoutingAgent(config types.InternalAgentConfig) *TaskRoutingAgent {
-	llmClient := NewLLMClient(&LLMConfig{
+	llmClient, _ := NewLLMClient(&LLMConfig{
 		Provider:      Qwen,
 		BaseURL:       config.LLMConfig.BaseURL,
 		APIKey:        config.LLMConfig.APIKey,
