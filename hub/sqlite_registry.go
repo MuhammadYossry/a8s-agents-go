@@ -20,33 +20,43 @@ type SQLiteRegistry struct {
 	logger *log.Logger
 }
 
-func NewSQLiteRegistry() (*SQLiteRegistry, error) {
+var (
+	registryInstance *SQLiteRegistry
+	registryOnce     sync.Once
+	registryErr      error
+)
+
+func GetSQLiteRegistry() (*SQLiteRegistry, error) {
+	registryOnce.Do(func() {
+		registryInstance, registryErr = initSQLiteRegistry()
+	})
+	return registryInstance, registryErr
+}
+
+func initSQLiteRegistry() (*SQLiteRegistry, error) {
 	cwd, err := os.Getwd()
 	if err != nil {
 		return nil, fmt.Errorf("failed to get working directory: %w", err)
 	}
 
-	// Create the database directory as an absolute path
 	dbDir := filepath.Join(cwd, ".a8s")
 	if err := os.MkdirAll(dbDir, 0755); err != nil {
 		return nil, fmt.Errorf("failed to create database directory: %w", err)
 	}
-	logger := log.New(log.Writer(), "[AgentsHub] ", log.LstdFlags|log.Lshortfile)
 
 	dbPath := filepath.Join(dbDir, "a8s-hub.db")
+	logger := log.New(log.Writer(), "[AgentsHub] ", log.LstdFlags|log.Lshortfile)
 	logger.Printf("Using SQLite database at: %s", dbPath)
 
-	db, err := sql.Open("sqlite3", dbPath+"?_journal_mode=WAL") // WAL mode for better concurrency
+	db, err := sql.Open("sqlite3", dbPath+"?_journal_mode=WAL")
 	if err != nil {
 		return nil, fmt.Errorf("failed to open database: %w", err)
 	}
 
-	// Verify we can actually write to the database
 	if err := db.Ping(); err != nil {
 		return nil, fmt.Errorf("failed to connect to database: %w", err)
 	}
 
-	// Create table if not exists
 	schema := `
     CREATE TABLE IF NOT EXISTS agents (
         name TEXT NOT NULL,
@@ -54,18 +64,19 @@ func NewSQLiteRegistry() (*SQLiteRegistry, error) {
         data JSON NOT NULL,
         created_at INTEGER NOT NULL,
         PRIMARY KEY (name, version)
-    );
-    `
+    );`
+
 	if _, err := db.Exec(schema); err != nil {
 		db.Close()
 		return nil, fmt.Errorf("failed to create schema: %w", err)
 	}
-	reg := SQLiteRegistry{db: db, logger: logger}
+
+	reg := &SQLiteRegistry{db: db, logger: logger}
 	if err := reg.ListAgents(); err != nil {
 		logger.Printf("Warning: Failed to list agents: %v", err)
 	}
 
-	return &reg, nil
+	return reg, nil
 }
 
 func (r *SQLiteRegistry) Store(name, version string, agent *AgentFile) error {

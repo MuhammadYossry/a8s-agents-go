@@ -20,7 +20,7 @@ type Server struct {
 }
 
 func NewServer(config Config) (*Server, error) {
-	hubRegistry, err := NewSQLiteRegistry()
+	hubRegistry, err := GetSQLiteRegistry()
 	if err != nil {
 		return nil, fmt.Errorf("failed to initialize hubSQLiteRegistry: %w", err)
 	}

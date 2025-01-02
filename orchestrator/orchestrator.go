@@ -44,7 +44,7 @@ func New(cfg Config) (*Orchestrator, error) {
 	registry := capability.GetCapabilityRegistry()
 	factory := agents.NewAgentFactory()
 
-	hubRegistry, err := hub.NewSQLiteRegistry()
+	hubRegistry, err := hub.GetSQLiteRegistry()
 	if err != nil {
 		return nil, fmt.Errorf("failed to create SQLite registry: %v", err)
 	}
