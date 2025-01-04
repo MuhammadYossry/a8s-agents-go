@@ -1,10 +1,12 @@
 from fastapi import FastAPI, HTTPException, BackgroundTasks
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 from typing import List, Optional, Dict, Any, Literal
 from enum import Enum
 import ast
 import black
 import pylint.lint
+from pathlib import Path
 from datetime import datetime
 
 from models import (
@@ -21,17 +23,21 @@ from manifest_generator import configure_agent, agent_action, setup_agent_routes
 app = FastAPI()
 agent_app = FastAPI()
 
+AGENT_TEMPLATE = Path(__file__).parent / "templates" / "agent.html"
+
 # Declare your agent
 @configure_agent(
     base_url="http://localhost:9200",
-    agent_id="python-code-agent",
+    name="Python Code Assistant",  # Human readable name
+    version="1.0.0",
     description="Advanced Python code generation and communication agent",
-    capabilities=AGENT_CAPABILITIES
+    capabilities=AGENT_CAPABILITIES,
+    dashboard_template_path="templates/agent.html",
 )
 @agent_app.post("/code_agent/python/chat", response_model=ChatOutput)
 @agent_action(
     action_type=ActionType.TALK,
-    name="chat_with_agent",
+    name="Chat with Python Assistant",
     description="Engage in a conversation with the Python code agent",
     schema_definitions={
         "ChatMessage": ChatMessage
@@ -67,7 +73,7 @@ async def chat_with_agent(input_data: ChatInput) -> ChatOutput:
 @agent_app.post("/code_agent/python/generate_code", response_model=GenerateCodeOutput)
 @agent_action(
     action_type=ActionType.GENERATE,
-    name="generate_python_code",
+    name="Generate Python Code",
     description="Generates Python code based on requirements",
     schema_definitions={
         "CodeRequirement": CodeRequirement,
@@ -111,6 +117,8 @@ async def chat_with_agent(input_data: ChatInput) -> ChatOutput:
         ]
     }
 )
+
+
 async def generate_code(input_data: GenerateCodeInput) -> GenerateCodeOutput:
     """Generate Python code based on specified requirements."""
     try:
@@ -130,7 +138,7 @@ async def generate_code(input_data: GenerateCodeInput) -> GenerateCodeOutput:
 @agent_app.post("/code_agent/python/improve_code", response_model=ImproveCodeOutput)
 @agent_action(
     action_type=ActionType.GENERATE,
-    name="improve_python_code",
+    name="Improve Python Code",
     description="Improves and formats existing Python code",
     schema_definitions={
         "CodeChange": CodeChange,
@@ -187,7 +195,7 @@ async def improve_code(input_data: ImproveCodeInput) -> ImproveCodeOutput:
 @agent_app.post("/code_agent/python/test_code", response_model=TestCodeOutput)
 @agent_action(
     action_type=ActionType.GENERATE,
-    name="test_python_code",
+    name="Write tests",
     description="Generates and runs tests for Python code",
     schema_definitions={
         "TestInstruction": TestInstruction,
@@ -226,7 +234,7 @@ async def test_code(input_data: TestCodeInput) -> TestCodeOutput:
 @agent_app.post("/code_agent/python/deploy_preview", response_model=DeployPreviewOutput)
 @agent_action(
     action_type=ActionType.GENERATE,
-    name="deploy_preview",
+    name="Deploy a Preview",
     description="Creates a preview deployment for code review",
     examples={
         "validRequests": [
@@ -260,6 +268,16 @@ async def deploy_preview(
         )
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
+
+
+# Set all CORS enabled origins
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*", "http://localhost:8000"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 # Mount the agent app
 app.mount("/v1", agent_app)

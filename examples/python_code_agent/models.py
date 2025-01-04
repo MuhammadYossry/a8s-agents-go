@@ -152,58 +152,52 @@ class ChatOutput(BaseModelCamel):
 
 AGENT_CAPABILITIES = [
     Capability(
-        skillPath=["Development"],
+        skill_path=["Development"],
         level="domain",
-        metadata=CapabilityMetadata(
-            expertise="advanced"
-        )
+        meta_info=CapabilityMetadata(expertise="advanced")
     ),
     Capability(
-        skillPath=["Development", "Backend", "Python"],
+        skill_path=["Development", "Backend", "Python"],
         level="specialty",
-        metadata=CapabilityMetadata(
+        meta_info=CapabilityMetadata(
             versions=["3.8", "3.9", "3.10"],
             frameworks=["Django", "FastAPI"],
             expertise="advanced"
         )
     ),
     Capability(
-        skillPath=["Development", "Backend", "Python", "CodeGeneration"],
+        skill_path=["Development", "Backend", "Python", "CodeGeneration"],
         level="skill",
-        metadata=CapabilityMetadata(
+        meta_info=CapabilityMetadata(
             versions=["3.8", "3.9", "3.10"],
             frameworks=["Django", "FastAPI"],
             tools=["black", "pylint"]
         )
     ),
     Capability(
-        skillPath=["Development", "Testing", "Python"],
+        skill_path=["Development", "Testing", "Python"],
         level="specialty",
-        metadata=CapabilityMetadata(
+        meta_info=CapabilityMetadata(
             frameworks=["pytest", "unittest"],
             expertise="advanced"
         )
     ),
     Capability(
-        skillPath=["Development", "Deployment", "Python"],
+        skill_path=["Development", "Deployment", "Python"],
         level="specialty",
-        metadata=CapabilityMetadata(
+        meta_info=CapabilityMetadata(
             platforms=["AWS", "GCP", "Azure"],
             expertise="basic"
         )
     ),
     Capability(
-        skillPath=["Communication"],
+        skill_path=["Communication"],
         level="domain",
-        metadata=CapabilityMetadata(
-            expertise="advanced"
-        )
+        meta_info=CapabilityMetadata(expertise="advanced")
     ),
     Capability(
-        skillPath=["Communication", "Chat"],
+        skill_path=["Communication", "Chat"],
         level="specialty",
-        metadata=CapabilityMetadata(
-            expertise="advanced"
-        )
+        meta_info=CapabilityMetadata(expertise="advanced")
     ),
 ]
