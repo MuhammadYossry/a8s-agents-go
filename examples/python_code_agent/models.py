@@ -3,7 +3,7 @@ from pydantic import BaseModel, Field, ConfigDict
 from datetime import datetime
 from enum import Enum
 
-from manifest_generator import Capability, CapabilityMetadata
+from manifest_generator import Capability
 
 class BaseModelCamel(BaseModel):
     """Base model that configures camelCase support."""
@@ -34,7 +34,7 @@ class CodeRequirement(BaseModelCamel):
     requirements: List[str]
     required_functions: List[str]
     testing_requirements: List[str]
-    coding_style: Optional[CodingStyle] = None
+    coding_style: Optional['CodingStyle'] = None
 
 class GenerateCodeInput(BaseModelCamel):
     """Input model for code generation endpoint."""
@@ -152,52 +152,21 @@ class ChatOutput(BaseModelCamel):
 
 AGENT_CAPABILITIES = [
     Capability(
-        skill_path=["Development"],
-        level="domain",
-        meta_info=CapabilityMetadata(expertise="advanced")
+        skill_path=["Development", "Python"],
+        metadata={
+            "proficiency": "advanced",
+            "frameworks": ["Django", "FastAPI"],
+            "tools": ["black", "pylint", "pytest"],
+            "specializations": ["API Development", "Testing", "Code Generation"]
+        }
     ),
     Capability(
-        skill_path=["Development", "Backend", "Python"],
-        level="specialty",
-        meta_info=CapabilityMetadata(
-            versions=["3.8", "3.9", "3.10"],
-            frameworks=["Django", "FastAPI"],
-            expertise="advanced"
-        )
-    ),
-    Capability(
-        skill_path=["Development", "Backend", "Python", "CodeGeneration"],
-        level="skill",
-        meta_info=CapabilityMetadata(
-            versions=["3.8", "3.9", "3.10"],
-            frameworks=["Django", "FastAPI"],
-            tools=["black", "pylint"]
-        )
-    ),
-    Capability(
-        skill_path=["Development", "Testing", "Python"],
-        level="specialty",
-        meta_info=CapabilityMetadata(
-            frameworks=["pytest", "unittest"],
-            expertise="advanced"
-        )
-    ),
-    Capability(
-        skill_path=["Development", "Deployment", "Python"],
-        level="specialty",
-        meta_info=CapabilityMetadata(
-            platforms=["AWS", "GCP", "Azure"],
-            expertise="basic"
-        )
-    ),
-    Capability(
-        skill_path=["Communication"],
-        level="domain",
-        meta_info=CapabilityMetadata(expertise="advanced")
-    ),
-    Capability(
-        skill_path=["Communication", "Chat"],
-        level="specialty",
-        meta_info=CapabilityMetadata(expertise="advanced")
-    ),
+        skill_path=["AI", "Code Assistant"],
+        metadata={
+            "proficiency": "advanced",
+            "features": ["Code Analysis", "Optimization", "Test Generation"],
+            "languages": ["Python"],
+            "platforms": ["AWS", "GCP", "Azure"]
+        }
+    )
 ]

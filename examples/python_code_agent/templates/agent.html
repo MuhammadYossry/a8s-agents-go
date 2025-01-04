@@ -21,371 +21,418 @@
 <body class="bg-gray-50">
     <div id="root"></div>
     <script type="text/babel">
-        const { useState, useEffect } = React;
+    const { useState, useEffect } = React;
 
-        function Badge({ children, variant = "default" }) {
-            const colors = {
-                default: "bg-blue-100 text-blue-800",
-                success: "bg-green-100 text-green-800",
-                warning: "bg-yellow-100 text-yellow-800",
-                error: "bg-red-100 text-red-800",
-                purple: "bg-purple-100 text-purple-800",
-                gray: "bg-gray-100 text-gray-800"
-            };
+    function Badge({ children, variant = "default" }) {
+        const colors = {
+            default: "bg-blue-100 text-blue-800",
+            success: "bg-green-100 text-green-800",
+            warning: "bg-yellow-100 text-yellow-800",
+            error: "bg-red-100 text-red-800",
+            purple: "bg-purple-100 text-purple-800",
+            gray: "bg-gray-100 text-gray-800"
+        };
+        return (
+            <span className={`px-2.5 py-0.5 rounded-full text-sm font-medium ${colors[variant]}`}>
+                {children}
+            </span>
+        );
+    }
 
+    function FormField({ name, schema, value, onChange }) {
+        const label = name.replace(/([A-Z])/g, ' $1').trim();
+
+        if (schema.type === 'object' && schema.properties) {
             return (
-                <span className={`px-2.5 py-0.5 rounded-full text-sm font-medium ${colors[variant]}`}>
-                    {children}
-                </span>
+                <div className="space-y-4 p-4 border rounded-md bg-gray-50">
+                    <h3 className="text-lg font-medium text-gray-900">{label}</h3>
+                    {Object.entries(schema.properties).map(([propName, propSchema]) => (
+                        <FormField
+                            key={propName}
+                            name={propName}
+                            schema={propSchema}
+                            value={value?.[propName]}
+                            onChange={(newValue) => onChange({ ...value, [propName]: newValue })}
+                        />
+                    ))}
+                </div>
             );
         }
 
-        function DynamicForm({ schema, example, onSubmit }) {
-            const [formData, setFormData] = useState({});
-            const [loading, setLoading] = useState(false);
-            const [response, setResponse] = useState(null);
-
-            useEffect(() => {
-                if (example) {
-                    setFormData(example);
-                }
-            }, [example]);
-
-            const handleSubmit = async (e) => {
-                e.preventDefault();
-                setLoading(true);
-                try {
-                    const result = await onSubmit(formData);
-                    setResponse(JSON.stringify(result, null, 2));
-                } catch (error) {
-                    setResponse(`Error: ${error.message}`);
-                }
-                setLoading(false);
-            };
-
-            const renderField = (name, schema, required = false) => {
-                const value = formData[name] || '';
-
-                if (schema.type === 'boolean') {
-                    return (
-                        <label className="flex items-center space-x-2">
-                            <input
-                                type="checkbox"
-                                checked={!!value}
-                                onChange={e => setFormData(prev => ({ ...prev, [name]: e.target.checked }))}
-                                className="w-4 h-4 text-blue-600"
-                            />
-                            <span>Enable</span>
-                        </label>
-                    );
-                }
-
-                if (schema.type === 'array') {
-                    const items = Array.isArray(value) ? value : [];
-                    return (
-                        <div className="space-y-2">
-                            {items.map((item, index) => (
-                                <div key={index} className="flex gap-2">
+        if (schema.type === 'array') {
+            return (
+                <div className="space-y-2">
+                    <label className="block text-sm font-medium text-gray-700">{label}</label>
+                    <div className="space-y-2">
+                        {(value || []).map((item, index) => (
+                            <div key={index} className="flex gap-2">
+                                {schema.items.type === 'object' ? (
+                                    <div className="flex-1">
+                                        <FormField
+                                            name={`${name}[${index}]`}
+                                            schema={schema.items}
+                                            value={item}
+                                            onChange={(newValue) => {
+                                                const newArray = [...(value || [])];
+                                                newArray[index] = newValue;
+                                                onChange(newArray);
+                                            }}
+                                        />
+                                    </div>
+                                ) : (
                                     <input
                                         type="text"
                                         value={item}
-                                        onChange={e => {
-                                            const newItems = [...items];
-                                            newItems[index] = e.target.value;
-                                            setFormData(prev => ({ ...prev, [name]: newItems }));
+                                        onChange={(e) => {
+                                            const newArray = [...(value || [])];
+                                            newArray[index] = e.target.value;
+                                            onChange(newArray);
                                         }}
                                         className="flex-1 px-3 py-2 border rounded-md"
                                     />
-                                    <button
-                                        type="button"
-                                        onClick={() => {
-                                            const newItems = items.filter((_, i) => i !== index);
-                                            setFormData(prev => ({ ...prev, [name]: newItems }));
-                                        }}
-                                        className="px-3 py-1 text-red-600 hover:bg-red-50 rounded-md"
-                                    >
-                                        ×
-                                    </button>
-                                </div>
-                            ))}
-                            <button
-                                type="button"
-                                onClick={() => setFormData(prev => ({ 
-                                    ...prev, 
-                                    [name]: [...(prev[name] || []), '']
-                                }))}
-                                className="text-sm text-blue-600 hover:text-blue-800"
-                            >
-                                + Add Item
-                            </button>
-                        </div>
-                    );
-                }
-
-                if (schema.type === 'object') {
-                    return (
-                        <textarea
-                            value={typeof value === 'object' ? JSON.stringify(value, null, 2) : value}
-                            onChange={e => {
-                                try {
-                                    const parsed = JSON.parse(e.target.value);
-                                    setFormData(prev => ({ ...prev, [name]: parsed }));
-                                } catch {
-                                    setFormData(prev => ({ ...prev, [name]: e.target.value }));
-                                }
-                            }}
-                            className="w-full px-3 py-2 border rounded-md font-mono text-sm"
-                            rows="5"
-                            placeholder="Enter JSON object"
-                        />
-                    );
-                }
-
-                return (
-                    <input
-                        type={schema.type === 'number' ? 'number' : 'text'}
-                        value={value}
-                        onChange={e => setFormData(prev => ({ 
-                            ...prev, 
-                            [name]: schema.type === 'number' ? Number(e.target.value) : e.target.value 
-                        }))}
-                        className="w-full px-3 py-2 border rounded-md"
-                        placeholder={schema.description}
-                        required={required}
-                    />
-                );
-            };
-
-            return (
-                <form onSubmit={handleSubmit} className="space-y-6">
-                    {Object.entries(schema.properties || {}).map(([name, property]) => (
-                        <div key={name} className="space-y-1">
-                            <label className="block text-sm font-medium text-gray-700">
-                                {name}
-                                {schema.required?.includes(name) && (
-                                    <span className="text-red-500 ml-1">*</span>
                                 )}
-                            </label>
-                            {property.description && (
-                                <p className="text-xs text-gray-500 mb-1">{property.description}</p>
-                            )}
-                            {renderField(name, property, schema.required?.includes(name))}
-                        </div>
-                    ))}
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        const newArray = (value || []).filter((_, i) => i !== index);
+                                        onChange(newArray);
+                                    }}
+                                    className="px-3 py-1 text-red-600 hover:bg-red-50 rounded-md"
+                                >×</button>
+                            </div>
+                        ))}
+                        <button
+                            type="button"
+                            onClick={() => onChange([...(value || []), schema.items.type === 'object' ? {} : ''])}
+                            className="text-sm text-blue-600 hover:text-blue-800"
+                        >
+                            + Add Item
+                        </button>
+                    </div>
+                </div>
+            );
+        }
 
-                    {response && (
-                        <div className="mt-4">
-                            <h3 className="font-semibold mb-2">Response:</h3>
-                            <pre className={`p-4 rounded-md overflow-auto max-h-64 text-sm ${
-                                response.startsWith('Error') ? 'bg-red-50' : 'bg-gray-50'
-                            }`}>
-                                {response}
-                            </pre>
+        if (schema.type === 'boolean') {
+            return (
+                <div className="space-y-1">
+                    <label className="flex items-center text-sm font-medium text-gray-700">
+                        <input
+                            type="checkbox"
+                            checked={value || false}
+                            onChange={(e) => onChange(e.target.checked)}
+                            className="mr-2 rounded border-gray-300"
+                        />
+                        {label}
+                    </label>
+                </div>
+            );
+        }
+
+        if (schema.enum) {
+            return (
+                <div className="space-y-1">
+                    <label className="block text-sm font-medium text-gray-700">{label}</label>
+                    <select
+                        value={value || ''}
+                        onChange={(e) => onChange(e.target.value)}
+                        className="w-full px-3 py-2 border rounded-md bg-white"
+                    >
+                        <option value="">Select {label}...</option>
+                        {schema.enum.map(option => (
+                            <option key={option} value={option}>{option}</option>
+                        ))}
+                    </select>
+                </div>
+            );
+        }
+
+        return (
+            <div className="space-y-1">
+                <label className="block text-sm font-medium text-gray-700">{label}</label>
+                <input
+                    type={schema.type === 'number' ? 'number' : 'text'}
+                    value={value || ''}
+                    onChange={(e) => onChange(schema.type === 'number' ? Number(e.target.value) : e.target.value)}
+                    className="w-full px-3 py-2 border rounded-md"
+                />
+            </div>
+        );
+    }
+
+    function DynamicForm({ schema, example, onSubmit }) {
+        const [formData, setFormData] = useState(example || {});
+        const [loading, setLoading] = useState(false);
+        const [response, setResponse] = useState(null);
+
+        const handleSubmit = async (e) => {
+            e.preventDefault();
+            setLoading(true);
+            try {
+                const result = await onSubmit(formData);
+                setResponse(result);
+            } catch (error) {
+                setResponse({ error: error.message });
+            }
+            setLoading(false);
+        };
+
+        return (
+            <form onSubmit={handleSubmit} className="space-y-6">
+                {Object.entries(schema.properties).map(([name, property]) => (
+                    <FormField
+                        key={name}
+                        name={name}
+                        schema={property}
+                        value={formData[name]}
+                        onChange={(newValue) => setFormData({ ...formData, [name]: newValue })}
+                    />
+                ))}
+
+                {response && (
+                    <div className="mt-4">
+                        <h3 className="font-semibold mb-2">Response:</h3>
+                        <pre className="p-4 rounded-md bg-gray-50 overflow-auto max-h-64 text-sm">
+                            {JSON.stringify(response, null, 2)}
+                        </pre>
+                    </div>
+                )}
+
+                <button
+                    type="submit"
+                    disabled={loading}
+                    className={`w-full py-2 px-4 rounded-md text-white font-medium
+                        ${loading ? 'bg-blue-400 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700'}`}
+                >
+                    {loading ? 'Sending...' : 'Send Request'}
+                </button>
+            </form>
+        );
+    }
+    
+function CapabilityCard({ capability }) {
+    if (!capability?.skill_path) return null;
+    
+    return (
+        <div className="bg-white p-4 rounded-lg shadow-sm border hover:shadow-md transition-shadow">
+            <div className="flex flex-wrap gap-2 items-center">
+                <div className="flex items-center gap-2">
+                    {capability.skill_path.map((skill, index) => (
+                        <React.Fragment key={index}>
+                            <span className="px-2 py-1 bg-purple-100 text-purple-800 rounded-full text-sm font-medium">
+                                {skill}
+                            </span>
+                            {index < capability.skill_path.length - 1 && 
+                                <span className="text-purple-400">→</span>
+                            }
+                        </React.Fragment>
+                    ))}
+                </div>
+                {capability.metadata && (
+                    <div className="flex-1 flex flex-wrap gap-1.5 ml-2">
+                        {Object.entries(capability.metadata).map(([key, value]) => (
+                            Array.isArray(value) ? (
+                                value.map((item, i) => (
+                                    <span key={`${key}-${i}`} 
+                                          className="px-2 py-0.5 bg-gray-100 text-gray-800 rounded-full text-xs">
+                                        {item}
+                                    </span>
+                                ))
+                            ) : (
+                                <span key={key} 
+                                      className="px-2 py-0.5 bg-green-100 text-green-800 rounded-full text-xs">
+                                    {value}
+                                </span>
+                            )
+                        ))}
+                    </div>
+                )}
+            </div>
+        </div>
+    );
+}
+
+
+    function ActionCard({ action, onSelect }) {
+        const [showEndpoint, setShowEndpoint] = useState(false);
+
+        return (
+            <div className="bg-white p-6 rounded-lg shadow-sm border hover:shadow-md transition-shadow">
+                <div className="flex justify-between items-start mb-4">
+                    <div>
+                        <h3 className="text-lg font-semibold mb-2">{action.name}</h3>
+                        <p className="text-gray-600 text-sm">{action.description}</p>
+                    </div>
+                    <Badge variant={action.actionType === 'talk' ? 'default' : 'success'}>
+                        {action.actionType}
+                    </Badge>
+                </div>
+                <div 
+                    className="flex items-center text-sm text-gray-500 mb-4 cursor-pointer hover:text-blue-600"
+                    onMouseEnter={() => setShowEndpoint(true)}
+                    onMouseLeave={() => setShowEndpoint(false)}
+                    onClick={() => setShowEndpoint(!showEndpoint)}
+                >
+                    <Badge variant="gray">HTTP API</Badge>
+                    {showEndpoint && (
+                        <div className="ml-2 fade-in">
+                            <code className="bg-gray-50 px-2 py-1 rounded">{action.path}</code>
+                            <span className="mx-2">•</span>
+                            <code className="bg-gray-50 px-2 py-1 rounded">{action.method}</code>
                         </div>
                     )}
-
-                    <button
-                        type="submit"
-                        disabled={loading}
-                        className={`w-full py-2 px-4 rounded-md text-white font-medium
-                            ${loading 
-                                ? 'bg-blue-400 cursor-not-allowed' 
-                                : 'bg-blue-600 hover:bg-blue-700'
-                            }`}
-                    >
-                        {loading ? 'Sending...' : 'Send Request'}
-                    </button>
-                </form>
-            );
-        }
-
-        function ActionCard({ action, onSelect }) {
-            return (
-                <div className="bg-white p-6 rounded-lg shadow-sm border hover:shadow-md transition-shadow">
-                    <div className="flex justify-between items-start mb-4">
-                        <div>
-                            <h3 className="text-lg font-semibold mb-2">{action.name}</h3>
-                            <p className="text-gray-600 text-sm">{action.description}</p>
-                        </div>
-                        <Badge variant={action.actionType === 'talk' ? 'default' : 'success'}>
-                            {action.actionType}
-                        </Badge>
-                    </div>
-                    <div className="flex items-center text-sm text-gray-500 mb-4">
-                        <code className="bg-gray-50 px-2 py-1 rounded">{action.path}</code>
-                        <span className="mx-2">•</span>
-                        <code className="bg-gray-50 px-2 py-1 rounded">{action.method}</code>
-                    </div>
-                    <button
-                        onClick={() => onSelect(action)}
-                        className="w-full mt-2 px-4 py-2 text-blue-600 border border-blue-600 rounded-md
-                            hover:bg-blue-50 transition-colors font-medium"
-                    >
-                        Try It
-                    </button>
                 </div>
-            );
-        }
+                <button
+                    onClick={() => onSelect(action)}
+                    className="w-full mt-2 px-4 py-2 text-blue-600 border border-blue-600 rounded-md
+                        hover:bg-blue-50 transition-colors font-medium"
+                >
+                    Try It
+                </button>
+            </div>
+        );
+    }
 
-        function Modal({ isOpen, onClose, title, children }) {
-            if (!isOpen) return null;
+    function Modal({ isOpen, onClose, title, children }) {
+        if (!isOpen) return null;
 
-            return (
-                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 fade-in">
-                    <div className="bg-white rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-                        <div className="flex justify-between items-center p-6 border-b">
-                            <h2 className="text-xl font-semibold">{title}</h2>
-                            <button
-                                onClick={onClose}
-                                className="text-gray-400 hover:text-gray-600 text-2xl leading-none"
-                            >
-                                ×
-                            </button>
-                        </div>
-                        <div className="p-6">
-                            {children}
-                        </div>
-                    </div>
-                </div>
-            );
-        }
-
-        function AgentDashboard() {
-            const [agentData, setAgentData] = useState(null);
-            const [selectedAction, setSelectedAction] = useState(null);
-            const [isModalOpen, setIsModalOpen] = useState(false);
-            const [error, setError] = useState(null);
-
-            useEffect(() => {
-                const loadAgentData = async () => {
-                    try {
-                        const registryRes = await fetch('/agents.json');
-                        if (!registryRes.ok) throw new Error('Failed to fetch agents registry');
-                        const registry = await registryRes.json();
-                        
-                        const currentPath = window.location.pathname;
-                        const currentAgent = registry.agents?.find(
-                            agent => currentPath === new URL(agent.dashboardUrl).pathname
-                        );
-                        
-                        if (!currentAgent) {
-                            throw new Error('Agent not found in registry');
-                        }
-
-                        const manifestRes = await fetch(currentAgent.manifestUrl);
-                        if (!manifestRes.ok) throw new Error('Failed to fetch agent manifest');
-                        const agentData = await manifestRes.json();
-                        setAgentData(agentData);
-                    } catch (error) {
-                        setError(error.message);
-                        console.error('Failed to load agent data:', error);
-                    }
-                };
-
-                loadAgentData();
-            }, []);
-
-            const handleActionSelect = (action) => {
-                setSelectedAction(action);
-                setIsModalOpen(true);
-            };
-
-            const handleSubmit = async (formData) => {
-                const url = `${agentData.baseUrl}${selectedAction.path}`;
-                const response = await fetch(url, {
-                    method: selectedAction.method,
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Accept': 'application/json',
-                    },
-                    body: JSON.stringify(formData),
-                });
-
-                const responseData = await response.json();
-                if (!response.ok) {
-                    throw new Error(responseData.detail || 'Request failed');
-                }
-                return responseData;
-            };
-
-            if (error) {
-                return (
-                    <div className="min-h-screen flex items-center justify-center">
-                        <div className="text-red-600">Error: {error}</div>
-                    </div>
-                );
-            }
-
-            if (!agentData) {
-                return (
-                    <div className="min-h-screen flex items-center justify-center">
-                        <div className="text-gray-600">Loading agent data...</div>
-                    </div>
-                );
-            }
-
-            return (
-                <div className="min-h-screen bg-gray-50 py-12">
-                    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-                        <header className="text-center mb-12">
-                            <div className="flex justify-center gap-2 mb-4">
-                                <Badge variant="purple">v{agentData.version}</Badge>
-                                <Badge variant="gray">{agentData.slug}</Badge>
-                            </div>
-                            <h1 className="text-4xl font-bold text-gray-900 mb-4">{agentData.name}</h1>
-                            <p className="text-xl text-gray-600 max-w-3xl mx-auto">{agentData.description}</p>
-                        </header>
-
-                        <section className="mb-12">
-                            <h2 className="text-2xl font-bold mb-6">Capabilities</h2>
-                            <div className="flex flex-wrap gap-2">
-                                {agentData.capabilities?.map((cap, index) => (
-                                    <div key={index} className="flex items-center gap-2">
-                                        <Badge>
-                                            {cap.skillPath ? cap.skillPath.join(' > ') : 'Unknown Skill'}
-                                        </Badge>
-                                        {cap.metaInfo?.expertise && (
-                                            <Badge variant="success">
-                                                {cap.metaInfo.expertise}
-                                            </Badge>
-                                        )}
-                                    </div>
-                                ))}
-                            </div>
-                        </section>
-
-                        <section>
-                            <h2 className="text-2xl font-bold mb-6">Actions</h2>
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                {agentData.actions?.map((action, index) => (
-                                    <ActionCard
-                                        key={index}
-                                        action={action}
-                                        onSelect={handleActionSelect}
-                                    />
-                                ))}
-                            </div>
-                        </section>
-
-                        <Modal
-                            isOpen={isModalOpen}
-                            onClose={() => setIsModalOpen(false)}
-                            title={selectedAction?.name}
+        return (
+            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 fade-in">
+                <div className="bg-white rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+                    <div className="sticky top-0 bg-white rounded-t-lg border-b p-4 flex justify-between items-center z-10">
+                        <h2 className="text-xl font-semibold">{title}</h2>
+                        <button
+                            onClick={onClose}
+                            className="text-gray-400 hover:text-gray-600 text-2xl leading-none"
                         >
-                            {selectedAction && (
-                                <div className="space-y-6">
-                                    <p className="text-gray-600">{selectedAction.description}</p>
-                                    <DynamicForm 
-                                        schema={selectedAction.inputSchema}
-                                        example={selectedAction.examples?.validRequests[0]}
-                                        onSubmit={handleSubmit}
-                                    />
-                                </div>
-                            )}
-                        </Modal>
+                            ×
+                        </button>
+                    </div>
+                    <div className="p-6">
+                        {children}
                     </div>
                 </div>
+            </div>
+        );
+    }
+
+    function AgentDashboard() {
+        const [agentData, setAgentData] = useState(null);
+        const [selectedAction, setSelectedAction] = useState(null);
+        const [isModalOpen, setIsModalOpen] = useState(false);
+        const [error, setError] = useState(null);
+
+        useEffect(() => {
+            const loadAgentData = async () => {
+                try {
+                    const registryRes = await fetch('/agents.json');
+                    if (!registryRes.ok) throw new Error('Failed to fetch agents registry');
+                    const registry = await registryRes.json();
+                    
+                    // Get the pathname from current URL and extract agent name
+                    const pathname = window.location.pathname;
+                    const agentPath = pathname.split('/').pop(); // Gets last segment of path
+                    
+                    const currentAgent = registry.agents?.find(
+                        agent => agent.slug === agentPath
+                    );
+                    
+                    if (!currentAgent) {
+                        throw new Error('Agent not found in registry');
+                    }
+
+                    const manifestRes = await fetch(currentAgent.manifestUrl);
+                    if (!manifestRes.ok) throw new Error('Failed to fetch agent manifest');
+                    const agentData = await manifestRes.json();
+                    setAgentData(agentData);
+                } catch (error) {
+                    setError(error.message);
+                    console.error('Failed to load agent data:', error);
+                }
+            };
+            loadAgentData();
+        }, []);
+
+        const handleActionSelect = (action) => {
+            setSelectedAction(action);
+            setIsModalOpen(true);
+        };
+
+        const handleSubmit = async (formData) => {
+            const url = `${agentData.baseUrl}${selectedAction.path}`;
+            const response = await fetch(url, {
+                method: selectedAction.method,
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json',
+                },
+                body: JSON.stringify(formData),
+            });
+            const responseData = await response.json();
+            if (!response.ok) {
+                throw new Error(responseData.detail || 'Request failed');
+            }
+            return responseData;
+        };
+
+        if (error) {
+            return (
+                <div className="min-h-screen flex items-center justify-center">
+                    <div className="text-red-600">Error: {error}</div>
+                </div>
             );
+        }
+
+         if (!agentData) {
+            return (
+              <div className="min-h-screen flex items-center justify-center">
+                <div className="text-gray-600">Loading agent data...</div>
+              </div>
+            );
+          }
+
+          return (
+            <div className="min-h-screen bg-gray-50 py-12">
+              <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                <header className="text-center mb-12">
+                  <div className="flex justify-center gap-2 mb-4">
+                    <Badge variant="purple">v{agentData.version}</Badge>
+                    <Badge variant="gray">{agentData.slug}</Badge>
+                  </div>
+                  <h1 className="text-4xl font-bold text-gray-900 mb-4">{agentData.name}</h1>
+                  <p className="text-xl text-gray-600 max-w-3xl mx-auto">{agentData.description}</p>
+                </header>
+                <section className="mb-12">
+                    <h2 className="text-2xl font-bold mb-6">Capabilities</h2>
+                    <div className="flex flex-col gap-3">
+                        {agentData.capabilities?.map((capability, index) => (
+                            <CapabilityCard key={index} capability={capability} />
+                        ))}
+                    </div>
+                </section>
+                <section>
+                  <h2 className="text-2xl font-bold mb-6">Actions</h2>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    {agentData.actions?.map((action, index) => (
+                      <ActionCard key={index} action={action} onSelect={handleActionSelect} />
+                    ))}
+                  </div>
+                </section>
+                <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title={selectedAction?.name}>
+                  {selectedAction && (
+                    <div className="space-y-6">
+                      <p className="text-gray-600">{selectedAction.description}</p>
+                      <DynamicForm
+                        schema={selectedAction.inputSchema}
+                        example={selectedAction.examples?.validRequests[0]}
+                        onSubmit={handleSubmit}
+                      />
+                    </div>
+                  )}
+                </Modal>
+              </div>
+            </div>
+          );
         }
 
         const root = ReactDOM.createRoot(document.getElementById('root'));
