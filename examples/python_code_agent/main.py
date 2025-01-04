@@ -13,6 +13,7 @@ from manifest_generator import setup_agent_routes
 # Import and Mount agent apps
 from code_agent import agent_app as code_agent_app
 from rag_agent import rag_app
+from flight_agent import flight_app
 
 app = FastAPI()
 # Set all CORS enabled origins
@@ -24,13 +25,12 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-
-app.mount("/v1", code_agent_app, name="code_agent")
-app.mount("/v1", rag_app, name="rag_agent")
+app.mount("/v1/code_agent", code_agent_app, name="code_agent")
+app.mount("/v1/rag_agent", rag_app, name="rag_agent")
+app.mount("/v1/flight_agent", flight_app, name="flight_agent")
 
 # Set up the agents.json endpoint and other routes
 setup_agent_routes(app)
-
 
 if __name__ == "__main__":
     import uvicorn
