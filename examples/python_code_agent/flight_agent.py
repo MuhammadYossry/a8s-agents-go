@@ -117,6 +117,7 @@ flight_app = configure_agent(
     action_type=ActionType.GENERATE,
     name="Search Flights",
     description="Search for available flights based on criteria",
+    response_template_md="templates/sample_test.md",
     schema_definitions={
         "FlightDetails": FlightDetails,
         "FlightSearchInput": FlightSearchInput

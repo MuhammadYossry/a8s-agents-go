@@ -3,6 +3,7 @@ from typing import List, Dict, Any, Optional, Type, Callable, Union
 from pydantic import BaseModel
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import HTMLResponse
+from jinja2 import Environment, FileSystemLoader
 import inspect
 from enum import Enum
 from pathlib import Path
@@ -15,6 +16,37 @@ def slugify(text: str) -> str:
     text = re.sub(r'[-\s]+', '-', text)
     return text.strip('-')
 
+def get_action_context(endpoint_info, agent_slug: str, action_slug: str) -> dict:
+    """Generate template context from endpoint info"""
+    input_schema = endpoint_info.input_model.model_json_schema()
+    output_schema = endpoint_info.output_model.model_json_schema()
+    
+    context = {
+        "action": {
+            "name": endpoint_info.metadata.name,
+            "description": endpoint_info.metadata.description,
+            "actionType": endpoint_info.metadata.action_type.value,
+            "path": endpoint_info.route_path,
+            "method": "POST",
+            "inputSchema": input_schema,
+            "outputSchema": output_schema,
+            "slug": action_slug,
+            "isMDResponseEnabled": endpoint_info.metadata.response_template_md is not None
+        },
+        "agent_slug": agent_slug,
+        "action_slug": action_slug
+    }
+
+    if endpoint_info.examples:
+        context["action"]["examples"] = endpoint_info.examples
+        
+    if endpoint_info.metadata.response_template_md:
+        template_path = Path(endpoint_info.metadata.response_template_md)
+        if template_path.exists():
+            context["action"]["responseTemplateMD"] = template_path.read_text()
+
+    return context
+
 class Capability(BaseModel):
     """Simplified capability definition."""
     skill_path: List[str]
@@ -26,10 +58,10 @@ class ActionType(str, Enum):
     GENERATE = "generate"
 
 class ActionMetadata(BaseModel):
-    """Metadata for agent actions."""
     action_type: ActionType
     name: str
     description: str
+    response_template_md: Optional[str] = None
 
 class ActionEndpointInfo(BaseModel):
     """Information about an action endpoint."""
@@ -39,6 +71,19 @@ class ActionEndpointInfo(BaseModel):
     schema_definitions: Optional[Dict[str, Type[BaseModel]]] = None
     examples: Optional[Dict[str, List[Dict[str, Any]]]] = None
     route_path: str
+
+class ActionContext(BaseModel):
+    name: str
+    description: str 
+    action_type: str
+    agent_slug: str
+    action_slug: str
+    input_schema: Dict[str, Any]
+    output_schema: Dict[str, Any]
+    route_path: str
+    response_template_md: str = None
+    examples: Dict[str, Any] = None
+
 
 import logging
 
@@ -59,8 +104,7 @@ class AgentRegistry:
         logger.debug(f"Registry initialized with slug: {self.slug}")
 
     def _format_action_endpoint(self, info: ActionEndpointInfo) -> Dict[str, Any]:
-        """Format endpoint info for output."""
-        return {
+        endpoint_data = {
             "name": info.metadata.name,
             "slug": slugify(info.metadata.name),
             "actionType": info.metadata.action_type,
@@ -69,8 +113,19 @@ class AgentRegistry:
             "inputSchema": self._extract_schema(info.input_model),
             "outputSchema": self._extract_schema(info.output_model),
             "examples": info.examples or {"validRequests": []},
-            "description": info.metadata.description
+            "description": info.metadata.description,
+            "isMDResponseEnabled": info.metadata.response_template_md is not None
         }
+        if info.metadata.response_template_md:
+            try:
+                template_path = Path(__file__).parent / info.metadata.response_template_md
+                if template_path.exists():
+                    template_content = template_path.read_text()
+                    endpoint_data["responseTemplateMD"] = template_content
+                    info.metadata.response_template_content = template_content
+            except Exception as e:
+                logger.warning(f"Failed to read template {info.metadata.response_template_md}: {e}")
+        return endpoint_data
 
     def _extract_schema(self, model: Type[BaseModel]) -> Dict[str, Any]:
         """Extract schema from model and process all references."""
@@ -177,13 +232,11 @@ def agent_action(
     action_type: ActionType,
     name: str,
     description: str,
+    response_template_md: Optional[str] = None,
     schema_definitions: Optional[Dict[str, Type[BaseModel]]] = None,
     examples: Optional[Dict[str, List[Dict[str, Any]]]] = None
 ) -> Callable:
-    """Enhanced agent_action decorator with better debugging"""
     def decorator(func: Callable) -> Callable:
-        logger.debug(f"Decorating function {func.__name__} as agent action: {name}")
-        # Get input/output models from function signature
         sig = inspect.signature(func)
         input_model = next(
             (param.annotation for param in sig.parameters.values() 
@@ -195,40 +248,42 @@ def agent_action(
             if hasattr(func.__annotations__.get('return', None), '__origin__')
             else func.__annotations__.get('return')
         )
-        if not input_model or not output_model:
-            logger.error(f"Missing type annotations for {func.__name__}")
-            raise ValueError(
-                f"Both input and output models must be Pydantic models for {func.__name__}"
-            )
-        logger.debug(f"Action {name} input model: {input_model.__name__}")
-        logger.debug(f"Action {name} output model: {output_model.__name__}")
 
         endpoint_info = ActionEndpointInfo(
             metadata=ActionMetadata(
                 action_type=action_type,
                 name=name,
-                description=description
+                description=description,
+                response_template_md=response_template_md
             ),
             input_model=input_model,
             output_model=output_model,
             schema_definitions=schema_definitions,
             examples=examples,
-            route_path=""  # Will be set during route registration
+            route_path=""
         )
-
-        # Store the endpoint info in the function
-        func._endpoint_info = endpoint_info
-        logger.debug(f"Attached endpoint info to {func.__name__}")
 
         @wraps(func)
         async def wrapper(*args, **kwargs):
-            logger.debug(f"Executing agent action: {name}")
-            return await func(*args, **kwargs)
-
+            markdown = kwargs.pop('markdown', False)
+            result = await func(*args, **kwargs)
+            
+            if markdown and endpoint_info.metadata.response_template_md:
+                if not isinstance(result, dict):
+                    result = result.model_dump()
+                
+                template_path = Path(endpoint_info.metadata.response_template_md)
+                if template_path.exists():
+                    template_content = template_path.read_text()
+                    from jinja2 import Template
+                    rendered = Template(template_content).render(**result)
+                    return Response(content=rendered, media_type="text/markdown")
+            
+            return result
+            
         wrapper._endpoint_info = endpoint_info
         return wrapper
     return decorator
-
 def setup_agent_routes(app: FastAPI) -> None:
     """Enhanced setup_agent_routes with better debugging"""
     logger.debug("Setting up agent routes")
@@ -296,17 +351,46 @@ def setup_agent_routes(app: FastAPI) -> None:
             raise HTTPException(status_code=404, detail="Agents dashboard template not found")
 
     # Set up individual agent endpoints
-    for slug, registry in agent_registries.items():
+    for agent_slug, registry in agent_registries.items():
         # Add manifest endpoint
-        @app.get(f"/agents/{slug}.json")
+        @app.get(f"/agents/{agent_slug}.json")
         async def get_agent_manifest(reg=registry):
             return reg.generate_manifest()
 
         # Add dashboard endpoint
-        @app.get(f"/agents/{slug}", response_class=HTMLResponse)
+        @app.get(f"/agents/{agent_slug}", response_class=HTMLResponse)
         async def get_agent_dashboard(reg=registry):
             try:
                 template_path = templates_dir / "agent.html"
                 return template_path.read_text()
             except Exception as e:
                 raise HTTPException(status_code=404, detail="Agent dashboard template not found")
+
+
+        for route_path, endpoint_info in registry.action_endpoints.items():
+            action_slug = slugify(endpoint_info.metadata.name)
+            
+            @app.get(f"/agents/{agent_slug}/actions/{action_slug}", response_class=HTMLResponse)
+            async def get_agent_action_page(
+                agent_slug=agent_slug, 
+                action_slug=action_slug,
+                reg=registry,
+                endpoint_info=endpoint_info
+            ):
+                try:
+                    templates_dir = Path(__file__).parent / "templates"
+                    env = Environment(
+                        loader=FileSystemLoader(templates_dir),
+                        autoescape=True
+                    )
+                    
+                    template = env.get_template("agent_action.html")
+                    context = get_action_context(endpoint_info, agent_slug, action_slug)
+                    
+                    return template.render(**context)
+                    
+                except Exception as e:
+                    raise HTTPException(
+                        status_code=404,
+                        detail=f"Error rendering action page: {str(e)}"
+                    )

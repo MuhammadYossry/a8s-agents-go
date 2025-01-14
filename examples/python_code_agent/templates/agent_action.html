@@ -1,0 +1,664 @@
+<!-- templates/agent_action.html -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ action.name }} - Agent Action</title>
+    <script src="https://unpkg.com/react@18.2.0/umd/react.production.min.js"></script>
+    <script src="https://unpkg.com/react-dom@18.2.0/umd/react-dom.production.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        // Inject server-side data into window object
+        window.ACTION_DATA = {{ action | tojson | safe }};
+        window.AGENT_SLUG = "{{ agent_slug }}";
+        window.ACTION_SLUG = "{{ action_slug }}";
+    </script>
+</head>
+<body class="bg-gray-50">
+    <div id="root"></div>
+    <script>
+        // agent_action.html inline script
+        // Basic Components
+        const Badge = ({ children, variant = 'default' }) => {
+          const styles = {
+            default: 'bg-blue-100 text-blue-800',
+            success: 'bg-green-100 text-green-800',
+            error: 'bg-red-100 text-red-800',
+          };
+          
+          return React.createElement('span', {
+            className: `px-2 py-1 rounded-full text-sm font-medium ${styles[variant]}`
+          }, children);
+        };
+
+        const Breadcrumb = ({ agent, actionName }) => {
+          return React.createElement('nav', { 
+            className: 'mb-6'
+          },
+            React.createElement('ol', { 
+              className: 'flex space-x-2 text-sm text-gray-600' 
+            }, [
+              { text: 'Home', href: '/' },
+              { text: 'Agents', href: '/agents' },
+              { text: agent?.name, href: `/agents/${agent?.slug}` },
+              { text: actionName }
+            ].map((item, idx, arr) => 
+              React.createElement('li', { 
+                key: idx,
+                className: 'flex items-center'
+              },
+                idx > 0 && React.createElement('span', { 
+                  className: 'mx-2 text-gray-400'
+                }, '/'),
+                idx === arr.length - 1
+                  ? React.createElement('span', { 
+                      className: 'text-gray-900' 
+                    }, item.text)
+                  : React.createElement('a', { 
+                      href: item.href,
+                      className: 'hover:text-blue-600 transition-colors'
+                    }, item.text)
+              )
+            ))
+          );
+        };
+
+        // 1. Form Validation Helpers
+        const ValidationMessages = {
+          required: field => `${field} is required`,
+          minLength: (field, min) => `${field} must be at least ${min} characters`,
+          maxLength: (field, max) => `${field} must be less than ${max} characters`,
+          pattern: field => `${field} format is invalid`,
+          min: (field, min) => `${field} must be greater than ${min}`,
+          max: (field, max) => `${field} must be less than ${max}`
+        };
+
+        const validateField = (value, schema, fieldName) => {
+          const errors = [];
+          
+          if (schema.required && !value && value !== false && value !== 0) {
+            errors.push(ValidationMessages.required(fieldName));
+          }
+
+          if (value) {
+            if (schema.minLength && String(value).length < schema.minLength) {
+              errors.push(ValidationMessages.minLength(fieldName, schema.minLength));
+            }
+            if (schema.maxLength && String(value).length > schema.maxLength) {
+              errors.push(ValidationMessages.maxLength(fieldName, schema.maxLength));
+            }
+            if (schema.pattern && !new RegExp(schema.pattern).test(value)) {
+              errors.push(ValidationMessages.pattern(fieldName));
+            }
+            if (schema.minimum && Number(value) < schema.minimum) {
+              errors.push(ValidationMessages.min(fieldName, schema.minimum));
+            }
+            if (schema.maximum && Number(value) > schema.maximum) {
+              errors.push(ValidationMessages.max(fieldName, schema.maximum));
+            }
+          }
+
+          return errors;
+        };
+
+        // 2. Enhanced FormField with Array Support
+       const ArrayField = ({ name, schema, value = [], onChange, error }) => {
+        const emptyState = React.createElement('div', {
+          className: 'text-center p-4 bg-gray-50 rounded-md text-gray-500'
+        }, 'No items added yet. Click "Add Item" to start.');
+
+        const resolveItemSchema = (itemSchema) => {
+          if (itemSchema.$ref) {
+            const refPath = itemSchema.$ref.split('/');
+            const defName = refPath[refPath.length - 1];
+            return window.ACTION_DATA.inputSchema.$defs[defName];
+          }
+          return itemSchema;
+        };
+
+        const getDefaultValue = (itemSchema) => {
+          const resolvedSchema = resolveItemSchema(itemSchema);
+          if (resolvedSchema.type === 'object') {
+            const defaults = {};
+            Object.entries(resolvedSchema.properties || {}).forEach(([key, prop]) => {
+              defaults[key] = prop.default !== undefined ? prop.default : '';
+            });
+            return defaults;
+          }
+          return resolvedSchema.type === 'string' ? '' : null;
+        };
+
+        const addItem = () => {
+          const resolvedSchema = resolveItemSchema(schema.items);
+          const newItem = getDefaultValue(resolvedSchema);
+          onChange([...value, newItem]);
+        };
+
+        const removeItem = (index) => {
+          onChange(value.filter((_, i) => i !== index));
+        };
+
+        const updateItem = (index, newValue) => {
+          const newArray = [...value];
+          newArray[index] = newValue;
+          onChange(newArray);
+        };
+
+        // Resolve the item schema for proper rendering
+        const resolvedItemSchema = resolveItemSchema(schema.items);
+
+        return React.createElement('div', { className: 'space-y-4' },
+          React.createElement('div', { className: 'flex justify-between items-center' },
+            React.createElement('div', { className: 'flex flex-col' },
+              React.createElement('label', {
+                className: 'text-sm font-medium text-gray-700'
+              }, schema.title || name),
+              schema.description && React.createElement('span', {
+                className: 'text-xs text-gray-500 mt-1'
+              }, schema.description)
+            ),
+            React.createElement('button', {
+              type: 'button',
+              onClick: addItem,
+              className: 'px-3 py-1 text-sm bg-blue-50 text-blue-600 rounded-md hover:bg-blue-100 flex items-center gap-1'
+            },
+              React.createElement('span', null, '+'),
+              `Add ${schema.items.title || 'Item'}`
+            )
+          ),
+          React.createElement('div', {
+            className: 'space-y-2'
+          },
+            value.map((item, index) => 
+              React.createElement('div', {
+                key: index,
+                className: 'group flex items-start gap-2 p-3 bg-gray-50 rounded-md hover:bg-gray-100 transition-colors'
+              },
+                React.createElement('div', { 
+                  className: 'flex-1'
+                },
+                  React.createElement('div', {
+                    className: 'flex items-center gap-2 mb-2'
+                  },
+                    React.createElement('span', {
+                      className: 'text-xs font-medium text-gray-500'
+                    }, `${schema.items.title || 'Item'} ${index + 1}`),
+                    React.createElement('div', { className: 'flex-1 border-b border-gray-200' })
+                  ),
+                  React.createElement(FormField, {
+                    name: `${name}[${index}]`,
+                    schema: resolvedItemSchema,
+                    value: item,
+                    onChange: (newValue) => updateItem(index, newValue)
+                  })
+                ),
+                React.createElement('button', {
+                  type: 'button',
+                  onClick: () => removeItem(index),
+                  className: 'p-2 text-gray-400 hover:text-red-500 rounded group-hover:opacity-100 opacity-0 transition-opacity'
+                },
+                  React.createElement('svg', {
+                    className: 'w-4 h-4',
+                    viewBox: '0 0 24 24',
+                    fill: 'none',
+                    stroke: 'currentColor'
+                  },
+                    React.createElement('path', {
+                      strokeLinecap: 'round',
+                      strokeLinejoin: 'round',
+                      strokeWidth: 2,
+                      d: 'M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16'
+                    })
+                  )
+                )
+              )
+            ),
+            value.length === 0 && emptyState
+          ),
+          error && React.createElement('p', {
+            className: 'text-sm text-red-500 mt-1'
+          }, error)
+        );
+};
+        // Add this helper before FormField
+        const resolveSchema = (schema) => {
+          if (schema.anyOf) {
+            const objectSchema = schema.anyOf.find(s => s.type === 'object' || s.$ref);
+            return objectSchema ? resolveSchema(objectSchema) : schema.anyOf[0];
+          }
+          if (schema.$ref) {
+            const refPath = schema.$ref.split('/');
+            const defName = refPath[refPath.length - 1];
+            const resolvedSchema = window.ACTION_DATA.inputSchema.$defs[defName];
+            return resolvedSchema ? { ...resolvedSchema, title: schema.title || resolvedSchema.title } : schema;
+          }
+          return schema;
+        };
+        const ObjectField = ({ name, schema, value, onChange, error }) => {
+        const [isExpanded, setIsExpanded] = React.useState(true);
+        
+        return React.createElement('div', { 
+          className: 'border border-gray-200 rounded-lg p-4 bg-gray-50'
+        },
+          React.createElement('div', {
+            className: 'flex justify-between items-center cursor-pointer mb-4',
+            onClick: () => setIsExpanded(!isExpanded)
+          },
+            React.createElement('div', { className: 'flex items-center gap-2' },
+              React.createElement('h3', {
+                className: 'text-lg font-semibold'
+              }, schema.title || name),
+              schema.required && React.createElement(Badge, {
+                variant: 'error'
+              }, 'Required')
+            ),
+            React.createElement('button', {
+              type: 'button',
+              className: 'p-2 hover:bg-gray-200 rounded-full'
+            }, isExpanded ? '−' : '+')
+          ),
+          isExpanded && React.createElement('div', {
+            className: 'space-y-4'
+          },
+            schema.description && React.createElement('p', {
+              className: 'text-sm text-gray-600 mb-4'
+            }, schema.description),
+            Object.entries(schema.properties || {}).map(([fieldName, fieldSchema]) => 
+              React.createElement('div', {
+                key: fieldName,
+                className: 'p-4 bg-white rounded-md'
+              },
+                React.createElement(FormField, {
+                  name: `${name}.${fieldName}`,
+                  schema: fieldSchema,
+                  value: value[fieldName],
+                  onChange: (fieldValue) => onChange({
+                    ...value,
+                    [fieldName]: fieldValue
+                  }),
+                  error: error?.[fieldName]
+                })
+              )
+            )
+          )
+        );
+      };
+        // 3. Enhanced FormField Component with validation
+        const FormField = ({ name, schema, value, onChange, error }) => {
+          const baseInputStyles = 'w-full px-3 py-2 border rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ' +
+                                 (error ? 'border-red-300' : 'border-gray-300');
+
+           // Resolve schema references first
+          const resolvedSchema = resolveSchema(schema);
+
+          if (resolvedSchema.type === 'object') {
+            return React.createElement(ObjectField, {
+              name,
+              schema: resolvedSchema,
+              value: value || {},
+              onChange,
+              error
+            });
+          }
+          
+          // Handle const fields
+          if (resolvedSchema.const) {
+            return React.createElement('input', {
+              type: 'text',
+              value: resolvedSchema.const,
+              disabled: true,
+              className: baseInputStyles + ' bg-gray-50'
+            });
+          }
+
+          // Handle anyOf fields with null
+          if (resolvedSchema.anyOf && resolvedSchema.anyOf.includes(null)) {
+            // Make field optional
+            resolvedSchema.required = false;
+          }
+
+          if (resolvedSchema.type === 'array') {
+            return React.createElement(ArrayField, {
+              name,
+              schema: resolvedSchema,
+              value: value || [],
+              onChange,
+              error
+            });
+          }
+
+          const commonProps = {
+            id: name,
+            'aria-describedby': error ? `${name}-error` : undefined,
+            className: baseInputStyles
+          };
+
+          const field = (() => {
+            switch (schema.type) {
+              case 'string':
+                if (schema.enum) {
+                  return React.createElement('select', {
+                    ...commonProps,
+                    value: value || '',
+                    onChange: (e) => onChange(e.target.value)
+                  },
+                    React.createElement('option', { value: '' },
+                      `Select ${schema.title || name}...`
+                    ),
+                    schema.enum.map(option =>
+                      React.createElement('option', {
+                        key: option,
+                        value: option
+                      }, option)
+                    )
+                  );
+                }
+                if (schema.format === 'textarea') {
+                  return React.createElement('textarea', {
+                    ...commonProps,
+                    value: value || '',
+                    onChange: (e) => onChange(e.target.value),
+                    rows: 4
+                  });
+                }
+                return React.createElement('input', {
+                  ...commonProps,
+                  type: 'text',
+                  value: value || '',
+                  onChange: (e) => onChange(e.target.value),
+                  placeholder: schema.description
+                });
+
+              case 'number':
+              case 'integer':
+                return React.createElement('input', {
+                  ...commonProps,
+                  type: 'number',
+                  value: value ?? '',
+                  onChange: (e) => onChange(Number(e.target.value)),
+                  min: schema.minimum,
+                  max: schema.maximum,
+                  step: schema.type === 'integer' ? 1 : 'any'
+                });
+
+              case 'boolean':
+                return React.createElement('div', { className: 'flex items-center' },
+                  React.createElement('input', {
+                    type: 'checkbox',
+                    id: name,
+                    checked: !!value,
+                    onChange: (e) => onChange(e.target.checked),
+                    className: 'h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500'
+                  })
+                );
+
+              case 'object':
+                return React.createElement('div', { className: 'space-y-4 p-4 bg-gray-50 rounded-md' },
+                  Object.entries(schema.properties || {}).map(([fieldName, fieldSchema]) =>
+                    React.createElement(FormField, {
+                      key: fieldName,
+                      name: `${name}.${fieldName}`,
+                      schema: fieldSchema,
+                      value: value?.[fieldName],
+                      onChange: (fieldValue) => onChange({ ...value, [fieldName]: fieldValue }),
+                      error: error?.[fieldName]
+                    })
+                  )
+                );
+
+              default:
+                return null;
+            }
+          })();
+
+          return React.createElement('div', { className: 'space-y-1' },
+            React.createElement('label', {
+              htmlFor: name,
+              className: 'block text-sm font-medium text-gray-700'
+            }, schema.title || name),
+            field,
+            error && React.createElement('p', {
+              className: 'text-sm text-red-500 mt-1',
+              id: `${name}-error`
+            }, error),
+            schema.description && React.createElement('p', {
+              className: 'text-sm text-gray-500 mt-1'
+            }, schema.description)
+          );
+        };
+
+        // 4. Loading Spinner Component
+        const LoadingSpinner = () => 
+          React.createElement('div', {
+            className: 'inline-block animate-spin rounded-full border-4 border-solid border-blue-600 border-r-transparent h-8 w-8'
+          });
+
+        const getDefaultValue = (schema) => {
+          if (schema.default !== undefined) return schema.default;
+          if (schema.type === 'array') return [];
+          if (schema.type === 'object') {
+            const defaults = {};
+            Object.entries(schema.properties || {}).forEach(([key, prop]) => {
+              defaults[key] = getDefaultValue(prop);
+            });
+            return defaults;
+          }
+          return null;
+        };
+
+        // 5. Enhanced Action Form with all features
+        const ActionForm = ({ action, onSubmit }) => {
+          const [formData, setFormData] = React.useState(() => {
+            const schema = action.inputSchema;
+            const defaults = {};
+            
+            Object.entries(schema.properties).forEach(([key, prop]) => {
+              if (prop.default !== undefined) {
+                defaults[key] = prop.default;
+              } else if (prop.$ref) {
+                const resolvedSchema = resolveSchema(prop);
+                if (resolvedSchema.type === 'object') {
+                  defaults[key] = {};
+                  Object.entries(resolvedSchema.properties || {}).forEach(([k, p]) => {
+                    defaults[key][k] = p.default !== undefined ? p.default : null;
+                  });
+                }
+              }
+            });
+
+            return {
+              ...defaults,
+              ...(action?.examples?.validRequests[0] || {})
+            };
+          });          const [errors, setErrors] = React.useState({});
+          const [isSubmitting, setIsSubmitting] = React.useState(false);
+          const [response, setResponse] = React.useState(null);
+
+          const validateForm = () => {
+            const newErrors = {};
+            const validateObject = (obj, schema, path = '') => {
+              Object.entries(schema.properties || {}).forEach(([key, fieldSchema]) => {
+                const fieldPath = path ? `${path}.${key}` : key;
+                const value = path ? _.get(obj, fieldPath) : obj[key];
+                
+                const fieldErrors = validateField(value, fieldSchema, fieldSchema.title || key);
+                if (fieldErrors.length > 0) {
+                  newErrors[fieldPath] = fieldErrors[0];
+                }
+
+                if (fieldSchema.type === 'object') {
+                  validateObject(obj, fieldSchema, fieldPath);
+                }
+              });
+            };
+
+            validateObject(formData, action.inputSchema);
+            return newErrors;
+          };
+
+          const handleSubmit = async (e) => {
+            e.preventDefault();
+            const validationErrors = validateForm();
+            
+            if (Object.keys(validationErrors).length > 0) {
+              setErrors(validationErrors);
+              return;
+            }
+
+            setIsSubmitting(true);
+            setErrors({});
+            
+            try {
+              const result = await onSubmit(formData);
+              setResponse(result);
+            } catch (error) {
+              setErrors({ submit: error.message });
+            } finally {
+              setIsSubmitting(false);
+            }
+          };
+
+          return React.createElement('div', { className: 'space-y-6' },
+            React.createElement('form', {
+              onSubmit: handleSubmit,
+              className: 'space-y-6 bg-white p-6 rounded-lg shadow-sm'
+            },
+              Object.entries(action.inputSchema.properties).map(([name, schema]) =>
+                React.createElement(FormField, {
+                  key: name,
+                  name,
+                  schema,
+                  value: formData[name],
+                  onChange: (value) => {
+                    setFormData(prev => ({ ...prev, [name]: value }));
+                    if (errors[name]) {
+                      setErrors(prev => {
+                        const next = { ...prev };
+                        delete next[name];
+                        return next;
+                      });
+                    }
+                  },
+                  error: errors[name]
+                })
+              ),
+              errors.submit && React.createElement('div', {
+                className: 'p-3 bg-red-50 border border-red-200 rounded-md'
+              },
+                React.createElement('p', { className: 'text-sm text-red-600' },
+                  errors.submit
+                )
+              ),
+              React.createElement('button', {
+                type: 'submit',
+                disabled: isSubmitting,
+                className: `w-full py-2 px-4 flex items-center justify-center space-x-2 ${
+                  isSubmitting ? 'bg-blue-400' : 'bg-blue-600 hover:bg-blue-700'
+                } text-white rounded-lg transition-colors`
+              },
+                isSubmitting && React.createElement(LoadingSpinner),
+                React.createElement('span', null,
+                  isSubmitting ? 'Processing...' : 'Submit'
+                )
+              )
+            ),
+            response && React.createElement('div', {
+              className: 'bg-white p-6 rounded-lg shadow-sm'
+            },
+              React.createElement('h3', {
+                className: 'text-lg font-medium mb-4'
+              }, 'Response:'),
+              React.createElement('pre', {
+                className: 'bg-gray-50 p-4 rounded-lg overflow-auto'
+              }, JSON.stringify(response, null, 2))
+            )
+          );
+        };
+
+        function ActionPage() {
+          const actionData = window.ACTION_DATA;
+          const [isSubmitting, setIsSubmitting] = React.useState(false);
+          const [error, setError] = React.useState(null);
+
+          const handleSubmit = async (formData) => {
+            setIsSubmitting(true);
+            try {
+              const response = await fetch(actionData.path, {
+                method: actionData.method,
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(formData)
+              });
+              
+              if (!response.ok) {
+                throw new Error('Request failed');
+              }
+              
+              return response.json();
+            } catch (err) {
+              setError(err.message);
+              throw err;
+            } finally {
+              setIsSubmitting(false);
+            }
+          };
+
+          if (error) {
+            return React.createElement('div', {
+              className: 'min-h-screen flex items-center justify-center'
+            },
+              React.createElement('div', {
+                className: 'bg-red-50 text-red-600 p-4 rounded-lg'
+              }, `Error: ${error}`)
+            );
+          }
+
+          return React.createElement('div', {
+            className: 'min-h-screen bg-gray-50 py-8'
+          },
+            React.createElement('div', {
+              className: 'max-w-3xl mx-auto px-4'
+            },
+              React.createElement(Breadcrumb, {
+                agent: { name: actionData.agentName, slug: window.AGENT_SLUG },
+                actionName: actionData.name
+              }),
+              React.createElement('div', {
+                className: 'space-y-6'
+              },
+                React.createElement('div', {
+                  className: 'bg-white p-6 rounded-lg shadow-sm'
+                },
+                  React.createElement('h1', {
+                    className: 'text-2xl font-bold mb-2'
+                  }, actionData.name),
+                  React.createElement('p', {
+                    className: 'text-gray-600 mb-4'
+                  }, actionData.description),
+                  React.createElement('div', {
+                    className: 'flex items-center gap-2'
+                  },
+                    React.createElement(Badge, {
+                      variant: actionData.actionType === 'talk' ? 'success' : 'default'  
+                    }, actionData.actionType),
+                    React.createElement('code', {
+                      className: 'px-2 py-1 bg-gray-100 rounded text-sm'
+                    }, `${actionData.method} ${actionData.path}`)
+                  )
+                ),
+                React.createElement(ActionForm, {
+                  action: actionData,
+                  onSubmit: handleSubmit,
+                  isSubmitting: isSubmitting
+                })
+              )
+            )
+          );
+        }
+
+        // Mount application
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(React.createElement(ActionPage));
+    </script>
+</body>
+</html>
