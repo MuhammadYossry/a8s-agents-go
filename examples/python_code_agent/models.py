@@ -149,6 +149,24 @@ class ChatOutput(BaseModelCamel):
     suggested_actions: Optional[List[str]] = Field(default_factory=list, description="Suggested next actions")
     timestamp: datetime = Field(default_factory=datetime.now)
 
+class CollectRequirementsOutput(BaseModel):
+    """Output model for requirements collection endpoint."""
+    questionnaire_form: dict = Field(..., description="JSON form structure for the questionnaire")
+    timestamp: datetime = Field(default_factory=datetime.now)
+
+class RequirementsPhase(BaseModel):
+    user_query: str
+    answers: Optional[dict]
+
+class CollectRequirementsInput(BaseModel):
+    message: str
+    history: Optional[List[RequirementsPhase]] = None
+
+# class CollectRequirementsInput(BaseModel):
+#     """Input model for requirements collection endpoint."""
+#     message: str = Field(..., description="User's project description")
+#     context: Optional[str] = Field(None, description="Additional context for requirements gathering")
+
 
 AGENT_CAPABILITIES = [
     Capability(

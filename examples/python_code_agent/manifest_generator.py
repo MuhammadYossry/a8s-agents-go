@@ -56,6 +56,7 @@ class ActionType(str, Enum):
     """Types of actions an agent can perform."""
     TALK = "talk"
     GENERATE = "generate"
+    QUESTION = "question"
 
 class ActionMetadata(BaseModel):
     action_type: ActionType

@@ -7,6 +7,7 @@ from enum import Enum
 from manifest_generator import (
     configure_agent, agent_action, ActionType, Capability
 )
+from llm_client import create_llm_client
 
 class SeatClass(str, Enum):
     """Available seat classes."""
@@ -60,6 +61,43 @@ class BookingOutput(BaseModel):
     seats: List[SeatPreference]
     total_price: float
     booking_time: datetime.datetime
+
+class TravelPreferences(BaseModel):
+    """Travel preferences for planning."""
+    budget_range: str = Field(..., description="Budget range (e.g., 'economy', 'moderate', 'luxury')")
+    interests: List[str] = Field(..., description="List of travel interests")
+    accommodation_type: Optional[str] = Field(None, description="Preferred accommodation type")
+    transportation_mode: Optional[str] = Field(None, description="Preferred mode of transportation")
+    meal_preferences: Optional[str] = Field(None, description="Dietary preferences")
+
+class TravelPlanRequest(BaseModel):
+    """Input for travel plan generation."""
+    origin: str = Field(..., description="Three-letter airport code for origin")
+    destination: str = Field(..., description="Three-letter airport code for destination")
+    start_date: datetime.date = Field(..., description="Start date of travel")
+    end_date: datetime.date = Field(..., description="End date of travel")
+    travelers: int = Field(default=1, ge=1, le=9, description="Number of travelers")
+    preferences: TravelPreferences = Field(..., description="Travel preferences")
+    max_budget: float = Field(..., description="Maximum budget in USD")
+
+class DailyItinerary(BaseModel):
+    """Daily itinerary details."""
+    date: datetime.date
+    activities: List[str]
+    accommodation: str
+    meals: List[str]
+    transportation: str
+    estimated_costs: Dict[str, float]
+
+class TravelPlanResponse(BaseModel):
+    """Output for travel plan generation."""
+    itinerary: List[DailyItinerary]
+    total_cost: float
+    flight_details: FlightDetails
+    recommendations: List[str]
+    weather_notes: Optional[str]
+    local_tips: List[str]
+    emergency_contacts: Dict[str, str]
 
 # Initialize FastAPI app for flight agent
 flight_app = FastAPI()
@@ -140,7 +178,7 @@ async def search_flights(input_data: FlightSearchInput) -> FlightSearchOutput:
         # Simulate flight search from a database or external API
         # In a real implementation, this would connect to actual flight data sources
         start_time = datetime.datetime.now()
-        
+
         # Sample flight data (would come from real data source)
         sample_flights = [
             FlightDetails(
@@ -209,7 +247,7 @@ async def book_flight(
         # Simulate flight booking process
         # In real implementation, this would interact with airline booking systems
         booking_reference = f"BK{datetime.datetime.now().strftime('%Y%m%d%H%M%S')}"
-        
+
         # Simulate flight details retrieval
         flight_details = FlightDetails(
             flight_number=input_data.flight_number,
@@ -234,5 +272,131 @@ async def book_flight(
             total_price=total_price,
             booking_time=datetime.datetime.now()
         )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@flight_app.post("/flight_agent/plan_travel", response_model=TravelPlanResponse)
+@agent_action(
+    action_type=ActionType.GENERATE,
+    name="Plan Travel",
+    description="Generate a comprehensive travel plan with flight, accommodation, and activities",
+    response_template_md="templates/travel_plan.md",
+    schema_definitions={
+        "TravelPlanRequest": TravelPlanRequest,
+        "TravelPlanResponse": TravelPlanResponse,
+        "TravelPreferences": TravelPreferences,
+        "DailyItinerary": DailyItinerary
+    },
+    examples={
+        "validRequests": [
+            {
+                "origin": "SFO",
+                "destination": "TYO",
+                "start_date": "2024-06-15",
+                "end_date": "2024-06-22",
+                "travelers": 2,
+                "preferences": {
+                    "budget_range": "moderate",
+                    "interests": ["culture", "food", "history"],
+                    "accommodation_type": "hotel",
+                    "transportation_mode": "public_transport",
+                    "meal_preferences": "local_cuisine"
+                },
+                "max_budget": 5000.0
+            }
+        ]
+    }
+)
+async def plan_travel(
+    request: TravelPlanRequest,
+    background_tasks: BackgroundTasks
+) -> TravelPlanResponse:
+    """Generate a comprehensive travel plan based on user preferences."""
+    try:
+        # Initialize LLM client
+        llm_client = create_llm_client()
+
+        # Calculate trip duration
+        duration = (request.end_date - request.start_date).days
+
+        # First, get flight details using existing functionality
+        flight_search = await search_flights(
+            FlightSearchInput(
+                origin=request.origin,
+                destination=request.destination,
+                departure_date=request.start_date,
+                passengers=request.travelers,
+                seat_class=SeatClass.ECONOMY if request.preferences.budget_range == "economy"
+                         else SeatClass.BUSINESS if request.preferences.budget_range == "moderate"
+                         else SeatClass.FIRST
+            )
+        )
+
+        # Prepare prompt for LLM to generate detailed itinerary
+        prompt = f"""
+        Create a detailed {duration}-day travel itinerary for {request.travelers} traveler(s):
+
+        Destination: {request.destination}
+        Duration: {duration} days
+        Budget Range: {request.preferences.budget_range}
+        Total Budget: ${request.max_budget}
+        Interests: {', '.join(request.preferences.interests)}
+        Accommodation Preference: {request.preferences.accommodation_type}
+        Transportation Preference: {request.preferences.transportation_mode}
+        Dietary Preferences: {request.preferences.meal_preferences}
+
+        Flight Budget: ${flight_search.flights[0].price if flight_search.flights else 0}
+
+        Please provide:
+        1. Daily itinerary with activities
+        2. Accommodation recommendations
+        3. Local transportation options
+        4. Meal recommendations
+        5. Estimated costs for each day
+        6. Local tips and cultural considerations
+        7. Emergency contact information
+
+        Format the response as a structured JSON matching the TravelPlanResponse schema.
+        """
+
+        # Get travel plan from LLM
+        llm_response = await llm_client.complete(
+            prompt=prompt,
+            system_message="You are an experienced travel planner with extensive knowledge of global destinations. Provide detailed, practical travel plans within budget constraints.",
+            temperature=0.7
+        )
+
+        # Parse LLM response into TravelPlanResponse
+        try:
+            plan_data = json.loads(llm_response.content)
+
+            # Convert dates from strings to date objects
+            for day in plan_data["itinerary"]:
+                day["date"] = datetime.strptime(day["date"], "%Y-%m-%d").date()
+
+            # Create response
+            travel_plan = TravelPlanResponse(
+                itinerary=plan_data["itinerary"],
+                total_cost=plan_data["total_cost"],
+                flight_details=flight_search.flights[0],
+                recommendations=plan_data["recommendations"],
+                weather_notes=plan_data.get("weather_notes"),
+                local_tips=plan_data["local_tips"],
+                emergency_contacts=plan_data["emergency_contacts"]
+            )
+
+            # Add background task for confirmation email
+            background_tasks.add_task(
+                lambda: print(f"Sending travel plan confirmation for {request.destination}")
+            )
+
+            return travel_plan
+
+        except json.JSONDecodeError as e:
+            raise HTTPException(
+                status_code=500,
+                detail=f"Error parsing LLM response: {str(e)}"
+            )
+
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

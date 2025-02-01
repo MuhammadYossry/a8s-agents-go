@@ -21,7 +21,7 @@ class Settings(BaseSettings):
     LLM_BASE_URL: str = "http://localhost:8001"
     LLM_API_KEY: str = "default-key"
     LLM_MODEL: str = "qwen-7b-chat"
-    LLM_TIMEOUT: int = 30
+    LLM_TIMEOUT: int = 300
     LLM_DRY_RUN: bool = False
     
     # Task Extraction Settings
@@ -88,7 +88,7 @@ def handle_llm_errors(func):
     return wrapper
 
 class LLMClient:
-    MAX_RETRIES = 3
+    MAX_RETRIES = 2
     RETRY_STATUSES = {502, 503, 504}
 
     def __init__(
@@ -107,7 +107,7 @@ class LLMClient:
             self.base_url = self.base_url[:-1]
             
         self.http_client = httpx.AsyncClient(
-            timeout=getattr(settings, 'LLM_TIMEOUT', 60.0),
+            timeout=getattr(settings, 'LLM_TIMEOUT', 300.0),
             headers={
                 "Authorization": f"Bearer {self.api_key}",
                 "Content-Type": "application/json"
@@ -176,21 +176,23 @@ class LLMClient:
             # content = self._extract_json_from_markdown(content)
             
             # Parse usage information
-            usage = response_data.get("usage", {})
-            if not usage:
-                usage = {
-                    "prompt_tokens": response_data.get("prompt_tokens", 0),
-                    "completion_tokens": response_data.get("completion_tokens", 0),
-                    "total_tokens": response_data.get("total_tokens", 0)
-                }
+            # usage = response_data.get("usage", {})
+            # if not usage:
+            #     usage = {
+            #         "prompt_tokens": response_data.get("prompt_tokens", 0),
+            #         "completion_tokens": response_data.get("completion_tokens", 0),
+            #         "total_tokens": response_data.get("total_tokens", 0)
+            #     }
             
-            # Remove cache-related fields if present
-            usage.pop("prompt_cache_hit_tokens", None)
-            usage.pop("prompt_cache_miss_tokens", None)
+            # # Remove cache-related fields if present
+            # cleaned_usage = {
+            #     "prompt_tokens": usage.get("prompt_tokens", 0),
+            #     "completion_tokens": usage.get("completion_tokens", 0),
+            #     "total_tokens": usage.get("total_tokens", 0)
+            # }
 
             return LLMResponse(
                 content=content,
-                usage=usage,
                 model=response_data.get("model", self.model)
             )
             
