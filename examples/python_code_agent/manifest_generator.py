@@ -1,6 +1,6 @@
 from functools import wraps
 from typing import List, Dict, Any, Optional, Type, Callable, Union
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import HTMLResponse
 from jinja2 import Environment, FileSystemLoader
@@ -8,6 +8,41 @@ import inspect
 from enum import Enum
 from pathlib import Path
 import re
+
+## Workflow
+class WorkflowStepType(str, Enum):
+    START = "start"
+    ACTION = "action"
+    END = "end"
+
+class WorkflowTransition(BaseModel):
+    target: str
+    condition: Optional[str] = None
+
+class WorkflowStep(BaseModel):
+    id: str
+    type: WorkflowStepType
+    action: Optional[str] = None
+    transitions: List[WorkflowTransition] = Field(default_factory=list)
+
+class WorkflowMetadata(BaseModel):
+   """Workflow-specific metadata for actions."""
+   workflow_id: str
+   step_id: str
+
+class Workflow(BaseModel):
+    id: str
+    name: str
+    description: str
+    steps: List[WorkflowStep]
+    initial_step: str
+
+class AgentWorkflow(BaseModel):
+    """Enhanced agent capabilities with workflow support."""
+    workflows: List[Workflow] = Field(default_factory=list)
+    actions: Dict[str, Dict[str, Any]] = Field(default_factory=dict)
+
+# Actions and manifest generations
 
 def slugify(text: str) -> str:
     """Convert text to URL-safe slug."""
@@ -63,6 +98,8 @@ class ActionMetadata(BaseModel):
     name: str
     description: str
     response_template_md: Optional[str] = None
+    workflow_id: Optional[str] = None  # Reference to workflow if part of one
+    step_id: Optional[str] = None  # Reference to step in workflow
 
 class ActionEndpointInfo(BaseModel):
     """Information about an action endpoint."""
@@ -92,7 +129,7 @@ logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
 
 class AgentRegistry:
-    def __init__(self, base_url: str, name: str, version: str, description: str, capabilities: List[Capability]):
+    def __init__(self, base_url: str, name: str, version: str, description: str, capabilities: List[Capability], workflows: List[Workflow]):
         logger.debug(f"Initializing AgentRegistry for {name}")
         self.base_url = base_url.rstrip('/')
         self.name = name
@@ -102,6 +139,7 @@ class AgentRegistry:
         self.capabilities = capabilities
         self.action_endpoints: Dict[str, ActionEndpointInfo] = {}
         self.schema_definitions: Dict[str, Dict[str, Any]] = {}
+        self.workflows = workflows or []
         logger.debug(f"Registry initialized with slug: {self.slug}")
 
     def _format_action_endpoint(self, info: ActionEndpointInfo) -> Dict[str, Any]:
@@ -192,6 +230,17 @@ class AgentRegistry:
             "capabilities": [cap.model_dump(exclude_none=True) for cap in self.capabilities],
             "actions": actions
         }
+        if self.workflows:
+            manifest["workflows"] = [
+                {
+                    "id": w.id,
+                    "name": w.name,
+                    "description": w.description,
+                    "steps": [step.model_dump() for step in w.steps],
+                    "initial_step": w.initial_step
+                }
+                for w in self.workflows
+            ]
         logger.debug(f"Generated manifest with {len(manifest['actions'])} actions")
         return manifest
 
@@ -205,6 +254,7 @@ def configure_agent(
     version: str,
     description: str,
     capabilities: List[Capability],
+    workflows: List[Workflow] = None,
 ) -> FastAPI:
     """Configure a FastAPI app as an agent.
     Args:
@@ -219,7 +269,7 @@ def configure_agent(
     """
     logger.debug(f"Configuring agent: {name}")
     # Create registry
-    registry = AgentRegistry(base_url, name, version, description, capabilities)
+    registry = AgentRegistry(base_url, name, version, description, capabilities, workflows)
     agent_registries[registry.slug] = registry
 
     # Add registry to app state
@@ -235,7 +285,9 @@ def agent_action(
     description: str,
     response_template_md: Optional[str] = None,
     schema_definitions: Optional[Dict[str, Type[BaseModel]]] = None,
-    examples: Optional[Dict[str, List[Dict[str, Any]]]] = None
+    examples: Optional[Dict[str, List[Dict[str, Any]]]] = None,
+    workflow_id: Optional[str] = None,
+    step_id: Optional[str] = None
 ) -> Callable:
     def decorator(func: Callable) -> Callable:
         sig = inspect.signature(func)
@@ -249,13 +301,19 @@ def agent_action(
             if hasattr(func.__annotations__.get('return', None), '__origin__')
             else func.__annotations__.get('return')
         )
-
+        workflow_meta = None
+        if workflow_id and step_id:
+            workflow_meta = WorkflowMetadata(
+                workflow_id=workflow_id,
+                step_id=step_id
+            )
         endpoint_info = ActionEndpointInfo(
             metadata=ActionMetadata(
                 action_type=action_type,
                 name=name,
                 description=description,
-                response_template_md=response_template_md
+                response_template_md=response_template_md,
+                workflow=workflow_meta
             ),
             input_model=input_model,
             output_model=output_model,
@@ -285,6 +343,7 @@ def agent_action(
         wrapper._endpoint_info = endpoint_info
         return wrapper
     return decorator
+
 def setup_agent_routes(app: FastAPI) -> None:
     """Enhanced setup_agent_routes with better debugging"""
     logger.debug("Setting up agent routes")

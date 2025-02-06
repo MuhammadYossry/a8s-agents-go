@@ -1,0 +1,217 @@
+{
+  "name": "Python Code Assistant V2",
+  "slug": "python-code-assistant-v2",
+  "version": "2.0.0",
+  "type": "external",
+  "description": "Advanced code generation with dynamic forms",
+  "baseUrl": "http://localhost:9200",
+  "metaInfo": {
+
+  },
+  "capabilities": [
+    {
+      "skill_path": [
+        "Development",
+        "Code Generation"
+      ],
+      "metadata": {
+        "version": "2.0",
+        "features": [
+          "dynamic_forms",
+          "context_aware",
+          "session_based"
+        ],
+        "languages": [
+          "Python"
+        ],
+        "frameworks": [
+          "FastAPI",
+          "Django",
+          "Flask"
+        ]
+      }
+    }
+  ],
+  "actions": [
+    {
+      "name": "Initiate Code Generation",
+      "slug": "initiate-code-generation",
+      "actionType": "question",
+      "path": "/v2/code_agent/agents/python-code-assistant/actions/generate-code/initiate",
+      "method": "POST",
+      "inputSchema": {
+        "properties": {
+          "message": {
+            "description": "User's code generation request",
+            "title": "Message",
+            "type": "string"
+          },
+          "context": {
+            "anyOf": [
+              {
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Context"
+          }
+        },
+        "required": [
+          "message"
+        ],
+        "title": "InitiateRequest",
+        "type": "object"
+      },
+      "outputSchema": {
+        "properties": {
+          "session_id": {
+            "title": "Session Id",
+            "type": "string"
+          },
+          "questionnaire_form": {
+            "title": "Questionnaire Form",
+            "type": "object"
+          },
+          "message": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Message"
+          }
+        },
+        "required": [
+          "session_id",
+          "questionnaire_form"
+        ],
+        "title": "InitiateResponse",
+        "type": "object"
+      },
+      "examples": {
+        "validRequests": []
+      },
+      "description": "Start code generation process and get dynamic form",
+      "isMDResponseEnabled": false
+    },
+    {
+      "name": "Execute Code Generation",
+      "slug": "execute-code-generation",
+      "actionType": "generate",
+      "path": "/v2/code_agent/agents/python-code-assistant/actions/generate-code/execute",
+      "method": "POST",
+      "inputSchema": {
+        "properties": {
+          "session_id": {
+            "title": "Session Id",
+            "type": "string"
+          },
+          "form_data": {
+            "title": "Form Data",
+            "type": "object"
+          }
+        },
+        "required": [
+          "session_id",
+          "form_data"
+        ],
+        "title": "ExecuteRequest",
+        "type": "object"
+      },
+      "outputSchema": {
+        "properties": {
+          "generated_code": {
+            "title": "Generated Code",
+            "type": "string"
+          },
+          "documentation": {
+            "title": "Documentation",
+            "type": "string"
+          },
+          "test_cases": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Test Cases"
+          },
+          "metadata": {
+            "anyOf": [
+              {
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Metadata"
+          }
+        },
+        "required": [
+          "generated_code",
+          "documentation"
+        ],
+        "title": "ExecuteResponse",
+        "type": "object"
+      },
+      "examples": {
+        "validRequests": []
+      },
+      "description": "Generate code based on form input",
+      "isMDResponseEnabled": true
+    }
+  ],
+  "workflows": [
+    {
+      "id": "code_generation",
+      "name": "Code Generation Flow",
+      "description": "Multi-step code generation process",
+      "steps": [
+        {
+          "id": "initiate",
+          "type": "start",
+          "action": "initiate_code_generation",
+          "transitions": [
+            {
+              "target": "execute",
+              "condition": null
+            }
+          ]
+        },
+        {
+          "id": "execute",
+          "type": "action",
+          "action": "execute_code_generation",
+          "transitions": [
+            {
+              "target": "end",
+              "condition": null
+            }
+          ]
+        },
+        {
+          "id": "end",
+          "type": "end",
+          "action": null,
+          "transitions": []
+        }
+      ],
+      "initial_step": "initiate"
+    }
+  ]
+}
