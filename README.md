@@ -3,7 +3,7 @@
 # AI Task Routing System
 
 ## Overview
-A production-grade Go implementation of an AI task routing and execution system, designed for high availability, scalability, and reliability. The system efficiently manages and routes AI tasks to appropriate execution endpoints while ensuring robust error handling, monitoring, and performance optimization.
+A Go implementation of an AI task routing and execution system, designed for high availability, scalability, and reliability. The system efficiently manages and routes AI tasks to appropriate execution agents endpoints while ensuring robust error handling, monitoring, and performance optimization. the project is experimental and not productioon ready yet, So for learning purposes more
 
 ### Architecture
 [Architecture](docs/architecture.md)
