@@ -1,15 +1,14 @@
-![alt text](https://pbs.twimg.com/media/GZhrK4IWcAIb949?format=jpg&name=medium)
-
 # AI Task Routing System
 # AgentNexus (a8s)
 
-> ⚠️ **Experimental Project**: This is a research and learning project exploring LLM agents and task routing. Not recommended for production use.
+> ⚠️ **Experimental Project**: This is an experimental learning project exploring LLM agents and task routing. Not recommended for production use.
 
 ## Overview
 
 AgentNexus (a8s) is an experimental Go-based project for routing and orchestrating AI tasks across multiple specialized AI and LLM agents hosted remotly. It demonstrates concepts around AI task distribution, agent collaboration, and dynamic capability matching.
+![alt text](https://pbs.twimg.com/media/GZhrK4IWcAIb949?format=jpg&name=medium)
+![image](https://github.com/user-attachments/assets/55b62a8d-4984-4336-9ff7-f99789a80b51)
 
-![AgentNexus Banner](https://pbs.twimg.com/media/GZhrK4IWcAIb949?format=jpg&name=medium)
 
 ## Key Features
 
