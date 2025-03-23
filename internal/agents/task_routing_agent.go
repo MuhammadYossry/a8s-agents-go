@@ -12,8 +12,8 @@ import (
 
 	// *Error*
 
-	"github.com/Relax-N-Tax/AgentNexus/definationloader"
-	"github.com/Relax-N-Tax/AgentNexus/types"
+	"github.com/MuhammadYossry/a8s-agents-go/definationloader"
+	"github.com/MuhammadYossry/a8s-agents-go/types"
 )
 
 // TaskRoutingAgent determines the most suitable agent and action for a given task

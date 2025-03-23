@@ -5,7 +5,7 @@ import (
 	"context"
 	"sync"
 
-	"github.com/Relax-N-Tax/AgentNexus/types"
+	"github.com/MuhammadYossry/a8s-agents-go/types"
 )
 
 type PubSub struct {

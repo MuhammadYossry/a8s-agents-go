@@ -6,7 +6,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/Relax-N-Tax/AgentNexus/types"
+	types "github.com/MuhammadYossry/a8s-agents-go/types"
 )
 
 type SchemaParser struct {

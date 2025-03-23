@@ -7,8 +7,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/Relax-N-Tax/AgentNexus/metrics"
-	"github.com/Relax-N-Tax/AgentNexus/types"
+	"github.com/MuhammadYossry/a8s-agents-go/metrics"
+	"github.com/MuhammadYossry/a8s-agents-go/types"
 )
 
 // InternalAgent implements the types.Agenter interface

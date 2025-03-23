@@ -8,8 +8,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/Relax-N-Tax/AgentNexus/capability"
-	"github.com/Relax-N-Tax/AgentNexus/types"
+	"github.com/MuhammadYossry/a8s-agents-go/capability"
+	"github.com/MuhammadYossry/a8s-agents-go/types"
 )
 
 // TaskExtractionAgent handles the analysis of user queries and converts them into structured task definitions

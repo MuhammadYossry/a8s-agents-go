@@ -11,7 +11,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/Relax-N-Tax/AgentNexus/types"
+	"github.com/MuhammadYossry/a8s-agents-go/types"
 	_ "github.com/mattn/go-sqlite3"
 )
 
@@ -145,8 +145,8 @@ func (r *SQLiteRegistry) Get(name, version string) (*AgentFile, error) {
 
 	var data string
 	query := `
-    SELECT data FROM agents 
-    WHERE name = ? 
+    SELECT data FROM agents
+    WHERE name = ?
     AND version IN (?, ?, ?, ?)
     `
 
@@ -234,9 +234,9 @@ func (r *SQLiteRegistry) getLatestVersion(name string) (*AgentFile, error) {
 	}
 
 	query := `
-    SELECT data FROM agents 
-    WHERE name = ? 
-    ORDER BY 
+    SELECT data FROM agents
+    WHERE name = ?
+    ORDER BY
         CAST(REPLACE(REPLACE(version, 'v', ''), '.', '') AS INTEGER) DESC
     LIMIT 1
     `

@@ -8,13 +8,13 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/Relax-N-Tax/AgentNexus/capability"
-	"github.com/Relax-N-Tax/AgentNexus/core"
-	"github.com/Relax-N-Tax/AgentNexus/definationloader"
-	"github.com/Relax-N-Tax/AgentNexus/hub"
-	"github.com/Relax-N-Tax/AgentNexus/internal/agents"
-	"github.com/Relax-N-Tax/AgentNexus/metrics"
-	"github.com/Relax-N-Tax/AgentNexus/types"
+	"github.com/MuhammadYossry/a8s-agents-go/capability"
+	"github.com/MuhammadYossry/a8s-agents-go/core"
+	"github.com/MuhammadYossry/a8s-agents-go/definationloader"
+	"github.com/MuhammadYossry/a8s-agents-go/hub"
+	"github.com/MuhammadYossry/a8s-agents-go/internal/agents"
+	"github.com/MuhammadYossry/a8s-agents-go/metrics"
+	"github.com/MuhammadYossry/a8s-agents-go/types"
 )
 
 // Orchestrator manages the lifecycle and coordination of all agents

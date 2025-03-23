@@ -4,7 +4,7 @@ package agents
 import (
 	"context"
 
-	"github.com/Relax-N-Tax/AgentNexus/types"
+	"github.com/MuhammadYossry/a8s-agents-go/types"
 )
 
 type AgentFactory struct{}

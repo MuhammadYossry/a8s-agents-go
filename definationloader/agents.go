@@ -7,11 +7,11 @@ import (
 	"strings"
 	"time"
 
-	"github.com/Relax-N-Tax/AgentNexus/capability"
-	"github.com/Relax-N-Tax/AgentNexus/core"
-	"github.com/Relax-N-Tax/AgentNexus/hub"
+	"github.com/MuhammadYossry/a8s-agents-go/capability"
+	"github.com/MuhammadYossry/a8s-agents-go/core"
+	"github.com/MuhammadYossry/a8s-agents-go/hub"
 
-	"github.com/Relax-N-Tax/AgentNexus/types"
+	"github.com/MuhammadYossry/a8s-agents-go/types"
 )
 
 type AgentLoader struct {

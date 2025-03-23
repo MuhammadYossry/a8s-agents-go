@@ -10,9 +10,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/Relax-N-Tax/AgentNexus/hub"
-	"github.com/Relax-N-Tax/AgentNexus/orchestrator"
-	"github.com/Relax-N-Tax/AgentNexus/types"
+	"github.com/MuhammadYossry/a8s-agents-go/hub"
+	"github.com/MuhammadYossry/a8s-agents-go/orchestrator"
+	"github.com/MuhammadYossry/a8s-agents-go/types"
 )
 
 type Application struct {

@@ -7,8 +7,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/Relax-N-Tax/AgentNexus/internal/agents"
-	"github.com/Relax-N-Tax/AgentNexus/types"
+	"github.com/MuhammadYossry/a8s-agents-go/internal/agents"
+	"github.com/MuhammadYossry/a8s-agents-go/types"
 	"gopkg.in/yaml.v2"
 )
 

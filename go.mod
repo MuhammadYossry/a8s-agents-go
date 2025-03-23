@@ -1,4 +1,4 @@
-module github.com/Relax-N-Tax/AgentNexus
+module github.com/MuhammadYossry/a8s-agents-go
 
 go 1.23.2
 
