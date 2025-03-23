@@ -5,7 +5,7 @@
 
 ## Overview
 
-AgentNexus (a8s) is an experimental Go-based project for routing and orchestrating AI tasks across multiple specialized AI and LLM agents hosted remotly. It demonstrates concepts around AI task distribution, agent collaboration, and dynamic capability matching.
+AgentNexus (a8s) is an experimental Go-based project for routing and orchestrating AI tasks across multiple specialized AI and LLM agents hosted remotely. It demonstrates concepts around AI task distribution, agent collaboration, and dynamic capability matching.
 ![alt text](https://pbs.twimg.com/media/GZhrK4IWcAIb949?format=jpg&name=medium)
 ![image](https://github.com/user-attachments/assets/55b62a8d-4984-4336-9ff7-f99789a80b51)
 
