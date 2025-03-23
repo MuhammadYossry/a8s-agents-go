@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/Relax-N-Tax/AgentNexus/types"
 	_ "github.com/mattn/go-sqlite3"
@@ -62,6 +63,7 @@ func initSQLiteRegistry() (*SQLiteRegistry, error) {
         name TEXT NOT NULL,
         version TEXT NOT NULL,
         data JSON NOT NULL,
+		updated_at INTEGER NOT NULL DEFAULT (strftime('%s', 'now')),
         created_at INTEGER NOT NULL,
         PRIMARY KEY (name, version)
     );`
@@ -94,9 +96,9 @@ func (r *SQLiteRegistry) Store(name, version string, agent *AgentFile) error {
 	defer r.mutex.Unlock()
 
 	query := `
-	INSERT OR REPLACE INTO agents (name, version, data, created_at)
-	VALUES (?, ?, ?, ?)
-	`
+    INSERT OR REPLACE INTO agents (name, version, data, created_at, updated_at)
+    VALUES (?, ?, ?, ?, strftime('%s', 'now'))
+    `
 
 	_, err = r.db.Exec(query, name, v.String(), string(data), agent.CreateTime)
 	if err != nil {
@@ -163,7 +165,7 @@ func (r *SQLiteRegistry) Get(name, version string) (*AgentFile, error) {
 	).Scan(&data)
 
 	if err == sql.ErrNoRows {
-		// Debug: Print all versions available for this agent
+		// Remove debug logging here, just collect versions
 		rows, _ := r.db.Query("SELECT version FROM agents WHERE name = ?", name)
 		var versions []string
 		for rows.Next() {
@@ -172,14 +174,13 @@ func (r *SQLiteRegistry) Get(name, version string) (*AgentFile, error) {
 			versions = append(versions, v)
 		}
 		rows.Close()
-		r.logger.Printf("Available versions for agent %s: %v", name, versions)
 
-		return nil, fmt.Errorf("agent %s:%s not found (looked for versions: %s, %s, %s, %s)",
+		return nil, fmt.Errorf("agent %s:%s not found (looked for: %s, %s, %s, %s). Available: %v",
 			name, version, normalizedVersion, shortVersion, veryShortVersion,
-			strings.TrimPrefix(normalizedVersion, "v"))
+			strings.TrimPrefix(normalizedVersion, "v"), versions)
 	}
 	if err != nil {
-		return nil, fmt.Errorf("failed to get agent: %w", err)
+		return nil, nil
 	}
 
 	var agent AgentFile
@@ -215,7 +216,7 @@ func (r *SQLiteRegistry) GetJSON(name, version string) ([]byte, error) {
 		return nil, fmt.Errorf("version %s not found for agent %s", version, name)
 	}
 	if err != nil {
-		return nil, fmt.Errorf("failed to get agent: %w", err)
+		return nil, nil
 	}
 
 	return []byte(data), nil
@@ -246,7 +247,7 @@ func (r *SQLiteRegistry) getLatestVersion(name string) (*AgentFile, error) {
 		return nil, fmt.Errorf("no versions found for agent %s", name)
 	}
 	if err != nil {
-		return nil, fmt.Errorf("failed to get latest version: %w", err)
+		return nil, nil
 	}
 
 	var agent AgentFile
@@ -256,11 +257,12 @@ func (r *SQLiteRegistry) getLatestVersion(name string) (*AgentFile, error) {
 
 	return &agent, nil
 }
+
 func (r *SQLiteRegistry) ListAgents() error {
 	r.mutex.RLock()
 	defer r.mutex.RUnlock()
 
-	query := `SELECT name, version, created_at FROM agents`
+	query := `SELECT name, version, created_at, updated_at FROM agents`
 	rows, err := r.db.Query(query)
 	if err != nil {
 		return fmt.Errorf("failed to query agents: %w", err)
@@ -270,11 +272,14 @@ func (r *SQLiteRegistry) ListAgents() error {
 	r.logger.Println("Available agents in registry:")
 	for rows.Next() {
 		var name, version string
-		var createdAt int64
-		if err := rows.Scan(&name, &version, &createdAt); err != nil {
+		var createdAt, updatedAt int64
+		if err := rows.Scan(&name, &version, &createdAt, &updatedAt); err != nil {
 			return fmt.Errorf("failed to scan row: %w", err)
 		}
-		r.logger.Printf("- %s:%s (created at: %d)", name, version, createdAt)
+		r.logger.Printf("- %s:%s (created: %s, updated: %s)",
+			name, version,
+			time.Unix(createdAt, 0).Format(time.RFC3339),
+			time.Unix(updatedAt, 0).Format(time.RFC3339))
 	}
 
 	return nil

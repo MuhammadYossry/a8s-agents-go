@@ -7,7 +7,6 @@ import (
 	"log"
 	"strings"
 	"sync"
-	"time"
 
 	"github.com/Relax-N-Tax/AgentNexus/capability"
 	"github.com/Relax-N-Tax/AgentNexus/core"
@@ -24,7 +23,6 @@ type Orchestrator struct {
 	broker      types.Broker
 	metrics     types.MetricsCollector
 	registry    *capability.CapabilityRegistry
-	router      types.TaskRouter
 	hubRegistry hub.DefinationRegistry
 
 	agents       []types.Agenter
@@ -49,19 +47,11 @@ func New(cfg Config) (*Orchestrator, error) {
 		return nil, fmt.Errorf("failed to create SQLite registry: %v", err)
 	}
 
-	taskRoutingAgent, err := factory.GetTaskRoutingAgent(cfg.InternalConfig)
-	if err != nil {
-		return nil, fmt.Errorf("failed to initialize task routing agent: %w", err)
-	}
-
-	router := core.NewTaskRouter(registry, broker, metrics, taskRoutingAgent)
-
 	return &Orchestrator{
 		config:       cfg,
 		broker:       broker,
 		metrics:      metrics,
 		registry:     registry,
-		router:       router,
 		agentFactory: factory,
 		hubRegistry:  hubRegistry,
 	}, nil
@@ -79,10 +69,10 @@ func (o *Orchestrator) Start(ctx context.Context) (context.Context, error) {
 
 		agentDef, err := o.hubRegistry.GetAgentDef(agentConfig.Name, agentConfig.Version)
 		if err != nil {
-			return nil, fmt.Errorf("failed to get agent %s:%s: %w",
-				agentConfig.Name, agentConfig.Version, err)
+			log.Printf("WARNING: %v\n", err)
+		} else {
+			agentDefs = append(agentDefs, *agentDef)
 		}
-		agentDefs = append(agentDefs, *agentDef)
 	}
 
 	// Generate markdown documentation
@@ -133,20 +123,36 @@ func (o *Orchestrator) ProcessQuery(ctx context.Context, query string) (context.
 	return ctx, nil
 }
 
-// ExecuteTasks executes the provided tasks through the agent pipeline
+// ExecuteTasks executes the provided agent-assigned tasks through the agent pipeline
 func (o *Orchestrator) ExecuteTasks(ctx context.Context, tasks []*types.Task) error {
-	for _, task := range tasks {
-		log.Printf("Routing task: %s (Type: %s, Required Skills: %v)",
-			task.Title, task.ID, task.Requirements.SkillPath)
+	if mdContent, ok := ctx.Value(types.AgentsMarkDownKey).(string); ok && mdContent != "" {
+		log.Println("task-routing-agent: Found markdown content")
 
-		if err := o.router.RouteTask(ctx, task); err != nil {
-			log.Printf("Failed to route task: %v", err)
-			continue
+		// Create formatter from the markdown content
+		mdFormatter := definationloader.NewMarkdownFormatter()
+		parsedRoot := mdFormatter.ParseSections(mdContent)
+
+		var formattedContent strings.Builder
+
+		// Try to get each main section
+		for title, section := range parsedRoot.Sections {
+			log.Printf("task-routing-agent: Processing section: %s", title)
+			switch title {
+			case "Agent", "Capabilities", "Available Endpoints":
+				log.Printf("task-routing-agent: Found %s section", title)
+				formattedContent.WriteString(fmt.Sprintf("### %s\n", title))
+				formattedContent.WriteString(section.Content + "\n\n")
+			}
 		}
-
-		// Add delay between tasks for readable logs
-		time.Sleep(2 * time.Second)
 	}
+	log.Panicf("Not implemented")
+
+	return nil
+}
+
+// ExecuteAgentAction executes the provided agent-assigned tasks through the agent pipeline
+func (o *Orchestrator) ExecuteAgentAction(ctx context.Context, agentID types.AgentID) error {
+	log.Panicf("Not implemented")
 
 	return nil
 }

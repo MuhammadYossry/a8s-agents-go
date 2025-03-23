@@ -80,8 +80,8 @@ func displayBanner() {
 
 	fmt.Print(teal)
 	fmt.Println(banner)
-	fmt.Printf("%sLet your agents Connect%s\n", boldTeal, reset)
-	fmt.Printf("%sTalk to your agents, the suitable agent will take the mission%s\n\n", boldTeal, reset)
+	fmt.Printf("%sAgentNexus\na8s:%s ", boldTeal, reset)
+	fmt.Printf("%sPublish your agents to the world, Put them into action(s)!%s\n\n", boldTeal, reset)
 }
 
 func createInitialTask() *types.Task {

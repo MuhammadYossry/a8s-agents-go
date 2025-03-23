@@ -7,7 +7,8 @@ import json
 import uuid
 from manifest_generator import (
     configure_agent, agent_action, ActionType,
-    Workflow, WorkflowStep, WorkflowStepType, WorkflowTransition,
+    Workflow, WorkflowStep, WorkflowStepType,
+    WorkflowTransition, WorkflowDataMapping,
     Capability, ActionMetadata
 )
 from llm_client import create_llm_client
@@ -25,17 +26,31 @@ V2_CAPABILITIES = [
     )
 ]
 
+
 CODE_GENERATION_WORKFLOW = Workflow(
     id="code_generation",
-    name="Code Generation Flow",
-    description="Multi-step code generation process",
+    name="Code Generation Flow", 
+    description="Multi-step code generation process with form-based requirements gathering",
     steps=[
         WorkflowStep(
             id="initiate",
             type=WorkflowStepType.START,
             action="initiate_code_generation",
             transitions=[
-                WorkflowTransition(target="execute")
+                WorkflowTransition(
+                    target="execute",
+                    data_mapping=[
+                        WorkflowDataMapping(
+                            source_field="questionnaire_form",
+                            target_field="form_data",
+                            transform="user_input"  # Indicates user needs to fill the form
+                        ),
+                        WorkflowDataMapping(
+                            source_field="session_id",
+                            target_field="session_id"
+                        )
+                    ]
+                )
             ]
         ),
         WorkflowStep(
@@ -278,14 +293,13 @@ session_manager = SessionManager()
 async def start_workflow(workflow_id: str, initial_data: Dict[str, Any]):
     """Start a new workflow instance."""
     session_id = session_manager.create_session()
-    
     # Store workflow state
     session_manager.update_session(session_id, {
         "workflow_id": workflow_id,
         "current_step": CODE_GENERATION_WORKFLOW.initial_step,
         "data": initial_data
     })
-    
+    print("ddddd")
     # Execute initial step (initiate)
     if initial_data.get("message"):
         return await initiate_code_generation(
@@ -306,7 +320,7 @@ async def execute_workflow_step(
     """Execute a specific workflow step."""
     session = session_manager.get_session(session_id)
     if not session:
-        raise HTTPException(status_code=404, detail="Session not found")
+        raise HTTPException(status_code=404, detail="Session not found") 
     if step_id == "execute":
         return await execute_code_generation(
             ExecuteRequest(

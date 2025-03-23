@@ -59,7 +59,7 @@ func (l *AgentLoader) LoadAgentsFromConfig(ctx context.Context, agentRefs []stri
 		// Get agent file from registry
 		agentFile, err := l.hubRegistry.Get(name, version)
 		if err != nil {
-			return ctx, nil, fmt.Errorf("failed to get agent %s: %w", ref, err)
+			return ctx, nil, fmt.Errorf("[def] failed to get agent %s: %w", ref, err)
 		}
 
 		// Parse agent definition from Content field

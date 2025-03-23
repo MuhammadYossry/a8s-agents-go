@@ -15,9 +15,16 @@ class WorkflowStepType(str, Enum):
     ACTION = "action"
     END = "end"
 
+class WorkflowDataMapping(BaseModel):
+    """Maps data between workflow steps"""
+    source_field: str
+    target_field: str
+    transform: Optional[str] = None  # Optional transformation logic
+
 class WorkflowTransition(BaseModel):
     target: str
     condition: Optional[str] = None
+    data_mapping: List[WorkflowDataMapping] = Field(default_factory=list)
 
 class WorkflowStep(BaseModel):
     id: str
@@ -29,6 +36,14 @@ class WorkflowMetadata(BaseModel):
    """Workflow-specific metadata for actions."""
    workflow_id: str
    step_id: str
+
+class WorkflowEndpoint(BaseModel):
+    """Define workflow endpoint structure"""
+    path: str
+    method: str = "POST"
+    input_schema: Dict[str, Any]
+    output_schema: Dict[str, Any]
+    description: str
 
 class Workflow(BaseModel):
     id: str
@@ -142,6 +157,49 @@ class AgentRegistry:
         self.workflows = workflows or []
         logger.debug(f"Registry initialized with slug: {self.slug}")
 
+    def _format_workflow_endpoints(self, workflow: Workflow) -> Dict[str, Any]:
+        """Format workflow endpoints for manifest"""
+        return {
+            "start": WorkflowEndpoint(
+                path=f"/workflow/{workflow.id}/start",
+                input_schema={
+                    "type": "object",
+                    "properties": {
+                        "message": {"type": "string"},
+                        "context": {"type": "object"}
+                    },
+                    "required": ["message"]
+                },
+                output_schema={
+                    "type": "object",
+                    "properties": {
+                        "session_id": {"type": "string"},
+                        "step_data": {"type": "object"}
+                    },
+                    "required": ["session_id"]
+                },
+                description=f"Start the {workflow.name} workflow"
+            ).model_dump(),
+            "step": WorkflowEndpoint(
+                path=f"/workflow/{workflow.id}/step/{{step_id}}",
+                input_schema={
+                    "type": "object",
+                    "properties": {
+                        "session_id": {"type": "string"},
+                        "step_data": {"type": "object"}
+                    },
+                    "required": ["session_id", "step_data"]
+                },
+                output_schema={
+                    "type": "object",
+                    "properties": {
+                        "result": {"type": "object"}
+                    }
+                },
+                description=f"Execute a step in the {workflow.name} workflow"
+            ).model_dump()
+        }
+
     def _format_action_endpoint(self, info: ActionEndpointInfo) -> Dict[str, Any]:
         endpoint_data = {
             "name": info.metadata.name,
@@ -231,16 +289,17 @@ class AgentRegistry:
             "actions": actions
         }
         if self.workflows:
-            manifest["workflows"] = [
-                {
+            manifest["workflows"] = []
+            for w in self.workflows:
+                workflow_data = {
                     "id": w.id,
                     "name": w.name,
                     "description": w.description,
                     "steps": [step.model_dump() for step in w.steps],
-                    "initial_step": w.initial_step
+                    "initial_step": w.initial_step,
+                    "endpoints": self._format_workflow_endpoints(w)
                 }
-                for w in self.workflows
-            ]
+                manifest["workflows"].append(workflow_data)
         logger.debug(f"Generated manifest with {len(manifest['actions'])} actions")
         return manifest
 
@@ -268,7 +327,6 @@ def configure_agent(
         The configured FastAPI app
     """
     logger.debug(f"Configuring agent: {name}")
-    # Create registry
     registry = AgentRegistry(base_url, name, version, description, capabilities, workflows)
     agent_registries[registry.slug] = registry
 
@@ -454,3 +512,78 @@ def setup_agent_routes(app: FastAPI) -> None:
                         status_code=404,
                         detail=f"Error rendering action page: {str(e)}"
                     )
+        for workflow in registry.workflows:
+            # Start endpoint 
+            @app.post(f"/agents/{agent_slug}/workflow/{workflow.id}/start")
+            async def start_workflow(data: Dict[str, Any]):
+                initial_step = next(s for s in workflow.steps if s.id == workflow.initial_step)
+                if not initial_step.action:
+                    raise HTTPException(status_code=400, detail="Initial step has no action")
+                    
+                action_endpoint = next(
+                    (ep for ep in registry.action_endpoints.values() 
+                     if ep.metadata.workflow_id == workflow.id and 
+                     ep.metadata.step_id == initial_step.id),
+                    None
+                )
+                
+                if not action_endpoint:
+                    raise HTTPException(
+                        status_code=404,
+                        detail=f"Action not found for step {initial_step.id}"
+                    )
+                
+                # Execute the action's endpoint function
+                endpoint_func = action_endpoint._endpoint_func
+                result = await endpoint_func(data)
+                
+                # Map data according to transitions
+                next_data = {}
+                for transition in initial_step.transitions:
+                    for mapping in transition.data_mapping:
+                        next_data[mapping.target_field] = result[mapping.source_field]
+                        
+                return {
+                    "result": result,
+                    "next_step": transition.target,
+                    "next_data": next_data
+                }
+            # Step execution endpoint
+            @app.post(f"/agents/{agent_slug}/workflow/{workflow.id}/step/{{step_id}}")
+            async def execute_step(step_id: str, data: Dict[str, Any]):
+                step = next((s for s in workflow.steps if s.id == step_id), None)
+                if not step:
+                    raise HTTPException(status_code=404, detail=f"Step {step_id} not found")
+                    
+                if not step.action:
+                    return {"message": f"Step {step_id} completed"}
+                    
+                action_endpoint = next(
+                    (ep for ep in registry.action_endpoints.values()
+                     if ep.metadata.workflow_id == workflow.id and 
+                     ep.metadata.step_id == step.id),
+                    None
+                )
+                
+                if not action_endpoint:
+                    raise HTTPException(
+                        status_code=404,
+                        detail=f"Action not found for step {step_id}"
+                    )
+                    
+                # Execute the action
+                endpoint_func = action_endpoint._endpoint_func  
+                result = await endpoint_func(data)
+                
+                # Map data for next transition
+                next_data = {}
+                for transition in step.transitions:
+                    for mapping in transition.data_mapping:
+                        next_data[mapping.target_field] = result[mapping.source_field]
+                        
+                return {
+                    "result": result,
+                    "next_step": transition.target if transition else None,
+                    "next_data": next_data
+                    }
+   

@@ -2,7 +2,8 @@
 
 Welcome to our AI Agents service documentation. This service hosts several AI agents, each providing specific capabilities through well-documented endpoints. Below you'll find detailed information about each agent, their capabilities, and how to interact with them.
 
-## python-code-agent
+## Agent
+**Name:** python-code-agent
 
 **Description:** Advanced Python code generation, testing, and deployment agent
 
@@ -43,11 +44,12 @@ The following sections detail the specific capabilities of this agent:
 - expertise: basic
 - platforms: AWS, GCP, Azure
 
-## Available Endpoints
+## Actions Endpoints
 
-This section describes all available endpoints for interacting with the agent:
+This section describes all available actions and their corresponding endpoints for interacting with the agent:
 
-### deployPreview
+### Action Endpoint deployPreview
+**Action** deployPreview
 
 **Endpoint:** `POST /v1/code_agent/python/deploy_preview`
 
@@ -112,82 +114,8 @@ Example 1:
 }
 ```
 
-
-#### Error Responses
-
-**Status 400**: Bad Request - Invalid input parameters
-Example:
-```json
-{
-  "error": {
-    "code": "400",
-    "message": "Bad Request - Invalid input parameters",
-    "details": "Additional error context would appear here"
-  }
-}
-```
-
-**Status 401**: Unauthorized - Authentication required
-Example:
-```json
-{
-  "error": {
-    "code": "401",
-    "message": "Unauthorized - Authentication required",
-    "details": "Additional error context would appear here"
-  }
-}
-```
-
-**Status 403**: Forbidden - Insufficient permissions
-Example:
-```json
-{
-  "error": {
-    "code": "403",
-    "message": "Forbidden - Insufficient permissions",
-    "details": "Additional error context would appear here"
-  }
-}
-```
-
-**Status 404**: Not Found - Resource not found
-Example:
-```json
-{
-  "error": {
-    "code": "404",
-    "message": "Not Found - Resource not found",
-    "details": "Additional error context would appear here"
-  }
-}
-```
-
-**Status 422**: Unprocessable Entity - Validation error
-Example:
-```json
-{
-  "error": {
-    "code": "422",
-    "message": "Unprocessable Entity - Validation error",
-    "details": "Additional error context would appear here"
-  }
-}
-```
-
-**Status 500**: Internal Server Error - Server-side error occurred
-Example:
-```json
-{
-  "error": {
-    "code": "500",
-    "message": "Internal Server Error - Server-side error occurred",
-    "details": "Additional error context would appear here"
-  }
-}
-```
-
-### generateCode
+### Action Endpoint generateCode
+**Action:** generateCode
 
 **Endpoint:** `POST /v1/code_agent/python/generate_code`
 
@@ -285,84 +213,8 @@ Example 1:
   "documentationLevel": "detailed"
 }
 ```
-
-
-#### Error Responses
-
-**Status 400**: Bad Request - Invalid input parameters
-Example:
-```json
-{
-  "error": {
-    "code": "400",
-    "message": "Bad Request - Invalid input parameters",
-    "details": "Additional error context would appear here"
-  }
-}
-```
-
-**Status 401**: Unauthorized - Authentication required
-Example:
-```json
-{
-  "error": {
-    "code": "401",
-    "message": "Unauthorized - Authentication required",
-    "details": "Additional error context would appear here"
-  }
-}
-```
-
-**Status 403**: Forbidden - Insufficient permissions
-Example:
-```json
-{
-  "error": {
-    "code": "403",
-    "message": "Forbidden - Insufficient permissions",
-    "details": "Additional error context would appear here"
-  }
-}
-```
-
-**Status 404**: Not Found - Resource not found
-Example:
-```json
-{
-  "error": {
-    "code": "404",
-    "message": "Not Found - Resource not found",
-    "details": "Additional error context would appear here"
-  }
-}
-```
-
-**Status 422**: Unprocessable Entity - Validation error
-Example:
-```json
-{
-  "error": {
-    "code": "422",
-    "message": "Unprocessable Entity - Validation error",
-    "details": "Additional error context would appear here"
-  }
-}
-```
-
-**Status 500**: Internal Server Error - Server-side error occurred
-Example:
-```json
-{
-  "error": {
-    "code": "500",
-    "message": "Internal Server Error - Server-side error occurred",
-    "details": "Additional error context would appear here"
-  }
-}
-```
-
-### improveCode
-
+### Action Endpoint improveCode
+**Action:** improveCode
 **Endpoint:** `POST /v1/code_agent/python/improve_code`
 
 #### Input Schema
@@ -426,83 +278,8 @@ Example 1:
 }
 ```
 
-
-#### Error Responses
-
-**Status 400**: Bad Request - Invalid input parameters
-Example:
-```json
-{
-  "error": {
-    "code": "400",
-    "message": "Bad Request - Invalid input parameters",
-    "details": "Additional error context would appear here"
-  }
-}
-```
-
-**Status 401**: Unauthorized - Authentication required
-Example:
-```json
-{
-  "error": {
-    "code": "401",
-    "message": "Unauthorized - Authentication required",
-    "details": "Additional error context would appear here"
-  }
-}
-```
-
-**Status 403**: Forbidden - Insufficient permissions
-Example:
-```json
-{
-  "error": {
-    "code": "403",
-    "message": "Forbidden - Insufficient permissions",
-    "details": "Additional error context would appear here"
-  }
-}
-```
-
-**Status 404**: Not Found - Resource not found
-Example:
-```json
-{
-  "error": {
-    "code": "404",
-    "message": "Not Found - Resource not found",
-    "details": "Additional error context would appear here"
-  }
-}
-```
-
-**Status 422**: Unprocessable Entity - Validation error
-Example:
-```json
-{
-  "error": {
-    "code": "422",
-    "message": "Unprocessable Entity - Validation error",
-    "details": "Additional error context would appear here"
-  }
-}
-```
-
-**Status 500**: Internal Server Error - Server-side error occurred
-Example:
-```json
-{
-  "error": {
-    "code": "500",
-    "message": "Internal Server Error - Server-side error occurred",
-    "details": "Additional error context would appear here"
-  }
-}
-```
-
-### testCode
-
+### Action Endpoint testCode
+**Action:** testCode
 **Endpoint:** `POST /v1/code_agent/python/test_code`
 
 #### Input Schema
@@ -580,7 +357,7 @@ Example 1:
 ```
 
 
-#### Error Responses
+### Error Responses
 
 **Status 400**: Bad Request - Invalid input parameters
 Example:
