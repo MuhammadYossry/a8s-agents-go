@@ -1,105 +1,121 @@
-# AgentNexus (a8s)
+# AgentsHub - Agent Registry and Distribution System
 
-> ⚠️ **Experimental Project**: This is a research and learning project exploring LLM agents and task routing. Not recommended for production use.
+AgentsHub is a lightweight registry system for managing and distributing AI agent definition(Agentfile), similar to how container registries works for container images(think of the popular Dockerfile). It provides a simple way to store, version, and retrieve agent definition through both an HTTP API and CLI tool.
 
-## Overview
+## Features
 
-AgentNexus (a8s) is an experimental Go-based project for routing and orchestrating AI tasks across multiple specialized AI and LLM agents hosted remotly. It demonstrates concepts around AI task distribution, agent collaboration, and dynamic capability matching.
+- Push and pull agent configuration files
+- Version control for agents definitions
+- Simple HTTP API for integration
+- Command-line interface (CLI) for easy management
+- In-memory storage (with extensible storage backend)
 
-![AgentNexus Banner](https://pbs.twimg.com/media/GZhrK4IWcAIb949?format=jpg&name=medium)
 
-## Key Features
+## Usage
 
-- **Dynamic Task Routing**: Routes tasks to the most capable AI agent based on skill requirements
-- **Agent Hub System**: Central registry for managing and deploying AI agents with initial versioning support
-- **Capability-Based Matching**: Matches tasks to agents using a basic capability scoring system
-- **SQLite-Based Registry**: Persistent storage for agent definitions with version control
-- **Python Agent Examples**: Includes example agents for code generation, RAG (Retrieval-Augmented Generation), and more
+### Starting the Server
 
-## Project Status
+The AgentsHub server is integrated into the main application:
 
-This project is currently in an **experimental phase** and serves several purposes:
-- Research into LLM-based task routing and agent collaboration
-- Learning and implementing Go practices
-- Exploring agent-based architectures for AI systems
-
-### Current Limitations
-
-- Not production-ready
-- Limited error handling in some areas
-- Experimental implementation of agent workflows
-- Some features are partially implemented
-- Documentation needs improvement
-
-## Interesting Technical Aspects
-
-1. **Capability Matching System**
-   - Sophisticated scoring mechanism for matching tasks to agents
-   - Hierarchical skill path evaluation
-   - Dynamic capability registration
-
-2. **Agent Hub Architecture**
-   - Version-controlled agent registry
-   - RESTful API for agent management
-   - Support for different agent types (internal/external)
-
-3. **Task Extraction and Routing**
-   - LLM-based task analysis
-   - Dynamic routing based on agent capabilities
-   - Extensible agent interface system
-
-## Getting Started
-
-### Prerequisites
-- Go 1.21+
-- Python 3.9+ (for example agents)
-- SQLite3
-
-### Basic Setup
 ```bash
-# Clone the repository
-git clone https://github.com/yourusername/AgentNexus
-
-# Install Go dependencies
-go mod tidy
-
-# Configure LLM settings
-cp a8s_llm.conf.example a8s_llm.conf
-# Edit a8s_llm.conf with your LLM settings
-# Add agents to load from the registry
-cp a8s_agents.conf.example a8s.conf.example
-# Start the system
-go run .
+go run main.go
 ```
 
-## Project Structure Highlights
+This will start both the orchestrator and the AgentsHub server on port 8082.
 
+### Using the CLI
+
+The `a8shub` CLI tool provides commands for interacting with the registry.
+
+#### Basic Commands
+
+```bash
+# Push an agent definition
+a8shub push       # Example: a8shub push myagent:1.0 agent.json
+# Output: Successfully pushed myagent:1.0
+
+# Pull an agent definition
+a8shub pull             # Example: a8shub pull myagent:1.0
+# Output: Successfully pulled myagent:1.0 to myagent-1.0.json
+
+# Show agent documentation
+a8shub show           # Example: a8shub show myagent:1.0
+                                      # or: a8shub show myagent (shows latest version)
 ```
-AgentNexus/
-├── hub/           # Agent registry and management
-├── orchestrator/  # Task orchestration and routing
-├── capability/    # Capability matching system
-├── examples/      # Example agents and implementations
-└── internal/      # Core agent implementations
+
+#### Version Format
+The system uses semantic versioning (SemVer):
+- Accepts versions like: "1.0", "v1.0", "1.0.0", "v1.0.0"
+- When version is omitted in 'show' command, automatically uses latest version
+- Latest version is determined by highest numerical value
+
+#### CLI Options
+
+```bash
+# Use a different server with different port
+a8shub --server http://other-server:8090 push myagent:1.0 config.md
+
+# Get help
+a8shub --help
+a8shub push --help
 ```
 
-## Learning Value
+## API Endpoints
 
-This project is particularly useful for:
-- Learning about AI distributed agents and how we can build task routing systems
-- Exploring LLM-based agent systems and capability-based service matching
+### Push Agent Definition
 
-## Contributing
+```http
+POST /v1/push
+Content-Type: multipart/form-data
 
-While this is primarily a research project, contributions and discussions are welcome! Feel free to:
-- Submit PRs for improvements
-- Share ideas about agent architectures
-- Report bugs or suggest features
+Form fields:
+- agentfile: The agent definition file
+- name: Agent name
+- version: Agent version
+```
 
-## Disclaimer
+### Pull Agent Definition
 
-This project is meant for learning and experimenting purposes. It demonstrates concepts around AI task routing and agent systems but should not be used in production environments as it is still in early development
+```http
+GET /v1/pull?name=<name>&version=<version>
+```
 
-## License
 
-This project is licensed under the MIT License
+### Show Agent Documentation
+
+```http
+GET /v1/show?name=&version=
+```
+Response: Markdown formatted documentation of the agent definition
+
+## Development
+
+The system is designed to be extensible:
+
+1. The `Registry` interface can be implemented for different storage backends
+2. New API endpoints can be added to the server
+3. CLI commands can be extended using Cobra
+
+## Configuration
+
+Default configuration:
+
+- Server port: 8082
+- Server URL: http://localhost:8082
+- Max file size: 10MB
+
+## Best Practices
+
+1. Use semantic versioning for agent configurations
+2. Include proper documentation in your agent files
+3. Use meaningful names for your agents
+4. Test configurations before pushing to production registries
+
+## Security
+
+Current limitations:
+- No authentication/authorization
+- In-memory storage only
+- No SSL/TLS support
+
+For production use, consider implementing these security features.

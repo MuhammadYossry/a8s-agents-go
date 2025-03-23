@@ -1,205 +1,108 @@
 ![alt text](https://pbs.twimg.com/media/GZhrK4IWcAIb949?format=jpg&name=medium)
 
 # AI Task Routing System
+# AgentNexus (a8s)
+
+> ⚠️ **Experimental Project**: This is a research and learning project exploring LLM agents and task routing. Not recommended for production use.
 
 ## Overview
-A Go implementation of an AI task routing and execution system, designed for high availability, scalability, and reliability. The system efficiently manages and routes AI tasks to appropriate execution agents endpoints while ensuring robust error handling, monitoring, and performance optimization. the project is experimental and not productioon ready yet, So for learning purposes more
 
-### Architecture
-[Architecture](docs/architecture.md)
+AgentNexus (a8s) is an experimental Go-based project for routing and orchestrating AI tasks across multiple specialized AI and LLM agents hosted remotly. It demonstrates concepts around AI task distribution, agent collaboration, and dynamic capability matching.
+
+![AgentNexus Banner](https://pbs.twimg.com/media/GZhrK4IWcAIb949?format=jpg&name=medium)
 
 ## Key Features
 
-### Core Functionality
-- Dynamic task routing and load balancing
-- Comprehensive task lifecycle management
-- Configurable retry policies with exponential backoff
-- Circuit breaker pattern implementation
-- Rate limiting and resource quotas
+- **Dynamic Task Routing**: Routes tasks to the most capable AI agent based on skill requirements
+- **Agent Hub System**: Central registry for managing and deploying AI agents with initial versioning support
+- **Capability-Based Matching**: Matches tasks to agents using a basic capability scoring system
+- **SQLite-Based Registry**: Persistent storage for agent definitions with version control
+- **Python Agent Examples**: Includes example agents for code generation, RAG (Retrieval-Augmented Generation), and more
 
-### Monitoring & Observability
-- Structured logging with Zap logger
-- Prometheus-compatible metrics
-- Health check endpoints
-- Error tracking and analysis
-- Performance monitoring
+## Project Status
 
-### Security & Validation
-- Content safety validation
-- Input/output schema validation
-- Rate limiting per client/task
-- Resource quotas enforcement
+This project is currently in an **experimental phase** and serves several purposes:
+- Research into LLM-based task routing and agent collaboration
+- Learning and implementing Go practices
+- Exploring agent-based architectures for AI systems
 
-### Reliability
-- Circuit breaker pattern for fault tolerance
-- Configurable retry policies
-- Timeout handling
-- Graceful degradation
-- Error recovery mechanisms
+### Current Limitations
 
-## System Components
+- Not production-ready
+- Limited error handling in some areas
+- Experimental implementation of agent workflows
+- Some features are partially implemented
+- Documentation needs improvement
 
-### Task Definition
-```go
-type AITaskDefinition struct {
-    TaskID          string
-    Name            string
-    Version         string
-    InputSchema     SchemaDefinition
-    OutputSchema    SchemaDefinition
-    Timeout         time.Duration
-    RetryPolicy     RetryPolicy
-    RateLimit       *RateLimit
-    ResourceQuota   *ResourceQuota
-}
+## Interesting Technical Aspects
+
+1. **Capability Matching System**
+   - Sophisticated scoring mechanism for matching tasks to agents
+   - Hierarchical skill path evaluation
+   - Dynamic capability registration
+
+2. **Agent Hub Architecture**
+   - Version-controlled agent registry
+   - RESTful API for agent management
+   - Support for different agent types (internal/external)
+
+3. **Task Extraction and Routing**
+   - LLM-based task analysis
+   - Dynamic routing based on agent capabilities
+   - Extensible agent interface system
+
+## Getting Started
+
+### Prerequisites
+- Go 1.21+
+- Python 3.9+ (for example agents)
+- SQLite3
+
+### Basic Setup
+```bash
+# Clone the repository
+git clone https://github.com/yourusername/AgentNexus
+
+# Install Go dependencies
+go mod tidy
+
+# Configure LLM settings
+cp a8s_llm.conf.example a8s_llm.conf
+# Edit a8s_llm.conf with your LLM settings
+# Add agents to load from the registry
+cp a8s_agents.conf.example a8s.conf.example
+# Start the system
+go run .
 ```
 
-### Task Executor
-```go
-type TaskExecutor interface {
-    ExecuteTask(ctx context.Context, task *TaskInstance) error
-    ValidateInput(def *AITaskDefinition, input map[string]interface{}) error
-    ValidateOutput(def *AITaskDefinition, output map[string]interface{}) error
-    GetHealth() Health
-}
+## Project Structure Highlights
+
+```
+AgentNexus/
+├── hub/           # Agent registry and management
+├── orchestrator/  # Task orchestration and routing
+├── capability/    # Capability matching system
+├── examples/      # Example agents and implementations
+└── internal/      # Core agent implementations
 ```
 
-## Configuration
+## Learning Value
 
-### Retry Policy
-```go
-type RetryPolicy struct {
-    MaxAttempts     int
-    BackoffInitial  time.Duration
-    BackoffMax      time.Duration
-    BackoffFactor   float64
-}
-```
+This project is particularly useful for:
+- Learning about AI distributed agents and how we can build task routing systems
+- Exploring LLM-based agent systems and capability-based service matching
 
-### Rate Limiting
-```go
-type RateLimit struct {
-    RequestsPerSecond int
-    BurstSize        int
-}
-```
+## Contributing
 
-### Resource Quotas
-```go
-type ResourceQuota struct {
-    MaxConcurrent    int
-    MemoryLimit      string
-    CPULimit         string
-}
-```
+While this is primarily a research project, contributions and discussions are welcome! Feel free to:
+- Submit PRs for improvements
+- Share ideas about agent architectures
+- Report bugs or suggest features
 
-## Usage Examples
+## Disclaimer
 
-### Registering a Task Definition
-```go
-def := &AITaskDefinition{
-    TaskID:      "text-summarization-001",
-    Name:        "Text Summarization",
-    Version:     "1.1",
-    Timeout:     30 * time.Second,
-    RetryPolicy: RetryPolicy{
-        MaxAttempts:    3,
-        BackoffInitial: time.Second,
-        BackoffMax:     10 * time.Second,
-        BackoffFactor:  2.0,
-    },
-    RateLimit: &RateLimit{
-        RequestsPerSecond: 100,
-        BurstSize:        200,
-    },
-}
+This project is meant for learning and experimenting purposes. It demonstrates concepts around AI task routing and agent systems but should not be used in production environments as it is still in early development
 
-if err := registry.RegisterDefinition(def); err != nil {
-    log.Fatalf("Failed to register task: %v", err)
-}
-```
+## License
 
-### Submitting a Task
-```go
-input := map[string]interface{}{
-    "prompt": "Text to be summarized...",
-}
-
-task, err := engine.SubmitTask(ctx, "text-summarization-001", input)
-if err != nil {
-    log.Fatalf("Failed to submit task: %v", err)
-}
-```
-
-## Monitoring
-
-### Metrics
-The system exposes the following Prometheus metrics:
-- `task_execution_duration_seconds`: Histogram of task execution times
-- `task_executions_success_total`: Counter of successful executions
-- `task_executions_failure_total`: Counter of failed executions
-- `task_executions_active`: Gauge of currently running tasks
-
-### Health Checks
-Health check endpoint returns:
-- Circuit breaker status
-- Task executor health
-- System resource usage
-- Recent error rates
-
-## Configuration Parameters
-
-| Parameter | Description | Default |
-|-----------|-------------|---------|
-| EXECUTOR_MAX_CONCURRENT | Maximum concurrent tasks | 100 |
-| CIRCUIT_BREAKER_THRESHOLD | Failures before opening | 5 |
-| CIRCUIT_BREAKER_RESET_TIMEOUT | Time before retry | 30s |
-| DEFAULT_TASK_TIMEOUT | Default task timeout | 30s |
-| MAX_RETRY_ATTEMPTS | Maximum retry attempts | 3 |
-
-## Production Considerations
-
-### Scaling
-- Horizontal scaling supported through consistent hashing
-- Resource quotas prevent system overload
-- Rate limiting per client/task type
-
-### Reliability
-- Circuit breaker prevents cascade failures
-- Retry policies handle transient errors
-- Timeout enforcement prevents resource exhaustion
-
-### Monitoring
-- Prometheus metrics for alerting
-- Structured logging for debugging
-- Health checks for load balancers
-
-### Security
-- Content validation prevents abuse
-- Rate limiting prevents DoS
-- Resource quotas ensure fair usage
-
-## Error Handling
-
-The system implements comprehensive error handling:
-- Retries for transient failures
-- Circuit breaking for systemic issues
-- Detailed error logging
-- Error categorization and tracking
-
-## Best Practices
-
-1. Configure appropriate timeouts for each task type
-2. Set realistic rate limits based on resource capacity
-3. Monitor error rates and latency metrics
-4. Implement gradual rollouts of new task definitions
-5. Regular health check monitoring
-
-## To-Do List
-- [ ] Add AI agent as executors for the task
-- [ ] Add AI agent Workflow for agent collobration
-- [ ] Implement distributed tracing
-- [ ] Add support for multiple storage backends
-- [ ] Enhance metrics collection
-- [ ] Add support for task priorities
-- [ ] Implement task result caching
+This project is licensed under the MIT License
